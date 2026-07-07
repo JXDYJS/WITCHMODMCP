@@ -12,7 +12,7 @@ namespace WitchModMCP.Harmony
 
         private static void OnUnityLogThreaded(string logString, string stackTrace, LogType type)
         {
-            LogBuffer.Enqueue(logString, stackTrace, type);
+            LogBuffer.Enqueue(logString, stackTrace, type.ToString());
         }
     }
 }

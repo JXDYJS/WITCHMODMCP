@@ -11,7 +11,7 @@ namespace WitchModMCP.Harmony
         {
             if (!string.IsNullOrEmpty(message))
             {
-                LogBuffer.Enqueue($"[{tag}] {message}", null, LogType.Log);
+                LogBuffer.Enqueue($"[{tag}] {message}", null, "Log");
             }
         }
 
@@ -20,7 +20,7 @@ namespace WitchModMCP.Harmony
         {
             if (!string.IsNullOrEmpty(message))
             {
-                LogBuffer.Enqueue($"[{tag}] Error:{message}", new System.Diagnostics.StackTrace().ToString(), LogType.Error);
+                LogBuffer.Enqueue($"[{tag}] Error:{message}", new System.Diagnostics.StackTrace().ToString(), "Error");
             }
         }
 
@@ -29,7 +29,7 @@ namespace WitchModMCP.Harmony
         {
             if (!string.IsNullOrEmpty(message))
             {
-                LogBuffer.Enqueue($"[{tag}] Warning:{message}", new System.Diagnostics.StackTrace().ToString(), LogType.Warning);
+                LogBuffer.Enqueue($"[{tag}] Warning:{message}", new System.Diagnostics.StackTrace().ToString(), "Warning");
             }
         }
     }

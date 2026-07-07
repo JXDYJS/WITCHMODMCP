@@ -12,6 +12,13 @@
     <RootNamespace>WitchModMCP.Contracts</RootNamespace>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug 魔女 WitchModMCP|AnyCPU'">
+    <OutputPath>bin\Debug 魔女 WitchModMCP\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release 魔女 WitchModMCP|AnyCPU'">
+    <OutputPath>bin\Release 魔女 WitchModMCP\</OutputPath>
+  </PropertyGroup>
+
   <ItemGroup>
     <Reference Include="Newtonsoft.Json">
       <HintPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed\Newtonsoft.Json.dll</HintPath>

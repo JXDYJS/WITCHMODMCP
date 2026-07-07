@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Witch.Mod;
 using WitchModMCP.Contracts;
 using WitchModMCP.MCP.Models;
 
@@ -34,7 +35,11 @@ namespace WitchModMCP.MCP
             foreach (var type in McpToolPlugin.DiscoverToolTypes())
             {
                 if (Activator.CreateInstance(type) is IMcpTool tool)
+                {
                     RegisterTool(tool);
+                    var dllName = type.Assembly.GetName().Name;
+                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"load {tool.Name} from {dllName} success");
+                }
             }
         }
 

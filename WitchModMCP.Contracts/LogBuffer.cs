@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using Newtonsoft.Json.Linq;
-using UnityEngine;
 
 namespace WitchModMCP.Utils
 {
@@ -9,7 +8,7 @@ namespace WitchModMCP.Utils
     {
         public string Message { get; set; }
         public string StackTrace { get; set; }
-        public LogType Type { get; set; }
+        public string Type { get; set; }
         public DateTime Timestamp { get; set; }
     }
 
@@ -19,7 +18,7 @@ namespace WitchModMCP.Utils
 
         private const int MaxEntries = 4096;
 
-        public static void Enqueue(string message, string stackTrace, LogType type)
+        public static void Enqueue(string message, string stackTrace, string type)
         {
             _buffer.Enqueue(new LogEntry
             {
@@ -47,7 +46,7 @@ namespace WitchModMCP.Utils
                 {
                     ["message"] = e.Message,
                     ["stackTrace"] = e.StackTrace,
-                    ["type"] = e.Type.ToString(),
+                    ["type"] = e.Type,
                     ["time"] = e.Timestamp.ToString("HH:mm:ss.fff")
                 });
             }

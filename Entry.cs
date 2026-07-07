@@ -32,8 +32,8 @@ namespace WitchModMCP
             int port = json.Value<int>("MCPPort");
             Commands.Log(MOD_TAG, $"[Config] MCPPort={port}");
 
-            var myDllPath = Path.Combine(modConfig.DirectoryName, "Scripts", "Entry.dll");
-            McpToolPlugin.RegisterPluginDll(myDllPath);
+            var contractsDllPath = Path.Combine(modConfig.DirectoryName, "Scripts", "WitchModMCP.Contracts.dll");
+            McpToolPlugin.RegisterPluginDll(contractsDllPath);
             McpRouter.ReloadAllTools();
 
             McpServer mcpServer = new();
