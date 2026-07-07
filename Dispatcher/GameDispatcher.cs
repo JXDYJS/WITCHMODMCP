@@ -79,5 +79,29 @@ namespace WitchModMCP.Dispatcher
                 }
             }
         }
+
+        public static Task<T> RunOnMainThread<T>(Func<T> func, WitchModMCPTaskType type = WitchModMCPTaskType.Update)
+        {
+            var tcs = new TaskCompletionSource<T>();
+            EnqueueTask(new WitchModMCPTask(() =>
+            {
+                try
+                {
+                    var result = func();
+                    tcs.TrySetResult(result);
+                }
+                catch (Exception ex)
+                {
+                    tcs.TrySetException(ex);
+                }
+                return Task.CompletedTask;
+            }, type));
+            return tcs.Task;
+        }
+
+        public static Task RunOnMainThread(Action action, WitchModMCPTaskType type = WitchModMCPTaskType.Update)
+        {
+            return RunOnMainThread(() => { action(); return true; }, type);
+        }
     }
 }
