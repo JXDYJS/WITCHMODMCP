@@ -1,4 +1,5 @@
 using UnityEngine;
+using Witch.UI;
 using WitchModMCP.MCP;
 
 namespace WitchModMCP.Dispatcher
@@ -8,13 +9,19 @@ namespace WitchModMCP.Dispatcher
         private void Update()
         {
             GameDispatcher.ExecuteTasks(WitchModMCPTaskType.Update);
+        }
 
-            if (Input.GetKeyDown(KeyCode.F5))
-            {
-                Commands.Log(WitchModMCPEntry.MOD_TAG, "[Hotkey] F5 pressed - reloading MCP tools...");
-                McpRouter.ReloadAllTools();
-                Commands.Log(WitchModMCPEntry.MOD_TAG, "[Hotkey] MCP tools reloaded");
-            }
+        private void OnGUI()
+        {
+            var e = Event.current;
+            if (e == null || !e.isKey || e.keyCode != KeyCode.F5) return;
+
+            var console = ConsoleUI.Instance;
+            if (console == null || !console.gameObject.activeSelf) return;
+
+            e.Use();
+            McpRouter.ReloadAllTools();
+            Commands.Log(WitchModMCPEntry.MOD_TAG, "[Hotkey] MCP tools reloaded");
         }
         private void Start()
         {
