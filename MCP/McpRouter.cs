@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,7 +12,7 @@ namespace WitchModMCP.MCP
 {
     public static class McpRouter
     {
-        private static readonly Dictionary<string, IMcpTool> _tools = new();
+        private static readonly ConcurrentDictionary<string, IMcpTool> _tools = new();
 
         public static void RegisterTool(IMcpTool tool)
         {
@@ -33,11 +34,18 @@ namespace WitchModMCP.MCP
             ClearTools();
             foreach (var type in McpToolPlugin.DiscoverToolTypes())
             {
-                if (Activator.CreateInstance(type) is IMcpTool tool)
+                try
                 {
-                    RegisterTool(tool);
-                    var dllName = type.Assembly.GetName().Name;
-                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"load {tool.Name} from {dllName} success");
+                    if (Activator.CreateInstance(type) is IMcpTool tool)
+                    {
+                        RegisterTool(tool);
+                        var dllName = type.Assembly.GetName().Name;
+                        Commands.Log(WitchModMCPEntry.MOD_TAG, $"load {tool.Name} from {dllName} success");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpRouter] Failed to instantiate tool {type.FullName}: {ex.Message}");
                 }
             }
         }
@@ -49,8 +57,9 @@ namespace WitchModMCP.MCP
             {
                 request = JsonConvert.DeserializeObject<JsonRpcRequest>(requestJson);
             }
-            catch
+            catch (Exception ex)
             {
+                Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpRouter] JSON parse error: {ex.Message}");
                 return JsonConvert.SerializeObject(new JsonRpcResponse
                 {
                     Id = 0,

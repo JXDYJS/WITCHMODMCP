@@ -51,5 +51,11 @@ namespace WitchModMCP.Dispatcher
         {
             GameDispatcher.ExecuteTasks(WitchModMCPTaskType.OnDestroy);
         }
+
+        private void OnApplicationQuit()
+        {
+            WitchModMCPEntry.Server?.Dispose();
+            Harmony.UnityLogCapture.Unsubscribe();
+        }
     }
 }

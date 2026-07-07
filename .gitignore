@@ -27,6 +27,7 @@ _ReSharper*/
 # Temp files
 *.tmp
 *.log
+test_log.txt
 *.cache
 *.ilk
 *.pdb

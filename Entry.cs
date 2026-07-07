@@ -13,6 +13,7 @@ namespace WitchModMCP
     public static class WitchModMCPEntry
     {
         public const string MOD_TAG = "WitchModMCP";
+        internal static McpServer Server;
 
         [ModInitialize]
         public static void Entry(ModConfig modConfig)
@@ -35,8 +36,8 @@ namespace WitchModMCP
             McpToolPlugin.RegisterPluginDll(contractsDllPath);
             McpRouter.ReloadAllTools();
 
-            McpServer mcpServer = new();
-            mcpServer.Start(port);
+            Server = new McpServer();
+            Server.Start(port);
             Commands.Log(MOD_TAG, $"[MCP] Server started on http://localhost:{port}/");
         }
     }

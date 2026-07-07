@@ -19,7 +19,7 @@ namespace WitchModMCP.Tools
                 {
                     ["type"] = "string",
                     ["description"] = "物品类型，例如 card, relic, money, bless, san 等"
-                },e
+                },
                 ["value"] = new JObject
                 {
                     ["type"] = "string",
@@ -33,7 +33,7 @@ namespace WitchModMCP.Tools
         {
             string type = args?["type"]?.Value<string>();
             string value = args?["value"]?.Value<string>();
-            if (string.IsNullOrEmpty(type) || string.IsNullOrEmpty(valu))
+            if (string.IsNullOrEmpty(type) || string.IsNullOrEmpty(value))
                 throw new ArgumentException("type 和 value 参数不能为空");
 
             string result = await GameDispatcher.RunOnMainThread(() => Commands.give(type, value));
