@@ -4,12 +4,10 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Witch.Mod;
+using WitchModMCP.Contracts;
 using WitchModMCP.Dispatcher;
-using System.Net;
-using System.Threading.Tasks;
 using WitchModMCP.Harmony;
 using WitchModMCP.MCP;
-using WitchModMCP.Tools;
 
 namespace WitchModMCP
 {
@@ -33,7 +31,10 @@ namespace WitchModMCP
             var json = JObject.Parse(File.ReadAllText(cfgPath, Encoding.UTF8));
             int port = json.Value<int>("MCPPort");
             Commands.Log(MOD_TAG, $"[Config] MCPPort={port}");
-            McpRouter.RegisterTool(new LogTools());
+
+            var myDllPath = Path.Combine(modConfig.DirectoryName, "Scripts", "Entry.dll");
+            McpToolPlugin.RegisterPluginDll(myDllPath);
+            McpRouter.ReloadAllTools();
 
             McpServer mcpServer = new();
             mcpServer.Start(port);

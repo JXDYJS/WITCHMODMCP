@@ -1,0 +1,40 @@
+# Build outputs
+bin/
+obj/
+
+# NuGet cache
+*.nupkg
+*.nuget.props
+*.nuget.targets
+nuget.config
+
+# IDE files
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+*.sln.iml
+
+# ReSharper
+_ReSharper*/
+*.ReSharper
+
+# Temp files
+*.tmp
+*.log
+*.cache
+*.ilk
+*.pdb
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# User-specific files
+*.csproj.user
+*.dbmdl

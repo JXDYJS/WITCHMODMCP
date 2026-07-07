@@ -46,6 +46,16 @@
     <Folder Include="【MOD文件夹】\ModResource\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="WitchModMCP.Contracts\WitchModMCP.Contracts.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
   <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup Condition="Exists('$(GameManagedPath)')">
       <Reference Include="Witch">
@@ -60,6 +70,10 @@
         <HintPath>$(GameManagedPath)\UnityEngine.CoreModule.dll</HintPath>
         <Private>false</Private>
       </Reference>
+      <Reference Include="UnityEngine.InputLegacyModule">
+        <HintPath>$(GameManagedPath)\UnityEngine.InputLegacyModule.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
       <Reference Include="Newtonsoft.Json">
         <HintPath>$(GameManagedPath)\Newtonsoft.Json.dll</HintPath>
         <Private>false</Private>
@@ -72,6 +86,8 @@
       <ModTargetDir>$([System.IO.Path]::GetDirectoryName($(TargetDir.TrimEnd('\'))))</ModTargetDir>
       <DllPathCompiled>$(TargetDir)$(TargetName).dll</DllPathCompiled>
       <DllPathTarget>$(ModTargetDir)\Scripts\Entry.dll</DllPathTarget>
+      <ContractsDllSource>$(ProjectDir)WitchModMCP.Contracts\bin\$(Configuration)\WitchModMCP.Contracts.dll</ContractsDllSource>
+      <ContractsDllTarget>$(ModTargetDir)\Scripts\WitchModMCP.Contracts.dll</ContractsDllTarget>
     </PropertyGroup>
     <ItemGroup>
       <ModFolder Include="$(ProjectDir)【MOD文件夹】\**\*.*" />
@@ -87,6 +103,8 @@
     <Move SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
     <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已移动: $(TargetName).dll → $(DllPathTarget)" />
     <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 移动失败: $(DllPathCompiled)" />
+    <Copy SourceFiles="$(ContractsDllSource)" DestinationFiles="$(ContractsDllTarget)" Condition="Exists('$(ContractsDllSource)')" />
+    <Message Importance="high" Condition="Exists('$(ContractsDllTarget)')" Text="✅ 已复制: WitchModMCP.Contracts.dll → Scripts/" />
     <Delete Files="@(DeleteCatFiles)" ContinueOnError="true" />
     <RemoveDir Directories="@(DeleteCatFolders)" Condition="Exists('%(FullPath)')" />
     <Message Importance="high" Text="🗑️ 已清理编译临时文件" />

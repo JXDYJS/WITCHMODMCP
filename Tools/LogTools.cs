@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using WitchModMCP.Contracts;
 using WitchModMCP.Utils;
 
 namespace WitchModMCP.Tools

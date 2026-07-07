@@ -1,10 +1,11 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using WitchModMCP.Contracts;
 using WitchModMCP.MCP.Models;
-using WitchModMCP.Tools;
 
 namespace WitchModMCP.MCP
 {
@@ -20,6 +21,21 @@ namespace WitchModMCP.MCP
         public static void RegisterTools(IEnumerable<IMcpTool> tools)
         {
             foreach (var t in tools) RegisterTool(t);
+        }
+
+        public static void ClearTools()
+        {
+            _tools.Clear();
+        }
+
+        public static void ReloadAllTools()
+        {
+            ClearTools();
+            foreach (var type in McpToolPlugin.DiscoverToolTypes())
+            {
+                if (Activator.CreateInstance(type) is IMcpTool tool)
+                    RegisterTool(tool);
+            }
         }
 
         public static async Task<string> HandleRequest(string requestJson)
