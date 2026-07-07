@@ -1,0 +1,5 @@
+F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP\Scripts\WitchModMCP.dll
+E:\Witch\WitchModMCP\obj\Debug 魔女 WitchModMCP\WitchModMCP.csproj.AssemblyReference.cache
+E:\Witch\WitchModMCP\obj\Debug 魔女 WitchModMCP\WitchModMCP.GeneratedMSBuildEditorConfig.editorconfig
+E:\Witch\WitchModMCP\obj\Debug 魔女 WitchModMCP\WitchModMCP.csproj.CoreCompileInputs.cache
+E:\Witch\WitchModMCP\obj\Debug 魔女 WitchModMCP\WitchModMCP.dll

@@ -1,0 +1,108 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <Platforms>AnyCPU</Platforms>
+    <LangVersion>latest</LangVersion>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <GenerateDocumentationFile>False</GenerateDocumentationFile>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RootNamespace>Meowalive.Mod.WitchModMCP</RootNamespace>
+    <AssemblyName>WitchModMCP</AssemblyName>
+    <GameFolderName>Witch's Apocalyptic Journey</GameFolderName>
+    <GameDataNameBack>Witch's Apocalyptic Journey_Data</GameDataNameBack>
+    <GameSteamid>3709430</GameSteamid>
+    <GameManagedPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed</GameManagedPath>
+    <Configurations>Debug;Release;Debug 魔女 WitchModMCP;Release 魔女 WitchModMCP;</Configurations>
+  </PropertyGroup>
+
+  <Target Name="DebugPaths" BeforeTargets="Build">
+    <Message Importance="high" Text="========== 路径调试信息 ==========" />
+    <Message Importance="high" Text="  📁 GameManagedPath: $(GameManagedPath)" />
+    <Message Importance="high" Text="==================================" />
+  </Target>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <DebugType>embedded</DebugType>
+    <IsPublishable>True</IsPublishable>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <DebugType>embedded</DebugType>
+    <IsPublishable>True</IsPublishable>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug 魔女 WitchModMCP|AnyCPU' ">
+    <DebugType>embedded</DebugType>
+    <OutputPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\$(AssemblyName)\Scripts</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release 魔女 WitchModMCP|AnyCPU' ">
+    <DebugType>embedded</DebugType>
+    <OutputPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\$(AssemblyName)\Scripts</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Folder Include="【MOD文件夹】\Data\" />
+    <Folder Include="【MOD文件夹】\Text\" />
+    <Folder Include="【MOD文件夹】\ModResource\" />
+  </ItemGroup>
+
+  <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup Condition="Exists('$(GameManagedPath)')">
+      <Reference Include="Witch">
+        <HintPath>$(GameManagedPath)\Witch.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+      <Reference Include="Witch.Core">
+        <HintPath>$(GameManagedPath)\Witch.Core.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+      <Reference Include="UnityEngine.CoreModule">
+        <HintPath>$(GameManagedPath)\UnityEngine.CoreModule.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+      <Reference Include="Newtonsoft.Json">
+        <HintPath>$(GameManagedPath)\Newtonsoft.Json.dll</HintPath>
+        <Private>false</Private>
+      </Reference>
+    </ItemGroup>
+  </Target>
+
+  <Target Name="RenameAndCopyModFolder" AfterTargets="Build">
+    <PropertyGroup>
+      <ModTargetDir>$([System.IO.Path]::GetDirectoryName($(TargetDir.TrimEnd('\'))))</ModTargetDir>
+      <DllPathCompiled>$(TargetDir)$(TargetName).dll</DllPathCompiled>
+      <DllPathTarget>$(ModTargetDir)\Scripts\Entry.dll</DllPathTarget>
+    </PropertyGroup>
+    <ItemGroup>
+      <ModFolder Include="$(ProjectDir)【MOD文件夹】\**\*.*" />
+      <DeleteCatFiles Condition="'$(Configuration)' == 'Release 魔女 WitchModMCP'" Include="$(TargetDir)$(TargetName).pdb" />
+      <DeleteCatFiles Condition="'$(Configuration)' == 'Release 魔女 WitchModMCP'" Include="$(TargetDir)Entry.pdb" />
+    </ItemGroup>
+    <MakeDir Directories="$(ModTargetDir)" Condition="!Exists('$(ModTargetDir)')" />
+    <Message Condition="!Exists('$(ModTargetDir)')" Importance="high" Text="📁✅ 创建目录: $(ModTargetDir)" />
+    <Message Condition="Exists('$(ModTargetDir)')" Importance="high" Text="📁 目录已存在: $(ModTargetDir)" />
+    <Exec Command="robocopy &quot;$(ProjectDir)【MOD文件夹】&quot; &quot;$(ModTargetDir)&quot; /XF changelog.txt /XD 排除的文件夹名字 /E /IS /NDL /NFL /NJH /NJS > nul &amp; exit 0" Condition="Exists('$(ProjectDir)【MOD文件夹】')" />
+    <Message Condition="Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁📦 已复制 MOD 资源: $(ModTargetDir)" />
+    <Message Condition="!Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁⚠️ 未找到 MOD 资源文件夹: $(ProjectDir)【MOD文件夹】" />
+    <Move SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
+    <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已移动: $(TargetName).dll → $(DllPathTarget)" />
+    <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 移动失败: $(DllPathCompiled)" />
+    <Delete Files="@(DeleteCatFiles)" ContinueOnError="true" />
+    <RemoveDir Directories="@(DeleteCatFolders)" Condition="Exists('%(FullPath)')" />
+    <Message Importance="high" Text="🗑️ 已清理编译临时文件" />
+  </Target>
+
+  <Target Name="CleanModFiles" AfterTargets="Clean">
+    <PropertyGroup>
+      <ModTargetDir>$([System.IO.Path]::GetDirectoryName($(TargetDir.TrimEnd('\'))))</ModTargetDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <DllsToDelete Include="$(ModTargetDir)\**\Entry.dll"/>
+      <DllsToDelete Include="$(ModTargetDir)\**\$(TargetName).dll"/>
+      <DllsToDelete Include="$(ModTargetDir)\**\$(TargetName).pdb" />
+    </ItemGroup>
+    <Message Importance="high" Text="🗑️ 准备清理:&#x0A;  @(DllsToDelete -> '%(FullPath)', '&#x0A;  ')" />
+    <Delete Files="@(DllsToDelete)" Condition="Exists('%(FullPath)')" />
+    <Message Importance="high" Text="🗑️ 已清理 Mod DLL 文件" />
+  </Target>
+</Project>

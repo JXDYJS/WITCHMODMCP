@@ -1,0 +1,12 @@
+{
+  "ModName": "WitchModMCP",
+  "ModVersion": "1.0.0",
+  "ModAuthor": "YOUR_NAME",
+  "ModDescription": "Unity Mod MCP Server",
+  "IconPath": "icon.png",
+  "Enabled": true,
+  "Dependencies": null,
+  "WorkshopVisibility": "Private",
+  "PublishedFileId": "",
+  "MCPPort": 3100
+}
