@@ -50,12 +50,6 @@
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="WitchModMCP.Contracts\WitchModMCP.Contracts.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-  </ItemGroup>
-
   <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">
     <ItemGroup Condition="Exists('$(GameManagedPath)')">
       <Reference Include="Witch">
@@ -85,7 +79,10 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="RenameAndCopyModFolder" AfterTargets="Build">
+  <Target Name="RenameAndCopyModFolder" AfterTargets="Build"
+          Condition="'$(BuildingContracts)' != 'true'">
+    <MSBuild Projects="WitchModMCP.Contracts\WitchModMCP.Contracts.csproj" Targets="Build"
+             Properties="Configuration=$(Configuration);BuildingContracts=true" />
     <PropertyGroup>
       <ModTargetDir>$([System.IO.Path]::GetDirectoryName($(TargetDir.TrimEnd('\'))))</ModTargetDir>
       <DllPathCompiled>$(TargetDir)$(TargetName).dll</DllPathCompiled>

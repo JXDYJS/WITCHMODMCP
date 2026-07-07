@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
-namespace WitchModMCP.Contracts
+namespace WitchModMCP.MCP
 {
     public interface IMcpTool
     {

@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Witch.Mod;
-using WitchModMCP.Contracts;
 using WitchModMCP.MCP.Models;
 
 namespace WitchModMCP.MCP

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 
-namespace WitchModMCP.Contracts
+namespace WitchModMCP.MCP
 {
     public static class McpToolPlugin
     {
@@ -20,7 +20,11 @@ namespace WitchModMCP.Contracts
             var types = new List<Type>();
             foreach (var path in _pluginDlls)
             {
-                if (!File.Exists(path)) continue;
+                if (!File.Exists(path))
+                {
+                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpToolPlugin] DLL not found: {path}");
+                    continue;
+                }
                 try
                 {
                     var asm = Assembly.Load(File.ReadAllBytes(path));
@@ -30,7 +34,10 @@ namespace WitchModMCP.Contracts
                             types.Add(type);
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpToolPlugin] Load failed for {path}: {ex.GetType().Name} - {ex.Message}");
+                }
             }
             return types;
         }

@@ -4,7 +4,6 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Witch.Mod;
-using WitchModMCP.Contracts;
 using WitchModMCP.Dispatcher;
 using WitchModMCP.Harmony;
 using WitchModMCP.MCP;
