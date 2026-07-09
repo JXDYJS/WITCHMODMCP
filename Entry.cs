@@ -7,6 +7,7 @@ using Witch.Mod;
 using WitchModMCP.Dispatcher;
 using WitchModMCP.Harmony;
 using WitchModMCP.MCP;
+using WitchModMCP.Utils;
 
 namespace WitchModMCP
 {
@@ -22,6 +23,7 @@ namespace WitchModMCP
 
             GameDispatcher.Initialize();
             UnityLogCapture.Subscribe();
+            PlayerLogReader.ReadAndEnqueue();
 
             var go = new GameObject("WitchModMCP_Dispatcher");
             UnityEngine.Object.DontDestroyOnLoad(go);
