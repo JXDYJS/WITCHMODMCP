@@ -286,6 +286,66 @@ def main():
     elif result:
         log(f"      返回结果但无 base64 字段: {list(result.keys())}")
 
+    # 14. raycast_mouse - 默认参数（当前鼠标位置）
+    log("\n[14] raycast_mouse - 当前鼠标位置射线检测")
+    result = test("raycast_mouse: default", "raycast_mouse", {},
+                  expect_field="hits", print_body=False)
+    if result and isinstance(result, dict):
+        sp = result.get("screenPosition", {})
+        log(f"      屏幕坐标: ({sp.get('x')}, {sp.get('y')})")
+        hits = result.get("hits", [])
+        log(f"      命中数: {result.get('hitCount', 0)}")
+        for h in hits[:5]:
+            canvas = "Canvas" if h.get("isCanvas") else "NonCanvas"
+            log(f"        [{h.get('source','?')}/{canvas}] {h.get('hierarchyPath','?')}")
+            log(f"          components: {h.get('components','?')}")
+
+    # 14b. raycast_mouse - 自定义坐标 (顶栏按钮区域)
+    log("\n[14b] raycast_mouse - 自定义坐标 (1700, 1020) 顶栏按钮区")
+    result = test("raycast_mouse: custom coords", "raycast_mouse",
+                  {"screenX": 1700, "screenY": 1020},
+                  expect_field="hits", print_body=False)
+    if result and isinstance(result, dict):
+        sp = result.get("screenPosition", {})
+        log(f"      屏幕坐标: ({sp.get('x')}, {sp.get('y')})")
+        hits = result.get("hits", [])
+        log(f"      命中数: {result.get('hitCount', 0)}")
+        for h in hits[:5]:
+            canvas = "Canvas" if h.get("isCanvas") else "NonCanvas"
+            log(f"        [{h.get('source','?')}/{canvas}] {h.get('hierarchyPath','?')}")
+            log(f"          distance={h.get('distance','?')}  depth={h.get('depth','?')}  sortingOrder={h.get('sortingOrder','?')}")
+        if len(hits) > 0:
+            h0 = hits[0]
+            assert_keys = ["gameObjectName", "hierarchyPath", "source", "isCanvas", "components"]
+            missing = [k for k in assert_keys if k not in h0]
+            if missing:
+                log(f"      WARN  命中结果缺少字段: {missing}")
+            else:
+                log(f"      所有必填字段均存在: {', '.join(assert_keys)}")
+
+    # 14c. raycast_mouse - maxResults 参数限制
+    log("\n[14c] raycast_mouse - maxResults=1 限制返回数")
+    result = test("raycast_mouse: maxResults=1", "raycast_mouse",
+                  {"screenX": 1700, "screenY": 1020, "maxResults": 1},
+                  expect_field="hits", print_body=False)
+    if result and isinstance(result, dict):
+        hits = result.get("hits", [])
+        log(f"      命中数: {result.get('hitCount', 0)} (maxResults=1)")
+        for h in hits:
+            log(f"        [{h.get('source','?')}] {h.get('hierarchyPath','?')}")
+        if result.get("hitCount", 0) > 1:
+            log(f"      WARN  hitCount > maxResults, 未正确限制")
+
+    # 14d. raycast_mouse - 空区域 (中心空白处)
+    log("\n[14d] raycast_mouse - 空区域 (960, 540)")
+    result = test("raycast_mouse: empty area", "raycast_mouse",
+                  {"screenX": 960, "screenY": 540},
+                  expect_field="hits", print_body=False)
+    if result and isinstance(result, dict):
+        log(f"      命中数: {result.get('hitCount', 0)}")
+        if result.get("hitCount", 0) == 0:
+            log(f"      空区域无命中，符合预期")
+
     log(f"\n=== 测试完毕: {OK} OK, {FAIL} FAIL ===")
     save_log()
     return FAIL == 0
