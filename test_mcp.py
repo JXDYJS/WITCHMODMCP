@@ -4,10 +4,12 @@
 
 import json
 import sys
+import os
 import http.client
 from datetime import datetime
 
 PORT = 3100
+OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 OK = 0
 FAIL = 0
 LOG_LINES = []
@@ -142,6 +144,147 @@ def main():
     log("\n[8] eval_command - 设置敌人倍率 (测试用, 立即 reset)")
     test("enemyall hp 0.5", "eval_command", {"command": "enemyall hp 0.5"})
     test("debugreset", "eval_command", {"command": "debugreset"})
+
+    # 9. inspect - 反射读取 (列出 RoleTable 的静态/实例成员)
+    log("\n[9] inspect - 列出 RoleTable 类型成员")
+    result = test("inspect: RoleTable members", "inspect", {"typeName": "RoleTable"}, expect_field="members", print_body=False)
+    if result and isinstance(result, dict):
+        members = result.get("members", {})
+        static_m = members.get("static", {})
+        instance_m = members.get("instance", {})
+        log(f"      找到类型: {result.get('foundType', '?')}")
+        log(f"      静态成员: {len(static_m)} 个  (前5: {', '.join(list(static_m.keys())[:5])})")
+        log(f"      实例成员: {len(instance_m)} 个  (前5: {', '.join(list(instance_m.keys())[:5])})")
+
+    # 9b. inspect - 链式反射访问 RoleTable.Instance.San
+    log("\n[9b] inspect - 链式访问 RoleTable.Instance.San")
+    result = test("inspect: RoleTable.Instance.San", "inspect",
+                  {"typeName": "RoleTable", "memberPath": "Instance.San"},
+                  expect_field="value")
+    if result and isinstance(result, dict):
+        log(f"      成员类型: {result.get('memberType', '?')}")
+        v = result.get("value")
+        log(f"      值: {json.dumps(v, ensure_ascii=False)}")
+
+    # 9c. inspect - 链式反射访问 (FightManager 状态)
+    log("\n[9c] inspect - 链式访问 FightManager.Instance.fightType")
+    result = test("inspect: FightManager.fightType", "inspect",
+                  {"typeName": "FightManager", "memberPath": "Instance.fightType"},
+                  expect_field="value")
+    if result and isinstance(result, dict):
+        log(f"      值: {json.dumps(result.get('value'), ensure_ascii=False)}")
+
+    # 9d. inspect - 找不到类型
+    log("\n[9d] inspect - 不存在的类型")
+    test("inspect: nonexistent type", "inspect", {"typeName": "NonExistentType"})
+
+    # 10. dump_mod_state - 列出已加载的 Mod
+    log("\n[10] dump_mod_state - 已加载 Mod 列表")
+    result = test("dump_mod_state", "dump_mod_state", expect_field="modCount", print_body=False)
+    if result and isinstance(result, dict):
+        log(f"      已加载 Mod 数: {result.get('modCount', 0)}")
+        mods = result.get("mods", [])
+        for m in mods:
+            log(f"        {m.get('assemblyName')}  v{m.get('assemblyVersion')}")
+        related = result.get("relatedAssemblies", [])
+        if related:
+            names = [a["name"] for a in related]
+            log(f"       相关程序集: {', '.join(names)}")
+
+    # 11. query_config - 列出可用配置表
+    log("\n[11] query_config - 列出所有可用配置表")
+    result = test("query_config: list tables", "query_config", {}, expect_field="availableTables", print_body=False)
+    if result and isinstance(result, dict):
+        tables = result.get("availableTables", [])
+        log(f"      可用配置表: {len(tables)} 个")
+        for t in tables[:12]:
+            item_count = f" ({t.get('itemCount', '?')} 条)" if "itemCount" in t else ""
+            log(f"        {t['name']}: {t.get('type', '?')}{item_count}")
+        if len(tables) > 12:
+            log(f"        ... 还有 {len(tables) - 12} 个表")
+        if result.get("hint"):
+            log(f"      提示: {result['hint']}")
+
+    # 11b. query_config - 查询具体表预览
+    result_tables = result
+    if result_tables:
+        tables = result_tables.get("availableTables", [])
+        first_table = tables[0]["name"] if tables else None
+    else:
+        first_table = None
+
+    if first_table:
+        log(f"\n[11b] query_config - 预览表: {first_table}")
+        result = test(f"query_config: {first_table}", "query_config",
+                       {"tableName": first_table, "limit": 3},
+                       expect_field="samples", print_body=False)
+        if result and isinstance(result, dict):
+            log(f"      表类型: {result.get('tableType', '?')}")
+            log(f"      总条目: {result.get('totalCount', '?')}")
+            samples = result.get("samples", [])
+            for s in samples[:3]:
+                keys = list(s.keys())[:6] if isinstance(s, dict) else []
+                log(f"        条目: {', '.join(k for k in keys if k != '_type')}")
+                if isinstance(s, dict) and "_type" in s:
+                    log(f"          类型={s['_type']}")
+    else:
+        log("\n[11b] query_config - 跳过 (无可用表)")
+
+    # 12. get_scene_tree - 场景层级树
+    log("\n[12] get_scene_tree - 当前场景层级树")
+    result = test("get_scene_tree", "get_scene_tree", {"maxDepth": 4, "maxChildren": 20}, expect_field="hierarchy", print_body=False)
+    if result and isinstance(result, dict):
+        log(f"      场景: {result.get('sceneName', '?')}")
+        log(f"      根对象数: {result.get('rootCount', 0)}")
+        hierarchy = result.get("hierarchy", [])
+        for root in hierarchy[:5]:
+            comps = root.get("components", [])
+            comp_str = ", ".join(comps[:5]) if comps else ""
+            if len(comps) > 5:
+                comp_str += f" +{len(comps)-5}"
+            log(f"        {root.get('name')}  [active={root.get('activeSelf')}]  tag={root.get('tag')}  comps=[{comp_str}]")
+            children = root.get("children", [])
+            for child in children[:5]:
+                c_comps = child.get("components", [])
+                c_comp_str = ", ".join(c_comps[:3]) if c_comps else ""
+                log(f"          └─ {child.get('name')}  [active={child.get('activeSelf')}]  comps=[{c_comp_str}]")
+        if root_count := result.get('rootCount', 0):
+            if root_count > 5:
+                log(f"        ... 还有 {root_count - 5} 个根对象")
+
+    # 12b. get_scene_tree - 过滤根节点
+    log("\n[12b] get_scene_tree - 按根节点名过滤")
+    test("get_scene_tree: rootName filter", "get_scene_tree",
+         {"maxDepth": 3, "maxChildren": 10, "includeComponents": False, "rootName": "Main Camera"},
+         expect_field="hierarchy", print_body=False)
+
+    # 13. get_screenshot - PNG 截图并保存
+    log("\n[13] get_screenshot - 截图 (PNG)")
+    result = test("get_screenshot: PNG", "get_screenshot", {"format": "png"}, print_body=False)
+    if result and isinstance(result, dict) and result.get("base64"):
+        import base64 as _b64
+        img = _b64.b64decode(result["base64"])
+        out = os.path.join(OUT_DIR, "screenshot_test.png")
+        with open(out, "wb") as f:
+            f.write(img)
+        log(f"      尺寸: {result.get('width')}x{result.get('height')}  大小: {result.get('size')} bytes")
+        log(f"      已保存: {out}")
+    elif result:
+        log(f"      返回结果但无 base64 字段: {list(result.keys())}")
+
+    # 13b. get_screenshot - JPG 截图
+    log("\n[13b] get_screenshot - 截图 (JPG quality=75)")
+    result = test("get_screenshot: JPG", "get_screenshot", {"format": "jpg", "quality": 75}, print_body=False)
+    if result and isinstance(result, dict) and result.get("base64"):
+        import base64 as _b64
+        img = _b64.b64decode(result["base64"])
+        out = os.path.join(OUT_DIR, "screenshot_test.jpg")
+        with open(out, "wb") as f:
+            f.write(img)
+        log(f"      尺寸: {result.get('width')}x{result.get('height')}  大小: {result.get('size')} bytes")
+        log(f"      已保存: {out}")
+    elif result:
+        log(f"      返回结果但无 base64 字段: {list(result.keys())}")
 
     log(f"\n=== 测试完毕: {OK} OK, {FAIL} FAIL ===")
     save_log()

@@ -22,6 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\WitchModMCP.csproj">
       <Private>false</Private>
+      <Properties>BuildingContracts=true</Properties>
     </ProjectReference>
   </ItemGroup>
 
@@ -40,6 +41,14 @@
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ScreenCaptureModule">
+      <HintPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed\UnityEngine.ScreenCaptureModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed\UnityEngine.ImageConversionModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Loxodon.Framework.Obfuscation">

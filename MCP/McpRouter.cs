@@ -24,6 +24,10 @@ namespace WitchModMCP.MCP
             foreach (var t in tools) RegisterTool(t);
         }
 
+        public static int ToolCount => _tools.Count;
+
+        public static string[] GetToolNames() => _tools.Keys.OrderBy(n => n).ToArray();
+
         public static void ClearTools()
         {
             _tools.Clear();
