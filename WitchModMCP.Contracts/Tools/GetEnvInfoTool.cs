@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using WitchModMCP.MCP;
@@ -27,12 +28,23 @@ namespace WitchModMCP.Tools
             {
                 try
                 {
-                    var skillAttr = asm.GetCustomAttributes(false)
-                        .FirstOrDefault(a => a is MCPSkillNamespaceAttribute) as MCPSkillNamespaceAttribute;
-                    var pluginAttr = asm.GetCustomAttributes(false)
-                        .FirstOrDefault(a => a is MCPPluginNamespaceAttribute) as MCPPluginNamespaceAttribute;
+                    string skillRel = null;
+                    string pluginRel = null;
 
-                    if (skillAttr == null && pluginAttr == null) continue;
+                    var attrs = asm.GetCustomAttributesData();
+                    foreach (var cad in attrs)
+                    {
+                        var typeName = cad.Constructor?.DeclaringType?.Name;
+                        if (typeName == null) continue;
+
+                        if (typeName == "MCPSkillNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
+                            skillRel = cad.ConstructorArguments[0].Value as string;
+
+                        if (typeName == "MCPPluginNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
+                            pluginRel = cad.ConstructorArguments[0].Value as string;
+                    }
+
+                    if (skillRel == null && pluginRel == null) continue;
 
                     var asmName = asm.GetName().Name;
                     if (string.IsNullOrEmpty(asmName) || asm.IsDynamic) continue;
@@ -43,8 +55,6 @@ namespace WitchModMCP.Tools
                         dir = System.IO.Path.GetDirectoryName(asm.Location);
                     if (dir == null) continue;
 
-                    // If DLL is in a Scripts/ subdirectory, mod root is one level up
-                    // (matches the game's mod folder convention)
                     var modRoot = dir.EndsWith("Scripts", StringComparison.OrdinalIgnoreCase)
                         ? System.IO.Path.GetDirectoryName(dir)
                         : dir;
@@ -52,11 +62,11 @@ namespace WitchModMCP.Tools
                     var mod = new JObject
                     {
                         ["assemblyName"] = asmName,
-                        ["skillPath"] = skillAttr != null
-                            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, skillAttr.RelativeFolderPath))
+                        ["skillPath"] = skillRel != null
+                            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, skillRel))
                             : null,
-                        ["pluginPath"] = pluginAttr != null
-                            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, pluginAttr.RelativeFolderPath))
+                        ["pluginPath"] = pluginRel != null
+                            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, pluginRel))
                             : null
                     };
                     activeModules.Add(mod);

@@ -179,12 +179,26 @@ namespace WitchModMCP.MCP
             {
                 try
                 {
-                    var skillAttr = asm.GetCustomAttributes(false)
-                        .FirstOrDefault(a => a is MCPSkillNamespaceAttribute) as MCPSkillNamespaceAttribute;
-                    var pluginAttr = asm.GetCustomAttributes(false)
-                        .FirstOrDefault(a => a is MCPPluginNamespaceAttribute) as MCPPluginNamespaceAttribute;
+                    string skillRel = null;
+                    string pluginRel = null;
 
-                    if (skillAttr == null && pluginAttr == null) continue;
+                    // Use CustomAttributeData to read attributes without instantiating types
+                    // This works for assemblies loaded via Assembly.Load(byte[]) where
+                    // GetCustomAttributes(false) can silently fail.
+                    var attrs = asm.GetCustomAttributesData();
+                    foreach (var cad in attrs)
+                    {
+                        var typeName = cad.Constructor?.DeclaringType?.Name;
+                        if (typeName == null) continue;
+
+                        if (typeName == "MCPSkillNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
+                            skillRel = cad.ConstructorArguments[0].Value as string;
+
+                        if (typeName == "MCPPluginNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
+                            pluginRel = cad.ConstructorArguments[0].Value as string;
+                    }
+
+                    if (skillRel == null && pluginRel == null) continue;
 
                     var asmName = asm.GetName().Name;
                     if (string.IsNullOrEmpty(asmName) || asm.IsDynamic) continue;
@@ -202,16 +216,18 @@ namespace WitchModMCP.MCP
                     var mod = new JObject
                     {
                         ["assemblyName"] = asmName,
-                        ["skillPath"] = skillAttr != null
-                            ? Path.GetFullPath(Path.Combine(modRoot, skillAttr.RelativeFolderPath))
+                        ["skillPath"] = skillRel != null
+                            ? Path.GetFullPath(Path.Combine(modRoot, skillRel))
                             : null,
-                        ["pluginPath"] = pluginAttr != null
-                            ? Path.GetFullPath(Path.Combine(modRoot, pluginAttr.RelativeFolderPath))
+                        ["pluginPath"] = pluginRel != null
+                            ? Path.GetFullPath(Path.Combine(modRoot, pluginRel))
                             : null
                     };
                     activeModules.Add(mod);
                 }
-                catch { }
+                catch
+                {
+                }
             }
 
             return activeModules;

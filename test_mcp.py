@@ -1,5 +1,8 @@
 """
-运行: python test_mcp.py [--port 3100]
+运行: python test_mcp.py [--port 3100] [--token <auth_token>]
+
+  指定 --token 以通过工具调用的认证（默认从游戏 ModConfig.json 读取）。
+  不指定则工具调用会报 401。
 """
 
 import json
@@ -7,12 +10,43 @@ import sys
 import os
 import http.client
 from datetime import datetime
+from pathlib import Path
 
 PORT = 3100
+TOKEN = ""
 OUT_DIR = os.path.dirname(os.path.abspath(__file__))
 OK = 0
 FAIL = 0
 LOG_LINES = []
+
+
+def resolve_token() -> str:
+    """Auto-discover the MCP auth token from common ModConfig.json paths."""
+    # Command line takes precedence
+    for i, a in enumerate(sys.argv[1:], 1):
+        if a == "--token" and i < len(sys.argv):
+            return sys.argv[i + 1]
+
+    candidates = [
+        os.environ.get("MCP_MOD_TOKEN", ""),
+        r"F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP\ModConfig.json",
+        r"F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP.DeveloperTools\ModConfig.json",
+        str(Path(out_dir := os.path.dirname(os.path.abspath(__file__))) / "【MOD文件夹】" / "ModConfig.json"),
+        str(Path(out_dir).parent / "【MOD文件夹】" / "ModConfig.json"),
+    ]
+    for c in candidates:
+        if not c or c.startswith("F:"):
+            continue
+        p = Path(c)
+        if p.exists():
+            try:
+                cfg = json.loads(p.read_text(encoding="utf-8"))
+                t = cfg.get("MCPAuthToken", "")
+                if t:
+                    return t
+            except (json.JSONDecodeError, OSError):
+                pass
+    return ""
 
 
 def log(s):
@@ -31,7 +65,10 @@ def rpc(method, params=None, rid=1):
     if params is not None:
         body["params"] = params
     conn = http.client.HTTPConnection("localhost", PORT, timeout=10)
-    conn.request("POST", "/", json.dumps(body), {"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"}
+    if TOKEN:
+        headers["Authorization"] = f"Bearer {TOKEN}"
+    conn.request("POST", "/", json.dumps(body), headers)
     resp = conn.getresponse()
     raw = resp.read().decode()
     conn.close()
@@ -116,9 +153,20 @@ def test_heartbeat(name, print_body=True):
 
 
 def main():
-    global PORT
-    if len(sys.argv) > 1 and sys.argv[1] == "--port":
-        PORT = int(sys.argv[2])
+    global PORT, TOKEN
+    args = sys.argv[1:]
+    while args:
+        if args[0] == "--port" and len(args) >= 2:
+            PORT = int(args[1])
+            args = args[2:]
+        elif args[0] == "--token" and len(args) >= 2:
+            TOKEN = args[1]
+            args = args[2:]
+        else:
+            args = args[1:]
+
+    if not TOKEN:
+        TOKEN = resolve_token()
 
     log(f"=== WitchModMCP 测试 (localhost:{PORT})  {datetime.now():%H:%M:%S} ===\n")
 

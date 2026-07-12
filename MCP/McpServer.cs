@@ -14,8 +14,11 @@ namespace WitchModMCP.MCP
         private HttpListener _listener;
         private CancellationTokenSource _cts;
         private bool _disposed;
+        private volatile bool _shuttingDown;
         private int _port;
         private string _authToken;
+
+        public bool IsShuttingDown => _shuttingDown;
 
         public void Start(int port, string authToken = null)
         {
@@ -55,30 +58,56 @@ namespace WitchModMCP.MCP
 
         private async Task ListenLoop()
         {
-            while (!_cts.IsCancellationRequested && _listener != null && _listener.IsListening)
+            while (!_shuttingDown && !_cts.IsCancellationRequested && _listener != null && _listener.IsListening)
             {
                 try
                 {
                     var context = await _listener.GetContextAsync();
+                    if (_shuttingDown || _cts.IsCancellationRequested)
+                    {
+                        try { context.Response?.Close(); } catch { }
+                        break;
+                    }
                     _ = ProcessRequest(context);
                 }
-                catch (HttpListenerException) when (_cts.IsCancellationRequested)
+                catch (HttpListenerException) when (_shuttingDown || _cts.IsCancellationRequested)
                 {
                     break;
                 }
-                catch (ObjectDisposedException) when (_cts.IsCancellationRequested)
+                catch (ObjectDisposedException) when (_shuttingDown || _cts.IsCancellationRequested)
                 {
                     break;
                 }
-                catch (Exception ex) when (!_cts.IsCancellationRequested)
+                catch (Exception ex)
                 {
-                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ListenLoop error: {ex.Message}");
+                    if (!_shuttingDown && !_cts.IsCancellationRequested)
+                        Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ListenLoop error: {ex.Message}");
+                    else
+                        break;
                 }
             }
         }
 
         private async Task ProcessRequest(HttpListenerContext context)
         {
+            // Reject requests during shutdown to prevent hangs
+            if (_shuttingDown)
+            {
+                try
+                {
+                    context.Response.StatusCode = 503;
+                    var err = Encoding.UTF8.GetBytes("{\"status\":\"shutting_down\"}");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                }
+                catch { }
+                finally
+                {
+                    try { context.Response?.Close(); } catch { }
+                }
+                return;
+            }
+
             try
             {
                 context.Response.ContentType = "application/json; charset=utf-8";
@@ -251,33 +280,16 @@ namespace WitchModMCP.MCP
         {
             if (_disposed) return;
             _disposed = true;
+            _shuttingDown = true;
 
-            try
-            {
-                _cts?.Cancel();
-            }
-            catch
-            {
-            }
+            // Cancel the listen token first — this signals the ListenLoop
+            try { _cts?.Cancel(); } catch { }
 
-            try
-            {
-                _listener?.Stop();
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                _listener?.Close();
-            }
-            catch
-            {
-            }
+            // Close forcefully aborts pending GetContextAsync() calls
+            try { _listener?.Close(); } catch { }
 
             _listener = null;
-            _cts?.Dispose();
+            try { _cts?.Dispose(); } catch { }
             _cts = null;
         }
     }
