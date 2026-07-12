@@ -8,5 +8,6 @@
   "Dependencies": null,
   "WorkshopVisibility": "Private",
   "PublishedFileId": "",
-  "MCPPort": 3100
+  "MCPPort": 3100,
+  "MCPAuthToken": "witch-mod-mcp-dev-2026"
 }

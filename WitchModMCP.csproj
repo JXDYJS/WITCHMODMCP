@@ -48,6 +48,7 @@
 
   <ItemGroup>
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
+    <Compile Remove="DeveloperTools\**\*.cs" />
   </ItemGroup>
 
   <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">
@@ -101,9 +102,9 @@
     <Exec Command="robocopy &quot;$(ProjectDir)【MOD文件夹】&quot; &quot;$(ModTargetDir)&quot; /XF changelog.txt /XD 排除的文件夹名字 /E /IS /NDL /NFL /NJH /NJS > nul &amp; exit 0" Condition="Exists('$(ProjectDir)【MOD文件夹】')" />
     <Message Condition="Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁📦 已复制 MOD 资源: $(ModTargetDir)" />
     <Message Condition="!Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁⚠️ 未找到 MOD 资源文件夹: $(ProjectDir)【MOD文件夹】" />
-    <Move SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
-    <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已移动: $(TargetName).dll → $(DllPathTarget)" />
-    <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 移动失败: $(DllPathCompiled)" />
+    <Copy SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
+    <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已复制: $(TargetName).dll → $(DllPathTarget)" />
+    <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 复制失败: $(DllPathCompiled)" />
     <Copy SourceFiles="$(ContractsDllSource)" DestinationFiles="$(ContractsDllTarget)" Condition="Exists('$(ContractsDllSource)')" />
     <Message Importance="high" Condition="Exists('$(ContractsDllTarget)')" Text="✅ 已复制: WitchModMCP.Contracts.dll → Scripts/" />
     <Delete Files="@(DeleteCatFiles)" ContinueOnError="true" />

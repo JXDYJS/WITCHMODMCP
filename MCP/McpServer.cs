@@ -14,9 +14,14 @@ namespace WitchModMCP.MCP
         private HttpListener _listener;
         private CancellationTokenSource _cts;
         private bool _disposed;
+        private int _port;
+        private string _authToken;
 
-        public void Start(int port)
+        public void Start(int port, string authToken = null)
         {
+            _port = port;
+            _authToken = string.IsNullOrWhiteSpace(authToken) ? null : authToken;
+
             try
             {
                 _listener = new HttpListener();
@@ -24,6 +29,11 @@ namespace WitchModMCP.MCP
                 _listener.Start();
                 _cts = new CancellationTokenSource();
                 _ = Task.Run(ListenLoop);
+
+                if (_authToken != null)
+                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpServer] Auth enabled, listening on http://localhost:{port}/");
+                else
+                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpServer] Auth disabled, listening on http://localhost:{port}/");
             }
             catch (HttpListenerException ex)
             {
@@ -73,6 +83,18 @@ namespace WitchModMCP.MCP
             {
                 context.Response.ContentType = "application/json; charset=utf-8";
 
+                // ──── GET /ping — alive check (no auth required) ────
+                if (context.Request.HttpMethod == "GET" &&
+                    context.Request.Url.AbsolutePath.TrimEnd('/') == "/ping")
+                {
+                    var pong = Encoding.UTF8.GetBytes(
+                        $"{{\"status\":\"ok\",\"port\":{_port},\"auth\":{( _authToken != null ? "true" : "false")}}}");
+                    context.Response.ContentLength64 = pong.Length;
+                    context.Response.OutputStream.Write(pong, 0, pong.Length);
+                    return;
+                }
+
+                // ──── Only POST for tool calls ────
                 if (context.Request.HttpMethod != "POST")
                 {
                     var error = Encoding.UTF8.GetBytes("{\"error\":\"Use POST\"}");
@@ -80,6 +102,7 @@ namespace WitchModMCP.MCP
                     return;
                 }
 
+                // ──── Body size limit ────
                 if (context.Request.ContentLength64 > MaxBodyBytes)
                 {
                     context.Response.StatusCode = 413;
@@ -89,6 +112,7 @@ namespace WitchModMCP.MCP
                     return;
                 }
 
+                // ──── Read body ────
                 string body;
                 using (var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8))
                 {
@@ -104,6 +128,30 @@ namespace WitchModMCP.MCP
                     return;
                 }
 
+                // ──── Auth check (skip for ping) ────
+                if (_authToken != null)
+                {
+                    string methodName = TryExtractMethod(body);
+                    bool isPing = methodName != null &&
+                                  methodName.Equals("ping", StringComparison.OrdinalIgnoreCase);
+
+                    if (!isPing)
+                    {
+                        string authHeader = context.Request.Headers["Authorization"];
+                        if (string.IsNullOrEmpty(authHeader) ||
+                            !authHeader.Equals($"Bearer {_authToken}", StringComparison.Ordinal))
+                        {
+                            context.Response.StatusCode = 401;
+                            var err = Encoding.UTF8.GetBytes(
+                                $"{{\"jsonrpc\":\"2.0\",\"error\":{{\"code\":-32001,\"message\":\"Unauthorized: invalid or missing token\"}}}}");
+                            context.Response.ContentLength64 = err.Length;
+                            context.Response.OutputStream.Write(err, 0, err.Length);
+                            return;
+                        }
+                    }
+                }
+
+                // ──── Route ────
                 string responseJson = await McpRouter.HandleRequest(body ?? "{}");
 
                 byte[] buffer = Encoding.UTF8.GetBytes(responseJson);
@@ -133,6 +181,32 @@ namespace WitchModMCP.MCP
                 {
                 }
             }
+        }
+
+        private static string TryExtractMethod(string body)
+        {
+            try
+            {
+                using var reader = new Newtonsoft.Json.JsonTextReader(
+                    new System.IO.StringReader(body))
+                {
+                    CloseInput = false
+                };
+
+                while (reader.Read())
+                {
+                    if (reader.TokenType == Newtonsoft.Json.JsonToken.PropertyName &&
+                        string.Equals("method", (string)reader.Value, StringComparison.OrdinalIgnoreCase))
+                    {
+                        reader.Read();
+                        return reader.Value?.ToString();
+                    }
+                }
+            }
+            catch
+            {
+            }
+            return null;
         }
 
         private static async Task<string> ReadWithLimit(StreamReader reader, int maxBytes)

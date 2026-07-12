@@ -17,6 +17,10 @@ namespace WitchModMCP.MCP
         public static void RegisterTool(IMcpTool tool)
         {
             _tools[tool.Name] = tool;
+
+            var sourceMod = tool.GetType().Assembly.GetName().Name;
+            if (!string.IsNullOrEmpty(sourceMod))
+                _tools.TryAdd($"{sourceMod}/{tool.Name}", tool);
         }
 
         public static void RegisterTools(IEnumerable<IMcpTool> tools)
@@ -83,7 +87,11 @@ namespace WitchModMCP.MCP
             if (request.Method == "list_tools")
                 return await HandleListTools(request.Id);
 
-            if (_tools.TryGetValue(request.Method, out var tool))
+            if (request.Method == "ping")
+                return HandlePing(request.Id);
+
+            var tool = ResolveTool(request.Method.Trim());
+            if (tool != null)
                 return await HandleToolCall(request.Id, tool, request.Params);
 
             return JsonConvert.SerializeObject(new JsonRpcResponse
@@ -95,11 +103,17 @@ namespace WitchModMCP.MCP
 
         private static Task<string> HandleListTools(int id)
         {
-            var tools = _tools.Values.Select(t => new JObject
+            var seen = new HashSet<string>();
+            var tools = _tools
+                .Where(kvp => !kvp.Key.Contains('/'))
+                .Select(kvp => kvp.Value)
+                .Distinct()
+                .Select(t => new JObject
             {
                 ["name"] = t.Name,
                 ["description"] = t.Description,
-                ["inputSchema"] = t.InputSchema ?? new JObject()
+                ["inputSchema"] = t.InputSchema ?? new JObject(),
+                ["sourceMod"] = t.GetType().Assembly.GetName().Name
             });
 
             var result = new JObject
@@ -113,6 +127,34 @@ namespace WitchModMCP.MCP
                 Result = result
             };
             return Task.FromResult(JsonConvert.SerializeObject(response));
+        }
+
+        private static string HandlePing(int id)
+        {
+            var response = new JsonRpcResponse
+            {
+                Id = id,
+                Result = new JObject
+                {
+                    ["status"] = "ok",
+                    ["toolCount"] = _tools.Count
+                }
+            };
+            return JsonConvert.SerializeObject(response);
+        }
+
+        private static IMcpTool ResolveTool(string method)
+        {
+            if (string.IsNullOrEmpty(method)) return null;
+
+            if (method.Contains('/'))
+            {
+                _tools.TryGetValue(method, out var nsTool);
+                return nsTool;
+            }
+
+            _tools.TryGetValue(method, out var plainTool);
+            return plainTool;
         }
 
         private static async Task<string> HandleToolCall(int id, IMcpTool tool, JToken args)

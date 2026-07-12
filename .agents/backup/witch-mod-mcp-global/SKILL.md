@@ -69,35 +69,6 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 
 For a full module-by-module listing, open [skills/SKILL.md](./skills/SKILL.md).
 
-### Extension: DeveloperTools
-
-[DeveloperTools](../developer-tools/SKILL.md) is an optional extension mod that adds 18 tools on top of the base WitchModMCP toolset. It provides enhanced/alternative implementations in several domains:
-
-| Domain | Base tools | DeveloperTools additions |
-|--------|-----------|------------------------|
-| Combat | `get_fight_state`, `play_card`, `end_turn` | +`set_card_pile`, `set_fight_entity`, `claim_rewards` (all also enhanced) |
-| Gameflow | `load_scene` | +`enter_game`, `start_new_game`, `start_run`, `check_mode_saves`, `list_game_modes` |
-| Lobby | — | +`get_lobby_state`, `set_lobby_state` |
-| Diagnostics | `inspect`, `query_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `give_item` | +`get_screenshot`, `raycast_mouse`, `set_rng_seed`, `decompile_source` |
-| Meta/State | `get_scene_state`, `get_game_data` | +enhanced `get_scene_state` |
-
-**Key relationships:**
-- `list_tools` merges both — run it to see everything available
-- Where DeveloperTools has an enhanced version (e.g. `get_fight_state`), it replaces the base version at registration time
-- `load_scene` (fake fights), `give_item`, `inspect`, `query_config`, `eval_command`, `reload_tools` remain exclusively in the base mod
-- The `decompile_source` tool (DeveloperTools) replaces the old Python-based decompile workflow documented below
-
-## Skill documentation sync
-
-Skill `.md` docs live inside each mod's folder under `mcp_skills/`. When the game is running, `sync_skills.py` discovers all mods via `get_env_info` and copies their docs to a local cache for the AI to read:
-
-```bash
-cd /path/to/WitchModMCP
-python sync_skills.py --port 3100 --cache-dir .cache/skills_cache
-```
-
-After syncing, the AI can find docs at `.cache/skills_cache/WitchModMCP.DeveloperTools/`.
-
 ## Common intents → module routing
 
 | Intent | Module | Tool |
@@ -120,9 +91,18 @@ After syncing, the AI can find docs at `.cache/skills_cache/WitchModMCP.Develope
 
 ## Game source code decompilation (optional)
 
-> **RULE**: Before reading ANY decompiled game source, you MUST call `decompile_source` first. Failure to do so risks reading stale or missing output.
+> This is **purely optional** — the skill works without it. Use it when you need to inspect the game's own C# logic (e.g. to understand a config field, find a hook point, or debug unexpected behaviour). If the user declines, set the skip flag so you never ask again.
 
-> This is purely optional — the skill works without it. Use it when you need to inspect the game's own C# logic (e.g. to understand a config field, find a hook point, or debug unexpected behaviour). If the user declines, you may skip the read entirely.
+```python
+import sys
+sys.path.insert(0, "scripts")
+from Utils.utils import (
+    get_configured_path, set_game_path,
+    is_decompile_enabled, set_decompile_enabled,
+    ensure_src_updated, verify_source_fresh,
+    list_ilspy_assets, SRC_DIR,
+)
+```
 
 ### ═══ SOURCE ACCESS GATE — READ BEFORE ACCESSING ═══
 
@@ -131,60 +111,51 @@ You only need to go through this gate when you **actually need** to read decompi
 ```
 ┌─ GATE ────────────────────────────────────────────────────┐
 │                                                            │
-│  1. ⚠️  ALWAYS call decompile_source first                 │
-│     → g.call("decompile_source",                           │
-│         {"outputDir": "<workspace_path>/game_src"})        │
-│     Returns {status, manifestPath, dlls: {                 │
-│       "Witch.dll":      {hash, dir},                       │
-│       "Witch.Core.dll": {hash, dir} }}                     │
-│     If status=="fresh" → skip, already cached              │
-│     If status=="decompiled" → it was just rebuilt          │
+│  1. Check decompilation is enabled                         │
+│     → is_decompile_enabled()                               │
+│     If False → stop, user declined                         │
 │                                                            │
-│  2. Resolve paths from dlls field                          │
-│     → witchSrc = outputDir + "/" + dlls["Witch.dll"].dir   │
-│     → coreSrc  = outputDir + "/" + dlls["Witch.Core"].dir │
-│     These are the directories containing .cs files         │
+│  2. Resolve game install path                              │
+│     → get_configured_path()                                │
+│     If None → ask user for the Witch directory             │
 │                                                            │
-│  3. NOW you may grep/read files under witchSrc / coreSrc   │
+│  3. ⚠️  VERIFY source freshness                            │
+│     → ensure_src_updated(path)                             │
+│     Compares current DLL hashes against stored ones.       │
+│     If changed (game updated / reinstalled)                │
+│       → auto-re-decompile                                  │
+│     If same → returns immediately                          │
+│     Returns Path to cache/game_src/                        │
+│                                                            │
+│  4. NOW you may grep/read files under SRC_DIR              │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
 ```
 
 **DO this:**
 ```python
-import sys; sys.path.insert(0, "scripts")
-from witch_mcp import WitchMcp
-g = WitchMcp(port=3100)
-r = g.call("decompile_source", {"outputDir": "./game_src"})
-# r.status is "fresh" or "decompiled"
-witchDir = "./game_src/" + r["dlls"]["Witch.dll"]["dir"]
-coreDir  = "./game_src/" + r["dlls"]["Witch.Core.dll"]["dir"]
-# now read .cs files under witchDir and coreDir
+src = ensure_src_updated(get_configured_path())
 ```
 
-**NEVER do this:**
+**DON'T do this:**
 ```python
-# Reading from an arbitrary path without calling decompile_source first
-# The cache may be missing or stale.
+# Reading from SRC_DIR without calling ensure_src_updated() first
+# risks consuming stale decompiled output.
 ```
 
-### Cache directory layout
+### Quick freshness check (read-only)
 
-Each DLL is cached under `{outputDir}/{sha256_hash}/`. The hash only changes when the DLL changes, so re-running `decompile_source` with the same `outputDir` on an unchanged game is instant (`status: "fresh"`).
+If you only want to know whether the cached source is still fresh without triggering a re-decompile:
 
+```python
+from Utils.utils import verify_source_fresh
+ok, reason = verify_source_fresh(game_path)
 ```
-{outputDir}/
-├── .decompile_manifest.json     ← tracks hashes
-├── 8d876.../                    ← Witch.dll's current hash
-│   └── Witch.*.cs ...
-└── ca6e9.../                    ← Witch.Core.dll's current hash
-    └── Witch.Core.*.cs ...
-```
-
-If you change `outputDir` between sessions, old caches are preserved — the tool will regenerate into the new location.
 
 ### Important
 
-- ICSharpCode.Decompiler runs via `dotnet` (included with Unity).
-- Decompilation takes ~30 seconds per DLL on first run.
+- ILSpy is **automatically downloaded from GitHub** — no manual install needed.
+- `dotnet` is required (for cross-platform ILSpy assembly).
+- Decompiled output goes to `~/.config/opencode/skills/witch-mod-mcp/cache/game_src/`.
 - Only targets **`witch.dll`** and **`witch.core.dll`**.
+- If auto-download fails, call `list_ilspy_assets()` to see available downloads; use `ensure_ilspy(platform_override="<tag>")` to try a different platform tag (e.g. `"win64"`, `"cross"`, `"x64"`).

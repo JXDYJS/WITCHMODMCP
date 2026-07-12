@@ -1,0 +1,3 @@
+[submodule "DeveloperTools"]
+	path = DeveloperTools
+	url = git@github.com:JXDYJS/WITCHMODMCP_DeveloperTools.git
