@@ -6,16 +6,17 @@ AI tools (opencode / Claude / Codex) connect to THIS server via stdio.
 This server authenticates with the game mod's HTTP server, so AI tools
 never talk to the mod directly.
 
-Usage in opencode / Claude Desktop config:
-    "witch-mod-mcp": {
-        "command": "python",
-        "args": ["path/to/mcp_gateway/server.py"]
-    }
+On first heartbeat from the mod:
+  1. Skill docs are synced to workspace .agents/skills/ and global opencode skills dir
+  2. decompile_source is triggered to cache game source code
 
 Environment variables:
     MCP_MOD_PORT    — game mod HTTP port (default: 3100)
     MCP_MOD_TOKEN   — auth token (default: reads from game ModConfig.json if found)
-    MCP_GATEWAY_PORT — not used (stdio-only)
+    MCP_HEARTBEAT_INTERVAL — heartbeat interval seconds (default: 5)
+    MCP_HEARTBEAT_MAX_FAIL — consecutive failures before marking disconnected (default: 3)
+    MCP_DECOMPILE_DIR      — decompile cache directory (default: workspace/.cache/game_src)
+    MCP_GLOBAL_SKILLS      — set to "0" to disable global skills sync
 """
 
 import json
@@ -25,6 +26,9 @@ import http.client
 import urllib.request
 import urllib.error
 from pathlib import Path
+
+from mcp_gateway.heartbeat import HeartbeatManager
+from mcp_gateway.skill_sync import sync_skill_docs
 
 DEFAULT_MOD_PORT = 3100
 DEFAULT_TOKEN = "witch-mod-mcp-dev-2026"
@@ -108,7 +112,6 @@ class ModConnection:
             )
             resp = conn.getresponse()
             data = json.loads(resp.read().decode("utf-8"))
-            # Normalise PascalCase → lowercase for predictable access
             return self._lower_keys(data)
         except Exception as e:
             return {"jsonrpc": "2.0", "error": {"code": -32000, "message": f"Mod connection failed: {e}"}}
@@ -126,31 +129,78 @@ class ModConnection:
 class McpGateway:
     """MCP stdio server that proxies tool calls to the game mod."""
 
-    def __init__(self, mod: ModConnection, mod_config: dict):
+    def __init__(self, mod: ModConnection, mod_config: dict, workspace_dir: str):
         self.mod = mod
         self.mod_config = mod_config
+        self.workspace_dir = workspace_dir
         self._tool_cache: list[dict] | None = None
         self._session_id: str | None = None
+        self._heartbeat: HeartbeatManager | None = None
+
+    def _log(self, msg: str):
+        print(f"[gateway] {msg}", file=sys.stderr, flush=True)
+
+    # ── Skill sync + decompile on first heartbeat ──
+
+    def _on_first_heartbeat(self, resp: dict):
+        self._log(f"First heartbeat received — sessionId={resp.get('sessionId', '?')}")
+        self._log(f"  toolCount={resp.get('toolCount', '?')}, activeModules={len(resp.get('activeModules', []))}")
+
+        # 1. Sync skill docs
+        local_skills = os.path.join(self.workspace_dir, ".agents", "skills")
+        global_skills = None
+        if os.environ.get("MCP_GLOBAL_SKILLS", "1") != "0":
+            global_skills = str(Path.home() / ".config" / "opencode" / "skills")
+
+        try:
+            sync_result = sync_skill_docs(resp, local_skills, global_skills)
+            for asm, count in sync_result.get("synced", {}).items():
+                self._log(f"  synced skills: {asm} ({count} .md files)")
+            for err in sync_result.get("errors", []):
+                self._log(f"  sync error: {err}")
+            if global_skills:
+                self._log(f"  global skills dir: {global_skills}")
+        except Exception as e:
+            self._log(f"  skill sync failed: {e}")
+
+        # 2. Trigger decompile_source
+        decompile_dir = os.environ.get(
+            "MCP_DECOMPILE_DIR",
+            os.path.join(self.workspace_dir, ".cache", "game_src"),
+        )
+        os.makedirs(decompile_dir, exist_ok=True)
+
+        try:
+            decomp_resp = self.mod.call_tool("decompile_source", {"outputDir": decompile_dir})
+            decomp_result = decomp_resp.get("result", {})
+            status = decomp_result.get("status", "unknown")
+            self._log(f"  decompile_source: {status}")
+            if decomp_result.get("error"):
+                self._log(f"  decompile error: {decomp_result['error']}")
+        except Exception as e:
+            self._log(f"  decompile_source call failed: {e}")
 
     # ── MCP stdio transport ──────────────────────────────────────
 
     def run(self):
         """Read JSON-RPC requests from stdin, write responses to stdout."""
-        # Log to stderr so it doesn't interfere with MCP stdio protocol
-        log = lambda msg: print(f"[gateway] {msg}", file=sys.stderr, flush=True)
+        self._log(f"Mod port: {self.mod.port}, auth: {'enabled' if self.mod.token else 'disabled'}")
+        self._log(f"Config source: {self.mod_config.get('config_path', 'defaults')}")
+        self._log(f"Workspace: {self.workspace_dir}")
 
-        log(f"Mod port: {self.mod.port}, auth: {'enabled' if self.mod.token else 'disabled'}")
-        log(f"Config source: {self.mod_config.get('config_path', 'defaults')}")
+        # Start heartbeat manager
+        interval = float(os.environ.get("MCP_HEARTBEAT_INTERVAL", "5"))
+        max_fail = int(os.environ.get("MCP_HEARTBEAT_MAX_FAIL", "3"))
 
-        # Verify mod is alive before accepting any requests
-        alive = self.mod.ping()
-        if alive.get("status") != "ok":
-            log(f"MOD NOT REACHABLE at localhost:{self.mod.port}")
-            log(f"ping response: {alive}")
-            log("Make sure the game is running with WitchModMCP loaded.")
-            log("Gateway will start but tools will return errors until mod is reachable.")
-        else:
-            log(f"Mod alive — auth={'yes' if alive.get('auth') else 'no'}, tools will proxy through")
+        self._heartbeat = HeartbeatManager(
+            mod_conn=self.mod,
+            workspace_dir=self.workspace_dir,
+            on_first_heartbeat=self._on_first_heartbeat,
+            interval=interval,
+            max_failures=max_fail,
+        )
+        self._heartbeat.start()
+        self._log("Heartbeat manager started — waiting for mod...")
 
         # MCP protocol: read lines from stdin
         for line in sys.stdin:
@@ -166,6 +216,8 @@ class McpGateway:
             result = self._handle_request(req)
             if result is not None:
                 self._send_json(result)
+
+        self._heartbeat.stop()
 
     def _handle_request(self, req: dict) -> dict | None:
         method = req.get("method", "")
@@ -225,12 +277,11 @@ class McpGateway:
             },
             "serverInfo": {
                 "name": "witch-mod-mcp-gateway",
-                "version": "1.0.0",
+                "version": "2.0.0",
             },
         })
 
     def _handle_tools_list(self, req_id) -> dict:
-        # Call mod's list_tools and cache
         if self._tool_cache is None:
             resp = self.mod.call_tool("list_tools")
             if "result" in resp:
@@ -255,9 +306,8 @@ class McpGateway:
         if not tool_name:
             return self._mcp_error(req_id, -32602, "tool name is required")
 
-        # Check mod is still alive before forwarding
-        alive = self.mod.ping()
-        if alive.get("status") != "ok":
+        # Check heartbeat manager's connection status
+        if self._heartbeat and not self._heartbeat.connected:
             return self._mcp_error(req_id, -32000, "Mod is not reachable. Make sure the game is running with WitchModMCP loaded.")
 
         # Forward to mod
@@ -293,8 +343,12 @@ class McpGateway:
             text = json.dumps(resp.get("result", {}), indent=2, ensure_ascii=False)
             return self._mcp_response(req_id, {"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]})
         elif uri == "witch-mod-mcp://mod/status":
-            alive = self.mod.ping()
-            text = json.dumps(alive, indent=2, ensure_ascii=False)
+            status = {
+                "connected": self._heartbeat.connected if self._heartbeat else False,
+                "first_heartbeat_done": self._heartbeat.first_heartbeat_done if self._heartbeat else False,
+                "session_id": self._heartbeat.session_id if self._heartbeat else None,
+            }
+            text = json.dumps(status, indent=2, ensure_ascii=False)
             return self._mcp_response(req_id, {"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]})
         else:
             return self._mcp_error(req_id, -32602, f"Resource not found: {uri}")
@@ -306,8 +360,11 @@ def main():
     port = int(os.environ.get("MCP_MOD_PORT", mod_config["port"]))
     token = os.environ.get("MCP_MOD_TOKEN", mod_config["token"])
 
+    # Determine workspace directory (= parent of mcp_gateway/)
+    workspace_dir = str(Path(__file__).resolve().parent.parent)
+
     mod = ModConnection(port, token)
-    gateway = McpGateway(mod, mod_config)
+    gateway = McpGateway(mod, mod_config, workspace_dir)
     gateway.run()
 
 

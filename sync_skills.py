@@ -126,7 +126,9 @@ def sync_namespace(assembly_name: str, source_path: str, cache_dir: str) -> bool
     old_manifest = load_manifest(cache_dir)
     old_fp = old_manifest.get(manifest_key, {})
 
-    if current_fp == old_fp:
+    target_fp = compute_fingerprint(str(dst)) if dst.exists() else {}
+
+    if current_fp == old_fp and current_fp == target_fp:
         return False
 
     if dst.exists():

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -141,6 +143,78 @@ namespace WitchModMCP.MCP
                 }
             };
             return JsonConvert.SerializeObject(response);
+        }
+
+        public static Task<string> HandleHeartbeat(int port, string authToken, string body)
+        {
+            JToken bodyToken;
+            try { bodyToken = JToken.Parse(body); }
+            catch { bodyToken = new JObject(); }
+
+            var ctx = HeartbeatHub.ProcessHeartbeat(bodyToken);
+
+            var result = new JObject
+            {
+                ["status"] = "ok",
+                ["port"] = port,
+                ["auth"] = authToken != null,
+                ["toolCount"] = _tools.Count,
+                ["sessionId"] = ctx["sessionId"],
+                ["isFirstHeartbeat"] = ctx["isFirstHeartbeat"],
+                ["timestamp"] = ctx["timestamp"],
+                ["workspacePath"] = ctx["workspacePath"],
+                ["pid"] = ctx["pid"],
+                ["activeModules"] = BuildActiveModules(),
+            };
+
+            return Task.FromResult(JsonConvert.SerializeObject(result));
+        }
+
+        private static JArray BuildActiveModules()
+        {
+            var activeModules = new JArray();
+            var seen = new HashSet<string>();
+
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    var skillAttr = asm.GetCustomAttributes(false)
+                        .FirstOrDefault(a => a is MCPSkillNamespaceAttribute) as MCPSkillNamespaceAttribute;
+                    var pluginAttr = asm.GetCustomAttributes(false)
+                        .FirstOrDefault(a => a is MCPPluginNamespaceAttribute) as MCPPluginNamespaceAttribute;
+
+                    if (skillAttr == null && pluginAttr == null) continue;
+
+                    var asmName = asm.GetName().Name;
+                    if (string.IsNullOrEmpty(asmName) || asm.IsDynamic) continue;
+                    if (!seen.Add(asmName)) continue;
+
+                    var dir = McpToolPlugin.GetAssemblyDirectory(asmName);
+                    if (dir == null && !string.IsNullOrEmpty(asm.Location))
+                        dir = Path.GetDirectoryName(asm.Location);
+                    if (dir == null) continue;
+
+                    var modRoot = dir.EndsWith("Scripts", StringComparison.OrdinalIgnoreCase)
+                        ? Path.GetDirectoryName(dir)
+                        : dir;
+
+                    var mod = new JObject
+                    {
+                        ["assemblyName"] = asmName,
+                        ["skillPath"] = skillAttr != null
+                            ? Path.GetFullPath(Path.Combine(modRoot, skillAttr.RelativeFolderPath))
+                            : null,
+                        ["pluginPath"] = pluginAttr != null
+                            ? Path.GetFullPath(Path.Combine(modRoot, pluginAttr.RelativeFolderPath))
+                            : null
+                    };
+                    activeModules.Add(mod);
+                }
+                catch { }
+            }
+
+            return activeModules;
         }
 
         private static IMcpTool ResolveTool(string method)

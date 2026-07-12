@@ -88,9 +88,29 @@ namespace WitchModMCP.MCP
                     context.Request.Url.AbsolutePath.TrimEnd('/') == "/ping")
                 {
                     var pong = Encoding.UTF8.GetBytes(
-                        $"{{\"status\":\"ok\",\"port\":{_port},\"auth\":{( _authToken != null ? "true" : "false")}}}");
+                        $"{{\"status\":\"ok\",\"port\":{_port},\"auth\":{(_authToken != null ? "true" : "false")}}}");
                     context.Response.ContentLength64 = pong.Length;
                     context.Response.OutputStream.Write(pong, 0, pong.Length);
+                    return;
+                }
+
+                // ──── POST /heartbeat — heartbeat (no auth required) ────
+                if (context.Request.HttpMethod == "POST" &&
+                    context.Request.Url.AbsolutePath.TrimEnd('/') == "/heartbeat")
+                {
+                    string hbBody;
+                    using (var reader = new StreamReader(context.Request.InputStream, Encoding.UTF8))
+                    {
+                        hbBody = await ReadWithLimit(reader, MaxBodyBytes);
+                    }
+
+                    string hbResponse = await McpRouter.HandleHeartbeat(
+                        _port, _authToken,
+                        hbBody ?? "{}");
+
+                    var hbBuf = Encoding.UTF8.GetBytes(hbResponse);
+                    context.Response.ContentLength64 = hbBuf.Length;
+                    await context.Response.OutputStream.WriteAsync(hbBuf, 0, hbBuf.Length);
                     return;
                 }
 

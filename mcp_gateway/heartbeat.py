@@ -1,0 +1,122 @@
+#!/usr/bin/env python3
+"""
+HeartbeatManager — background heartbeat thread for the gateway.
+
+Sends periodic POST /heartbeat to the game mod. On first heartbeat,
+triggers skill doc sync and decompile_source. After consecutive failures,
+marks the mod as disconnected.
+"""
+
+import json
+import os
+import sys
+import threading
+import time
+import http.client
+from pathlib import Path
+
+
+class HeartbeatManager:
+    DEFAULT_INTERVAL = 5.0
+    DEFAULT_MAX_FAILURES = 3
+
+    def __init__(
+        self,
+        mod_conn,
+        workspace_dir: str,
+        on_first_heartbeat=None,
+        interval: float = None,
+        max_failures: int = None,
+    ):
+        self.mod = mod_conn
+        self.workspace_dir = workspace_dir
+        self.on_first_heartbeat = on_first_heartbeat
+        self.interval = interval or self.DEFAULT_INTERVAL
+        self.max_failures = max_failures or self.DEFAULT_MAX_FAILURES
+
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+
+        self._connected = False
+        self._first_heartbeat_done = False
+        self._consecutive_failures = 0
+        self._last_response: dict | None = None
+        self._session_id: str | None = None
+
+    @property
+    def connected(self) -> bool:
+        with self._lock:
+            return self._connected
+
+    @property
+    def first_heartbeat_done(self) -> bool:
+        with self._lock:
+            return self._first_heartbeat_done
+
+    @property
+    def session_id(self) -> str | None:
+        with self._lock:
+            return self._session_id
+
+    def start(self):
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True, name="heartbeat")
+        self._thread.start()
+
+    def stop(self):
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=3)
+
+    def _run(self):
+        while not self._stop.is_set():
+            ok, resp = self._send_heartbeat()
+
+            with self._lock:
+                if ok:
+                    self._connected = True
+                    self._consecutive_failures = 0
+                    self._last_response = resp
+
+                    if not self._first_heartbeat_done:
+                        is_first = resp.get("isFirstHeartbeat", False)
+                        sid = resp.get("sessionId")
+                        self._first_heartbeat_done = True
+                        self._session_id = sid
+                        triggered = True
+                    else:
+                        triggered = False
+                else:
+                    self._consecutive_failures += 1
+                    if self._consecutive_failures >= self.max_failures:
+                        self._connected = False
+                    triggered = False
+
+            if triggered and resp and self.on_first_heartbeat:
+                try:
+                    self.on_first_heartbeat(resp)
+                except Exception as e:
+                    print(f"[heartbeat] on_first_heartbeat callback error: {e}", file=sys.stderr, flush=True)
+
+            self._stop.wait(self.interval)
+
+    def _send_heartbeat(self) -> tuple[bool, dict | None]:
+        body = json.dumps({
+            "workspacePath": self.workspace_dir,
+            "pid": os.getpid(),
+            "keepalive": True,
+        })
+
+        try:
+            conn = self.mod._get_conn()
+            conn.request("POST", "/heartbeat", body, {"Content-Type": "application/json"})
+            resp = conn.getresponse()
+            data = json.loads(resp.read().decode("utf-8"))
+            if resp.status == 200 and data.get("status") == "ok":
+                return True, data
+            return False, data
+        except Exception as e:
+            return False, {"error": str(e)}

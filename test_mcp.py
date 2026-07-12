@@ -39,6 +39,17 @@ def rpc(method, params=None, rid=1):
     return data, raw
 
 
+def heartbeat(workspace_path="/test/workspace", pid=9999):
+    body = json.dumps({"workspacePath": workspace_path, "pid": pid, "keepalive": True})
+    conn = http.client.HTTPConnection("localhost", PORT, timeout=10)
+    conn.request("POST", "/heartbeat", body, {"Content-Type": "application/json"})
+    resp = conn.getresponse()
+    raw = resp.read().decode()
+    conn.close()
+    data = json.loads(raw)
+    return data, raw
+
+
 # Newtonsoft 序列化用的是 PascalCase (Result, Error, Id, JsonRpc)
 def get_result(data):
     return data.get("Result") or data.get("result")
@@ -76,6 +87,34 @@ def test(name, method, params=None, expect_field=None, print_body=True):
         return None
 
 
+def test_heartbeat(name, print_body=True):
+    """Test the POST /heartbeat endpoint."""
+    global OK, FAIL
+    try:
+        data, raw = heartbeat()
+        if data.get("status") != "ok":
+            log(f"  FAIL  {name}: {json.dumps(data, ensure_ascii=False)}")
+            FAIL += 1
+            return None
+
+        if print_body:
+            log(f"  OK    {name}")
+            log(json.dumps(data, ensure_ascii=False, indent=2))
+            log("")
+        else:
+            log(f"  OK    {name}")
+
+        for field in ["sessionId", "isFirstHeartbeat", "toolCount", "activeModules"]:
+            if field not in data:
+                log(f"  WARN  {name}: expected field '{field}' not found")
+        OK += 1
+        return data
+    except Exception as e:
+        log(f"  FAIL  {name}: {e}")
+        FAIL += 1
+        return None
+
+
 def main():
     global PORT
     if len(sys.argv) > 1 and sys.argv[1] == "--port":
@@ -83,8 +122,30 @@ def main():
 
     log(f"=== WitchModMCP 测试 (localhost:{PORT})  {datetime.now():%H:%M:%S} ===\n")
 
+    # 0. heartbeat
+    log("[0] POST /heartbeat - 心跳端点")
+    result = test_heartbeat("heartbeat (first)", print_body=False)
+    if result:
+        log(f"      sessionId: {result.get('sessionId', '?')}")
+        log(f"      isFirstHeartbeat: {result.get('isFirstHeartbeat', '?')}")
+        log(f"      toolCount: {result.get('toolCount', '?')}")
+        modules = result.get("activeModules", [])
+        log(f"      activeModules: {len(modules)}")
+        for m in modules:
+            log(f"        {m.get('assemblyName')}: skillPath={m.get('skillPath', '?')}")
+
+    # 0b. Second heartbeat (should not be first)
+    log("\n[0b] POST /heartbeat - 第二次心跳 (isFirstHeartbeat=False)")
+    result2 = test_heartbeat("heartbeat (second)", print_body=False)
+    if result2:
+        is_first2 = result2.get("isFirstHeartbeat")
+        if is_first2:
+            log(f"  WARN  第二次心跳仍报告 isFirstHeartbeat=True (可能 mod 重启了)")
+        else:
+            log(f"      isFirstHeartbeat=False (符合预期)")
+
     # 1. list_tools
-    log("[1] list_tools - 列出所有 MCP 工具")
+    log("\n[1] list_tools - 列出所有 MCP 工具")
     result = test("list_tools", "list_tools", expect_field="tools")
     if result:
         tools = result.get("tools", [])
