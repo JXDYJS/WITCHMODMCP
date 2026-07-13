@@ -52,23 +52,9 @@ def sync_namespace(assembly_name: str, source_path: str, target_dir: str) -> boo
     if not src.is_dir():
         return False
 
-    current_fp = compute_fingerprint(source_path)
-    manifest_key = f"{assembly_name}:{os.path.abspath(source_path)}"
-
-    old_manifest = load_manifest(str(dst.parent))
-    old_fp = old_manifest.get(manifest_key, {})
-
-    target_fp = compute_fingerprint(str(dst)) if dst.exists() else {}
-
-    if current_fp == old_fp and current_fp == target_fp:
-        return False
-
     if dst.exists():
         shutil.rmtree(dst)
     shutil.copytree(str(src), str(dst), dirs_exist_ok=True)
-
-    old_manifest[manifest_key] = current_fp
-    save_manifest(str(dst.parent), old_manifest)
     return True
 
 
@@ -156,17 +142,12 @@ def sync_skill_docs(
             result["errors"].append(f"{asm_name}: skillPath not found ({skill_path})")
             continue
 
-        count = 0
         for root, label in targets:
             target_dir = root / asm_name
-            if sync_namespace(asm_name, skill_path, str(target_dir)):
-                count += 1
+            sync_namespace(asm_name, skill_path, str(target_dir))
 
         md_count = len(list(Path(skill_path).rglob("*.md")))
         result["synced"][asm_name] = md_count
 
-    any_changes = any(v > 0 for v in result["synced"].values())
-    if any_changes or not (local_root / INDEX_NAME).exists():
-        generate_master_index(active_modules, str(local_root))
-
+    generate_master_index(active_modules, str(local_root))
     return result

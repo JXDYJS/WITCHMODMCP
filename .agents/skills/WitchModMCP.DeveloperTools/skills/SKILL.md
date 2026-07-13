@@ -5,7 +5,7 @@ description: "Index of all DeveloperTools skill modules for browsing available t
 
 # DeveloperTools — 模块索引
 
-此页面列出所有 DeveloperTools 子模块。通用协议、Python 用法、传输层等见[主 SKILL.md](../SKILL.md)。
+此页面列出所有 DeveloperTools 子模块。通用协议、网关架构等见[主 SKILL.md](../SKILL.md)。
 
 ## 子模块列表
 

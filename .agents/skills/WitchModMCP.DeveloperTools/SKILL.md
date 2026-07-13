@@ -3,9 +3,17 @@ name: witch-mod-mcp-developertools
 description: "Mod development aid for the game Witch (女巫/魔法少女 roguelike deckbuilder): extended tools for combat automation, game flow orchestration, lobby configuration, screenshot diagnostics, raycasting, source decompilation, and RNG control. Requires the base WitchModMCP mod to be loaded. Use when you need the extra DeveloperTools beyond the base WitchModMCP toolset. Not a cheat/trainer tool for regular players. Triggers: DeveloperTools, 开发者工具, 战斗自动化, 流程编排, 存档管理, 截图, 反编译, 出牌, 启程, 大厅配置, 随机种子, 射线检测, 假战斗."
 ---
 
-# DeveloperTools
+# DeveloperTools — Extended Toolset
 
-DeveloperTools 是 WitchModMCP 的扩展工具集，提供 18 个额外工具。需配合基座 WitchModMCP 同时加载使用。所有工具通过同一 HTTP 端口暴露，`list_tools` 会同时列出基座和扩展工具。
+DeveloperTools 是 WitchModMCP 的扩展工具集，提供增强版工具和独有工具。需配合基座 WitchModMCP 同时加载使用。
+
+**工具发现**: `list_tools` 自动合并基座和扩展的所有工具。通过 `sourceMod` 字段区分来源。
+
+## 传输方式
+
+DeveloperTools 通过 WitchModMCP 的网关暴露。AI 通过 MCP stdio 与 gateway 通信，无需直接连接 HTTP 端口。
+
+参见 WitchModMCP 主 SKILL.md 了解网关架构和连接方式。
 
 ## 模块索引
 
@@ -38,56 +46,6 @@ DeveloperTools 是 WitchModMCP 的扩展工具集，提供 18 个额外工具。
 | `get_screenshot` | Diagnostics | 截图 |
 | `set_rng_seed` | Diagnostics | 随机种子控制 |
 | `decompile_source` | Diagnostics | 反编译游戏源码 |
-
-## 典型流程：假战斗测试
-
-```python
-import sys; sys.path.insert(0, "scripts")
-from witch_mcp import WitchMcp
-g = WitchMcp(port=3100)
-
-# 1. 确认连接
-if not g.ping():
-    raise SystemExit("游戏未运行或 Mod 未加载")
-
-# 2. 检测当前页面
-state = g.call("get_scene_state")
-print(f"当前页面: {state['page']}")
-
-# 3. 导航到游戏小屋
-if state['page'] == 'MAIN_MENU':
-    g.call("enter_game")
-
-# 4. 开新游戏 → 大厅
-if state['page'] in ('HUB', 'MAIN_MENU'):
-    g.call("start_new_game", {"mode": "Normal"})
-
-# 5. 配置大厅（可选）
-g.call("set_lobby_state", {
-    "careerId": "Career_1",
-    "cardPackIds": ["pack_1","pack_2","pack_3","pack_4","pack_5","pack_6"]
-})
-
-# 6. 启程
-g.call("start_run")
-
-# 7. 跳入假战斗（基座 WitchModMCP 工具）
-g.call("load_scene", {"type": "fakefight"})
-
-# 8. 读取战斗状态
-fight = g.call("get_fight_state")
-print(f"手牌: {len(fight['hand'])} 张, 敌人: {len(fight['enemies'])} 个")
-
-# 9. 出牌测试
-r = g.call("play_card", {"index": 0, "targetIndex": 0})
-print(f"出牌结果: {r['result']}")
-
-# 10. 结束回合
-g.call("end_turn")
-
-# 11. 获胜后领取奖励
-g.call("claim_rewards")
-```
 
 ## 核心原则
 
