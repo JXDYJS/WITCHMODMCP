@@ -29,7 +29,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_gateway.heartbeat import HeartbeatManager
 from mcp_gateway.mod_client import ModConnection, read_mod_config
 from mcp_gateway.resources import register_resources
-from mcp_gateway.tools import register_readonly_tools, register_mutation_tools
+from mcp_gateway.tools import init as tools_init, register_core_tools, register_dynamic_tools
 
 # ── Workspace path (resolved once at import time) ────────────────────
 
@@ -65,8 +65,7 @@ def check_mod_connected() -> bool:
 def _on_first_heartbeat(resp: dict):
     """Triggered on first successful heartbeat from the game mod.
 
-    Currently triggers decompile_source. Resource syncing is handled
-    by the Resources layer (Stage 2), no file-copy needed.
+    Dynamically registers all C# tools and triggers decompile_source.
     """
     sid = resp.get("sessionId", "?")
     tool_count = resp.get("toolCount", "?")
@@ -74,16 +73,20 @@ def _on_first_heartbeat(resp: dict):
     log(f"First heartbeat — sessionId={sid}, toolCount={tool_count}, "
         f"activeModules={len(modules)}")
 
-    # Trigger decompile_source
+    if _mod is None:
+        log("  first-heartbeat: no mod connection, skipping")
+        return
+
+    # 1. Dynamically register all C# tools
+    dyn_count = register_dynamic_tools()
+    log(f"  registered {dyn_count} dynamic tools from C# mod")
+
+    # 2. Trigger decompile_source
     decompile_dir = os.environ.get(
         "MCP_DECOMPILE_DIR",
         os.path.join(_workspace_dir, ".cache", "game_src"),
     )
     os.makedirs(decompile_dir, exist_ok=True)
-
-    if _mod is None:
-        log("  decompile skipped: no mod connection")
-        return
 
     try:
         decomp_resp = _mod.call_tool("decompile_source", {"outputDir": decompile_dir})
@@ -127,18 +130,18 @@ def main():
     _heartbeat.start()
     log("Heartbeat manager started — waiting for game mod...")
 
-    # 3.5. Register skill documentation as MCP Resources
+    # 3.5. Initialize tools module with shared state
+    tools_init(mcp, _mod, _heartbeat)
+
+    # 3.6. Register skill documentation as MCP Resources
     resource_count = register_resources(mcp, _workspace_dir)
     log(f"Registered {resource_count} skill doc resources")
 
-    # 3.6. Register low-risk read-only MCP tools
-    tool_count = register_readonly_tools(mcp, _mod, _heartbeat)
-    log(f"Registered {tool_count} read-only tools")
+    # 3.7. Register core tools (always available, before heartbeat)
+    core_count = register_core_tools(mcp)
+    log(f"Registered {core_count} core tools")
 
-    # 3.7. Register mutation + flow-control tools with guardrails
-    mut_count = register_mutation_tools(mcp, _mod, _heartbeat)
-    log(f"Registered {mut_count} guarded mutation tools")
-    log(f"Total registered: {tool_count + mut_count} tools")
+    # (dynamic C# tools register on first heartbeat via _on_first_heartbeat)
 
     # 4. Run MCP stdio server (blocks until stdin closes)
     try:
