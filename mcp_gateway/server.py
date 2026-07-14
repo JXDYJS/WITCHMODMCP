@@ -20,7 +20,6 @@ Environment variables:
     MCP_DECOMPILE_DIR  — decompile cache directory (default: workspace/.cache/game_src)
 """
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -28,7 +27,12 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from mcp_gateway.heartbeat import HeartbeatManager
-from mcp_gateway.mod_client import ModConnection, read_mod_config, log as mc_log
+from mcp_gateway.mod_client import ModConnection, read_mod_config
+from mcp_gateway.resources import register_resources
+
+# ── Workspace path (resolved once at import time) ────────────────────
+
+_workspace_dir = str(Path(__file__).resolve().parent.parent)
 
 # ── Global state ────────────────────────────────────────────────────
 _heartbeat: HeartbeatManager | None = None
@@ -81,19 +85,14 @@ def _on_first_heartbeat(resp: dict):
         return
 
     try:
-        resp = _mod.call_tool("decompile_source", {"outputDir": decompile_dir})
-        result = resp.get("result", {})
+        decomp_resp = _mod.call_tool("decompile_source", {"outputDir": decompile_dir})
+        result = decomp_resp.get("result", {})
         status = result.get("status", "unknown")
         log(f"  decompile_source: {status}")
         if result.get("error"):
             log(f"  decompile error: {result['error']}")
     except Exception as e:
         log(f"  decompile_source failed: {e}")
-
-
-# ── Workspace path (resolved once at startup) ────────────────────────
-
-_workspace_dir = str(Path(__file__).resolve().parent.parent)
 
 
 # ── Entry point ─────────────────────────────────────────────────────
@@ -103,8 +102,8 @@ def main():
 
     # 1. Read configuration
     mod_config = read_mod_config()
-    port = int(os.environ.get("MCP_MOD_PORT", mod_config["port"]))
-    token = os.environ.get("MCP_MOD_TOKEN", mod_config["token"])
+    port = int(os.environ.get("MCP_MOD_PORT") or mod_config["port"])
+    token = os.environ.get("MCP_MOD_TOKEN") or mod_config["token"]
 
     log(f"Mod port: {port}, auth: {'enabled' if token else 'disabled'}")
     log(f"Config source: {mod_config.get('config_path', 'defaults')}")
@@ -114,8 +113,8 @@ def main():
     _mod = ModConnection(port, token)
 
     # 3. Start heartbeat (background daemon thread)
-    interval = float(os.environ.get("MCP_HEARTBEAT_INTERVAL", "5"))
-    max_fail = int(os.environ.get("MCP_HEARTBEAT_MAX_FAIL", "3"))
+    interval = float(os.environ.get("MCP_HEARTBEAT_INTERVAL") or "5")
+    max_fail = int(os.environ.get("MCP_HEARTBEAT_MAX_FAIL") or "3")
 
     _heartbeat = HeartbeatManager(
         mod_conn=_mod,
@@ -126,6 +125,10 @@ def main():
     )
     _heartbeat.start()
     log("Heartbeat manager started — waiting for game mod...")
+
+    # 3.5. Register skill documentation as MCP Resources
+    resource_count = register_resources(mcp, _workspace_dir)
+    log(f"Registered {resource_count} skill doc resources")
 
     # 4. Run MCP stdio server (blocks until stdin closes)
     try:
