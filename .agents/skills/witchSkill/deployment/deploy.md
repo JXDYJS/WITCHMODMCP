@@ -4,55 +4,25 @@
 
 ## 方法 1：使用 deploy_mod 工具（推荐）
 
-如果 MCP 工具列表中存在 `deploy_mod`：
+如果 MCP 工具列表中存在 `deploy_mod`，AI 直接调用它：
 
 ```python
-# 1. 预览要部署的变更
 result = g.call("deploy_mod", {
-    "source": "workspace/<MOD_SOURCE_DIR>/YourMod",
+    "source": "path/to/YourMod",
     "dry_run": True,
-})
-print(result)  # 显示新增/修改/删除的文件
-
-# 2. 确认无误后执行
-result = g.call("deploy_mod", {
-    "source": "workspace/<MOD_SOURCE_DIR>/YourMod",
-    "dry_run": False,
 })
 ```
 
-> `<MOD_SOURCE_DIR>` 默认是 `【MOD文件夹】`，可通过环境变量 `MCP_MOD_SOURCE_DIR` 覆盖。
-
-**`deploy_mod` 会做什么：**
-1. 读取工作区下的 Mod 目录
-2. 按照 .modignore 规则跳过不需要的文件
-3. 复制到游戏 Mods 目录
-4. 返回部署文件列表
-
-**默认 .modignore 规则（跳过以下内容）：**
-- `.git*`
-- `.opencode*`
-- `.agents*`
-- `__pycache__/`
-- `*.md`（文档文件）
-- `*.py`（脚本文件）
-- `*.user`, `*.suo`, `*.csproj`, `*.sln`（项目文件）
-- `bin/`, `obj/`（编译输出）
+`deploy_mod` 会根据自身规则决定怎么部署，不需要 AI 操心底层路径。
 
 ---
 
 ## 方法 2：手动部署（兜底）
 
-如果 `deploy_mod` 不可用：
+如果 `deploy_mod` 不可用，AI 给用户提供复制命令建议（路径根据用户实际目录生成）：
 
 ```bash
-# PowerShell
-Copy-Item -LiteralPath "workspace/<MOD_SOURCE_DIR>/YourMod" `
-          -Destination "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\YourMod" `
-          -Recurse
-
-# CMD
-xcopy /E /I "workspace\<MOD_SOURCE_DIR>\YourMod" "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\YourMod"
+Copy-Item -LiteralPath "path/to/YourMod" -Destination "游戏Mods目录/YourMod" -Recurse
 ```
 
 ---

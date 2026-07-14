@@ -134,7 +134,7 @@ def main():
     tools_init(mcp, _mod, _heartbeat)
 
     # 3.6. Register skill documentation as MCP Resources
-    resource_count = register_resources(mcp, _workspace_dir)
+    resource_count = register_resources(mcp)
     log(f"Registered {resource_count} skill doc resources")
 
     # 3.7. Register core tools (always available, before heartbeat)

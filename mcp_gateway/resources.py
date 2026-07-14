@@ -12,8 +12,8 @@ Usage:
 """
 
 import os
+from pathlib import Path
 from mcp.server.fastmcp import FastMCP
-from mcp_gateway.mod_client import find_mod_source_dir, find_workspace_root
 
 try:
     from mcp.types import Resource
@@ -39,25 +39,22 @@ def _read_file(path: str) -> str:
         return f"# Read Error\n\nFailed to read `{path}`: {e}"
 
 
-def _resolve(workspace_dir: str, domain: str, *parts: str) -> str:
-    """Resolve a path relative to the skill root for a given domain.
+# Skill 文档根目录：相对于 mcp_gateway/ 的位置。
+# 这是 MCP 项目自身的部署目录名，不是用户 mod 源码目录。
+_SKILL_ROOT = Path(__file__).resolve().parent.parent / "【MOD文件夹】" / "mcp_skills"
 
-    domain = "base"     → {mod_source}/mcp_skills/
-    domain = "devtools" → {mod_source}/mcp_skills/devtools/  (merged from DeveloperTools)
 
-    The mod source directory is auto-detected by scanning workspace subdirectories
-    for one containing ModConfig.json (see find_mod_source_dir).
-    """
-    mod_source = find_mod_source_dir()
-    root = os.path.join(workspace_dir, mod_source, "mcp_skills")
+def _resolve(domain: str, *parts: str) -> str:
+    """Resolve a path relative to the skill root for a given domain."""
+    root = _SKILL_ROOT
     if domain == "devtools":
-        root = os.path.join(root, "devtools")
-    return os.path.join(root, *parts)
+        root = root / "devtools"
+    return str(root.joinpath(*parts))
 
 
 # ── Registration ─────────────────────────────────────────────────────
 
-def register_resources(mcp: FastMCP, workspace_dir: str) -> int:
+def register_resources(mcp: FastMCP) -> int:
     """Register all skill documentation resources on the MCP server.
 
     Each resource handler reads its file from disk on every invocation,
@@ -66,8 +63,8 @@ def register_resources(mcp: FastMCP, workspace_dir: str) -> int:
     Returns the number of resources registered.
     """
 
-    base = lambda *p: _resolve(workspace_dir, "base", *p)
-    dev  = lambda *p: _resolve(workspace_dir, "devtools", *p)
+    base = lambda *p: _resolve("base", *p)
+    dev  = lambda *p: _resolve("devtools", *p)
 
     # ── Root index ──────────────────────────────────────────────────
 

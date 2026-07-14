@@ -21,40 +21,12 @@ def log(msg: str):
     print(f"[mod_client] {msg}", file=sys.stderr, flush=True)
 
 
-def find_workspace_root() -> Path:
-    """Find the workspace root (parent of mcp_gateway/)."""
-    return Path(__file__).resolve().parent.parent
-
-
-def find_mod_source_dir() -> str:
-    """Auto-detect the mod source directory under the workspace root.
-
-    Scans subdirectories for one containing ModConfig.json,
-    skipping common build/artifact directories.
-    Falls back to '【MOD文件夹】' for backward compatibility.
-    """
-    skip = {"bin", "obj", ".git", ".cache", ".opencode",
-            ".agents", "node_modules", "packages", ".vs",
-            "DeveloperTools"}  # DeveloperTools was merged, leftover folder may exist
-    workspace = find_workspace_root()
-    for d in workspace.iterdir():
-        if not d.is_dir() or d.name in skip:
-            continue
-        if (d / "ModConfig.json").exists():
-            return d.name
-    return "【MOD文件夹】"
-
-
 def find_mod_config() -> str | None:
     """Scan possible paths for ModConfig.json and return the first match."""
     candidates = [
         os.environ.get("MCP_MOD_CONFIG", ""),
         str(Path.home() / ".config" / "witch-mod-mcp" / "ModConfig.json"),
     ]
-    workspace = find_workspace_root()
-    mod_dir = find_mod_source_dir()
-    candidates.append(str(workspace / mod_dir / "ModConfig.json"))
-
     for c in candidates:
         if c and Path(c).exists():
             return c
