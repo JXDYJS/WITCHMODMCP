@@ -15,15 +15,34 @@ from pathlib import Path
 DEFAULT_MOD_PORT = 3100
 DEFAULT_TOKEN = "witch-mod-mcp-dev-2026"
 
-# Mod 源码目录：工作区下存放待部署 Mod 文件的文件夹名。
-# 可通过环境变量 MCP_MOD_SOURCE_DIR 覆盖（不需要重命名实际目录）。
-# csproj 中同名字段需同步修改（搜索 `【MOD文件夹】`）。
-MOD_SOURCE_DIR = os.environ.get("MCP_MOD_SOURCE_DIR", "【MOD文件夹】")
-
 
 def log(msg: str):
     """Log diagnostic messages to stderr (never stdout)."""
     print(f"[mod_client] {msg}", file=sys.stderr, flush=True)
+
+
+def find_workspace_root() -> Path:
+    """Find the workspace root (parent of mcp_gateway/)."""
+    return Path(__file__).resolve().parent.parent
+
+
+def find_mod_source_dir() -> str:
+    """Auto-detect the mod source directory under the workspace root.
+
+    Scans subdirectories for one containing ModConfig.json,
+    skipping common build/artifact directories.
+    Falls back to '【MOD文件夹】' for backward compatibility.
+    """
+    skip = {"bin", "obj", ".git", ".cache", ".opencode",
+            ".agents", "node_modules", "packages", ".vs",
+            "DeveloperTools"}  # DeveloperTools was merged, leftover folder may exist
+    workspace = find_workspace_root()
+    for d in workspace.iterdir():
+        if not d.is_dir() or d.name in skip:
+            continue
+        if (d / "ModConfig.json").exists():
+            return d.name
+    return "【MOD文件夹】"
 
 
 def find_mod_config() -> str | None:
@@ -32,9 +51,9 @@ def find_mod_config() -> str | None:
         os.environ.get("MCP_MOD_CONFIG", ""),
         str(Path.home() / ".config" / "witch-mod-mcp" / "ModConfig.json"),
     ]
-    script_dir = Path(__file__).resolve().parent
-    for p in [script_dir / ".." / MOD_SOURCE_DIR, script_dir.parent / MOD_SOURCE_DIR]:
-        candidates.append(str(p / "ModConfig.json"))
+    workspace = find_workspace_root()
+    mod_dir = find_mod_source_dir()
+    candidates.append(str(workspace / mod_dir / "ModConfig.json"))
 
     for c in candidates:
         if c and Path(c).exists():
