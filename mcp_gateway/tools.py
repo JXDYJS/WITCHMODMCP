@@ -15,19 +15,22 @@ from mcp_gateway.mod_client import ModConnection
 from mcp_gateway.heartbeat import HeartbeatManager
 
 
-def _to_pascal(d: dict) -> dict:
-    """Convert snake_case dict keys to PascalCase for the C# Newtonsoft-backed mod.
+def _to_camel(d: dict) -> dict:
+    """Convert snake_case dict keys to camelCase for the C# Newtonsoft-backed mod.
+
+    The C# tools access args via camelCase keys like args["tableName"],
+    args["rootName"], args["outputDir"].
 
     Examples:
-        root_name → RootName
-        max_depth → MaxDepth
-        type_name → TypeName
+        root_name → rootName
+        max_depth → maxDepth
+        type_name → typeName
     """
     result = {}
     for k, v in d.items():
         parts = k.split("_")
-        pascal_key = "".join(p[0].upper() + p[1:] for p in parts if p)
-        result[pascal_key] = _to_pascal(v) if isinstance(v, dict) else v
+        camel_key = parts[0].lower() + "".join(p[0].upper() + p[1:] for p in parts[1:] if p)
+        result[camel_key] = _to_camel(v) if isinstance(v, dict) else v
     return result
 
 
@@ -43,8 +46,8 @@ def _forward(mod: ModConnection, heartbeat: HeartbeatManager,
             "hint": "Heartbeat has not yet connected. Wait for the mod to finish loading."
         }, ensure_ascii=False)
 
-    pascal_args = _to_pascal(arguments) if arguments else None
-    resp = mod.call_tool(tool_name, pascal_args)
+    camel_args = _to_camel(arguments) if arguments else None
+    resp = mod.call_tool(tool_name, camel_args)
 
     err = resp.get("error")
     if err:
