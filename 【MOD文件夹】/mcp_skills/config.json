@@ -1,10 +1,1 @@
-{
-  "game_path": "F:\\steam\\steamapps\\common\\Witch's Apocalyptic Journey",
-  "dll_hashes": {
-    "Witch.dll": "8d87696341625b19f63059b6d91262ff5738f3c0b5abb7598a05c7640727790a",
-    "Witch.Core.dll": "ca6e937abee1c6c0ddbd51005a2831684a141b0f6342b2350f922e76c2dd1ee4"
-  },
-  "last_decompile": "2026-07-08T22:33:58.223537",
-  "skip_decompile": false,
-  "ilspy_version": null
-}
+{}

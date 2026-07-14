@@ -5,7 +5,7 @@ description: "Index of all WitchModMCP skill modules for browsing available tool
 
 # WitchModMCP — Module Index
 
-This folder contains detailed documentation for each module. For quick reference, transport protocol, Python helper, and decompilation guide, see the parent [SKILL.md](../SKILL.md).
+This folder contains detailed documentation for each module. For transport protocol and decompilation guide, see the parent [SKILL.md](../SKILL.md).
 
 ## Modules
 

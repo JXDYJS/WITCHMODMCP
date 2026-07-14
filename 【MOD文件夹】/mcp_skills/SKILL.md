@@ -5,54 +5,35 @@ description: "Mod development aid for the game Witch (女巫/魔法少女 roguel
 
 # WitchModMCP
 
-Talk to a running instance of the game **Witch** via the WitchModMCP mod. The mod embeds an HTTP server inside the game process; you send it JSON-RPC-style requests and it runs game logic on the Unity main thread, then returns JSON.
+WitchModMCP is a mod development tool for the game **Witch** (女巫/魔法少女 roguelike deckbuilder). It helps you inspect live game state, test mod behaviour, query config tables, control fights, navigate scenes, and debug issues — all through standard MCP tools.
 
-This is a **mod-development tool**, not a player-facing cheat/trainer. Its purpose is to help a mod author understand the game's runtime, verify that a mod behaves correctly, and reproduce/debug issues.
+## Architecture
 
-## How the transport works
+**DO NOT connect directly to the game's HTTP port.** Communication goes through a gateway:
 
-- Endpoint: `POST http://localhost:<port>/` — the port is set by `MCPPort` in the mod's `ModConfig.json` (**default `3100`**).
-- Request body (JSON-RPC 2.0 style):
+```
+AI (opencode)
+  │  stdin/stdout (MCP JSON-RPC)
+  ▼
+mcp_gateway/server.py                ← MCP stdio server
+  │  - proxies tools/call → HTTP
+  │  - handles auth (Bearer token)
+  │  - background heartbeat
+  │  - auto-syncs skill docs + decompile source on first heartbeat
+  ▼
+WitchModMCP Mod (in Unity game)
+  │  HTTP server on port MCPPort (default 3100)
+  │  JSON-RPC 2.0, returns PascalCase via Newtonsoft
+```
 
-  ```json
-  { "jsonrpc": "2.0", "id": 1, "method": "<tool_name>", "params": { } }
-  ```
-
-  `method` is the tool name directly (e.g. `"get_game_data"`). The only special method is `list_tools`. `params` is omitted for no-arg tools.
-- Response uses PascalCase keys from Newtonsoft: `Result`, `Error`, `Id`. The result payload itself uses camelCase field names.
-- Errors follow JSON-RPC codes: `-32601` method/tool not found, `-32602` invalid params, `-32603` internal error, `-32700` parse error.
+**The AI does NOT send HTTP requests directly to port 3100.** The gateway handles all communication. Use standard MCP `tools/list` and `tools/call` through the configured stdio transport.
 
 ## Core rules
 
-1. **Confirm the server is alive first** with `ping` before a batch of calls. If it is unreachable, the game is not running, the mod failed to load, or the port is wrong — check `ModConfig.json` `MCPPort`. Do not retry blindly.
-2. **`list_tools` is the source of truth.** Always run `list_tools` to see what is actually registered in this build (tools can be hot-added via `reload_tools`).
-3. **Read before you write.** Prefer read-only tools to understand state. Mutation tools change live game state — only call them when the user clearly wants a change.
-4. **Every call blocks the game's main thread briefly.** Keep parameters tight (`limit`, `maxDepth`, `maxItems`, `maxChildren`) to avoid huge payloads and frame hitches.
-
-## Python helper
-
-Use `scripts/witch_mcp.py` (stdlib only, no `pip install`).
-
-```python
-import sys
-sys.path.insert(0, "scripts")
-from witch_mcp import WitchMcp
-
-g = WitchMcp(port=3100)
-if not g.ping():
-    raise SystemExit("WitchModMCP unreachable - is the game running?")
-
-print(g.list_tools())
-```
-
-CLI form (quick one-offs):
-```bash
-python scripts/witch_mcp.py ping
-python scripts/witch_mcp.py get_game_data
-python scripts/witch_mcp.py --port 3100 eval_command "{\"command\": \"help give\"}"
-```
-
-Generic escape hatch: `g.call("<tool_name>", {...params})`.
+1. **`list_tools` is the source of truth.** Always run `tools/list` first to see what is actually registered in this build (tools can be hot-added via `reload_tools`).
+2. **Read before you write.** Prefer read-only tools to understand state. Mutation tools change live game state — only call them when the user clearly wants a change.
+3. **Every call blocks the game's main thread briefly.** Keep parameters tight (`limit`, `maxDepth`, `maxItems`, `maxChildren`) to avoid huge payloads and frame hitches.
+4. **If `tools/list` fails**, the gateway cannot reach the game mod. Check that: (a) the game is running, (b) WitchModMCP mod is loaded and enabled, (c) the MCP port / auth token in `ModConfig.json` match the gateway configuration.
 
 ## Module Index
 
@@ -60,18 +41,18 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 
 | Module | Tools | Triggers |
 |--------|-------|---------|
-| [Core](./skills/core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | discovery, console command, eval_command |
-| [Meta](./skills/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `check_mode_saves`, `list_game_modes` | scene state, game data, 场景检测, 页面状态 |
-| [Combat](./skills/combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity` | 战斗, 出牌, 打牌, combat |
-| [Lobby](./skills/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
-| [Gameflow](./skills/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow |
-| [Diagnostics](./skills/diagnostics/SKILL.md) | `inspect`, `query_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item` | 调试, 反射, 查配置, debug, diagnostics |
+| [Core](./base/core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | discovery, console command, eval_command |
+| [Meta](./base/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `check_mode_saves`, `list_game_modes` | scene state, game data, 场景检测, 页面状态 |
+| [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity` | 战斗, 出牌, 打牌, combat |
+| [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
+| [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow |
+| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item` | 调试, 反射, 查配置, debug, diagnostics |
 
-For a full module-by-module listing, open [skills/SKILL.md](./skills/SKILL.md).
+For a full module-by-module listing, open [base/SKILL.md](./base/SKILL.md).
 
 ### Extension: DeveloperTools
 
-[DeveloperTools](../developer-tools/SKILL.md) is an optional extension mod that adds 18 tools on top of the base WitchModMCP toolset. It provides enhanced/alternative implementations in several domains:
+[DeveloperTools](./skills/SKILL.md) is an optional extension mod that adds 18 tools on top of the base WitchModMCP toolset. It provides enhanced/alternative implementations in several domains:
 
 | Domain | Base tools | DeveloperTools additions |
 |--------|-----------|------------------------|
@@ -89,14 +70,7 @@ For a full module-by-module listing, open [skills/SKILL.md](./skills/SKILL.md).
 
 ## Skill documentation sync
 
-Skill `.md` docs live inside each mod's folder under `mcp_skills/`. When the game is running, `sync_skills.py` discovers all mods via `get_env_info` and copies their docs to a local cache for the AI to read:
-
-```bash
-cd /path/to/WitchModMCP
-python sync_skills.py --port 3100 --cache-dir .cache/skills_cache
-```
-
-After syncing, the AI can find docs at `.cache/skills_cache/WitchModMCP.DeveloperTools/`.
+Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway auto-syncs docs on first heartbeat — no manual step needed.
 
 ## Common intents → module routing
 
@@ -151,22 +125,11 @@ You only need to go through this gate when you **actually need** to read decompi
 ```
 
 **DO this:**
-```python
-import sys; sys.path.insert(0, "scripts")
-from witch_mcp import WitchMcp
-g = WitchMcp(port=3100)
-r = g.call("decompile_source", {"outputDir": "./game_src"})
-# r.status is "fresh" or "decompiled"
-witchDir = "./game_src/" + r["dlls"]["Witch.dll"]["dir"]
-coreDir  = "./game_src/" + r["dlls"]["Witch.Core.dll"]["dir"]
-# now read .cs files under witchDir and coreDir
+```
+Call decompile_source MCP tool → resolve paths from response
 ```
 
-**NEVER do this:**
-```python
-# Reading from an arbitrary path without calling decompile_source first
-# The cache may be missing or stale.
-```
+**NEVER read from an arbitrary path without calling `decompile_source` first. The cache may be missing or stale.**
 
 ### Cache directory layout
 
