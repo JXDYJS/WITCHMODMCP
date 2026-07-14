@@ -48,6 +48,7 @@
 
   <ItemGroup>
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
+    <Compile Remove="【MOD文件夹】\mcp_plugins\**\*.cs" />
     <!-- DeveloperTools merged into WitchModMCP.Contracts -->
   </ItemGroup>
 

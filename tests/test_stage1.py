@@ -398,7 +398,11 @@ class TestServerMCPProtocol(unittest.TestCase):
             proc.wait(timeout=5)
 
     def test_02_tools_list_has_content(self):
-        """tools/list should have registered tools (Stage 4)."""
+        """tools/list should have core tools before heartbeat connects.
+
+        Now uses dynamic discovery: only 2 core tools (list_tools, list_commands)
+        are registered at startup. C# tools are added after first heartbeat.
+        """
         proc = self._start_server()
         try:
             time.sleep(0.5)
@@ -416,8 +420,11 @@ class TestServerMCPProtocol(unittest.TestCase):
             resp = self._read_line(proc)
             self.assertIsNotNone(resp)
             self.assertEqual(resp["id"], 2)
-            self.assertGreaterEqual(len(resp["result"]["tools"]), 16,
-                "Expected >=16 tools after Stage 4")
+            self.assertGreaterEqual(len(resp["result"]["tools"]), 2,
+                "Expected >=2 core tools before heartbeat")
+            tool_names = [t["name"] for t in resp["result"]["tools"]]
+            self.assertIn("list_tools", tool_names)
+            self.assertIn("list_commands", tool_names)
         finally:
             proc.stdin.close()
             proc.terminate()
