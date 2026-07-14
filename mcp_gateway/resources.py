@@ -41,13 +41,12 @@ def _read_file(path: str) -> str:
 def _resolve(workspace_dir: str, domain: str, *parts: str) -> str:
     """Resolve a path relative to the skill root for a given domain.
 
-    domain = "base"  → 【MOD文件夹】/mcp_skills/
-    domain = "devtools" → DeveloperTools/mcp_skills/
+    domain = "base"     → 【MOD文件夹】/mcp_skills/
+    domain = "devtools" → 【MOD文件夹】/mcp_skills/devtools/  (merged from DeveloperTools)
     """
-    if domain == "base":
-        root = os.path.join(workspace_dir, "【MOD文件夹】", "mcp_skills")
-    else:
-        root = os.path.join(workspace_dir, "DeveloperTools", "mcp_skills")
+    root = os.path.join(workspace_dir, "【MOD文件夹】", "mcp_skills")
+    if domain == "devtools":
+        root = os.path.join(root, "devtools")
     return os.path.join(root, *parts)
 
 

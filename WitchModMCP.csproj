@@ -48,7 +48,7 @@
 
   <ItemGroup>
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
-    <Compile Remove="DeveloperTools\**\*.cs" />
+    <!-- DeveloperTools merged into WitchModMCP.Contracts -->
   </ItemGroup>
 
   <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">

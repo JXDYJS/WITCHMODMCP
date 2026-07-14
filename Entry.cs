@@ -44,6 +44,8 @@ namespace WitchModMCP
             McpToolPlugin.RegisterPluginDll(contractsDllPath);
             McpRouter.ReloadAllTools();
 
+            Commands.Log(MOD_TAG, $"Contracts DLL: {contractsDllPath}");
+
             Server = new McpServer();
             Server.Start(port, authToken);
         }
