@@ -25,12 +25,9 @@ INDEX_NAME = "MASTER_INDEX.md"
 
 
 def resolve_auth_token() -> str:
-    """Scan known paths for ModConfig.json to extract MCPAuthToken."""
+    """Scan possible paths for ModConfig.json to extract MCPAuthToken."""
     candidates = [
         os.environ.get("MCP_MOD_TOKEN", ""),
-        # Steam install path
-        r"F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP\ModConfig.json",
-        r"F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP.DeveloperTools\ModConfig.json",
     ]
     # Relative to this script
     script_dir = Path(__file__).resolve().parent
@@ -38,8 +35,6 @@ def resolve_auth_token() -> str:
         candidates.append(str(p / "ModConfig.json"))
 
     for c in candidates:
-        if c.startswith("F:") or str(Path(c).parent).startswith(str(script_dir)):
-            pass  # continue
         if not c:
             continue
         p = Path(c)

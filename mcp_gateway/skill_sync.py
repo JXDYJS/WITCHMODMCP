@@ -40,6 +40,33 @@ def sync_directory(source_path: str, target_dir: str) -> bool:
     return True
 
 
+def collect_expected_items(active_modules: list) -> set[str]:
+    """Return the union of all top-level item names across all mod skill paths."""
+    expected: set[str] = set()
+    for mod in active_modules:
+        skill_path = mod.get("skillPath")
+        if not skill_path:
+            continue
+        src = Path(skill_path)
+        if src.is_dir():
+            for item in src.iterdir():
+                expected.add(item.name)
+    return expected
+
+
+def clean_orphans(target_dir: str, keep_names: set[str]):
+    """Remove items in target_dir that are not in keep_names."""
+    dst = Path(target_dir)
+    if not dst.is_dir():
+        return
+    for item in list(dst.iterdir()):
+        if item.name not in keep_names:
+            if item.is_dir():
+                shutil.rmtree(str(item))
+            else:
+                item.unlink()
+
+
 def generate_master_index(cache_dir: str):
     """Generate MASTER_INDEX.md for the unified witchskill/ tree."""
     witchskill_dir = Path(cache_dir) / UNIFIED_NAME
@@ -101,7 +128,14 @@ def sync_skill_docs(
     if global_skills_dir:
         targets.append((global_skills_dir, "global"))
 
-    for mod in active_modules:
+    # Phase 1: collect union of all top-level items across mods
+    expected = collect_expected_items(active_modules)
+
+    # Phase 2: sync each mod into targets (primary mod last so its root SKILL.md wins)
+    sorted_modules = sorted(active_modules, key=lambda m: (
+        1 if m.get("assemblyName") == "WitchModMCP" else 0
+    ))
+    for mod in sorted_modules:
         asm_name = mod.get("assemblyName")
         skill_path = mod.get("skillPath")
         if not asm_name or not skill_path:
@@ -117,6 +151,12 @@ def sync_skill_docs(
         md_count = len(list(Path(skill_path).rglob("*.md")))
         result["synced"][asm_name] = md_count
 
+    # Phase 3: clean orphans from all targets (removes stale dirs/files)
+    for root_dir, label in targets:
+        target = os.path.join(root_dir, UNIFIED_NAME)
+        clean_orphans(target, expected)
+
+    # Phase 4: regenerate master index
     generate_master_index(local_skills_dir)
     if global_skills_dir:
         generate_master_index(global_skills_dir)

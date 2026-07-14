@@ -27,15 +27,14 @@ def resolve_token() -> str:
         if a == "--token" and i < len(sys.argv):
             return sys.argv[i + 1]
 
+    out_dir = os.path.dirname(os.path.abspath(__file__))
     candidates = [
         os.environ.get("MCP_MOD_TOKEN", ""),
-        r"F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP\ModConfig.json",
-        r"F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP.DeveloperTools\ModConfig.json",
-        str(Path(out_dir := os.path.dirname(os.path.abspath(__file__))) / "【MOD文件夹】" / "ModConfig.json"),
+        str(Path(out_dir) / "【MOD文件夹】" / "ModConfig.json"),
         str(Path(out_dir).parent / "【MOD文件夹】" / "ModConfig.json"),
     ]
     for c in candidates:
-        if not c or c.startswith("F:"):
+        if not c:
             continue
         p = Path(c)
         if p.exists():

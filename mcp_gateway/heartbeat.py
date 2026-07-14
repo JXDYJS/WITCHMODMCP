@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
 """
-HeartbeatManager — background heartbeat thread for the gateway.
+heartbeat — Background heartbeat thread for the gateway.
 
-Sends periodic POST /heartbeat to the game mod. On first heartbeat,
-triggers skill doc sync and decompile_source. After consecutive failures,
-marks the mod as disconnected.
+Sends periodic POST /heartbeat via ModConnection to the game mod.
+On first heartbeat, triggers the callback (decompile, etc).
+After consecutive failures, marks the mod as disconnected.
 """
 
-import json
-import os
 import sys
 import threading
 import time
-import http.client
-from pathlib import Path
+from typing import Callable
+
+from mcp_gateway.mod_client import ModConnection
+
+Callback = Callable[[dict], None]
 
 
 class HeartbeatManager:
@@ -22,13 +23,13 @@ class HeartbeatManager:
 
     def __init__(
         self,
-        mod_conn,
+        mod_conn: ModConnection,
         workspace_dir: str,
-        on_first_heartbeat=None,
-        interval: float = None,
-        max_failures: int = None,
+        on_first_heartbeat: Callback | None = None,
+        interval: float | None = None,
+        max_failures: int | None = None,
     ):
-        self.mod = mod_conn
+        self.mod: ModConnection = mod_conn
         self.workspace_dir = workspace_dir
         self.on_first_heartbeat = on_first_heartbeat
         self.interval = interval or self.DEFAULT_INTERVAL
@@ -73,7 +74,7 @@ class HeartbeatManager:
 
     def _run(self):
         while not self._stop.is_set():
-            ok, resp = self._send_heartbeat()
+            ok, resp = self.mod.send_heartbeat(self.workspace_dir)
 
             with self._lock:
                 if ok:
@@ -82,10 +83,8 @@ class HeartbeatManager:
                     self._last_response = resp
 
                     if not self._first_heartbeat_done:
-                        is_first = resp.get("isFirstHeartbeat", False)
-                        sid = resp.get("sessionId")
                         self._first_heartbeat_done = True
-                        self._session_id = sid
+                        self._session_id = resp.get("sessionId") if resp else None
                         triggered = True
                     else:
                         triggered = False
@@ -99,24 +98,10 @@ class HeartbeatManager:
                 try:
                     self.on_first_heartbeat(resp)
                 except Exception as e:
-                    print(f"[heartbeat] on_first_heartbeat callback error: {e}", file=sys.stderr, flush=True)
+                    print(
+                        f"[heartbeat] on_first_heartbeat error: {e}",
+                        file=sys.stderr,
+                        flush=True,
+                    )
 
             self._stop.wait(self.interval)
-
-    def _send_heartbeat(self) -> tuple[bool, dict | None]:
-        body = json.dumps({
-            "workspacePath": self.workspace_dir,
-            "pid": os.getpid(),
-            "keepalive": True,
-        })
-
-        try:
-            conn = self.mod._get_conn()
-            conn.request("POST", "/heartbeat", body, {"Content-Type": "application/json"})
-            resp = conn.getresponse()
-            data = json.loads(resp.read().decode("utf-8"))
-            if resp.status == 200 and data.get("status") == "ok":
-                return True, data
-            return False, data
-        except Exception as e:
-            return False, {"error": str(e)}
