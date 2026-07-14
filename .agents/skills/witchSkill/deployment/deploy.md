@@ -9,17 +9,19 @@
 ```python
 # 1. 预览要部署的变更
 result = g.call("deploy_mod", {
-    "source": "workspace/【MOD文件夹】/YourMod",
+    "source": "workspace/<MOD_SOURCE_DIR>/YourMod",
     "dry_run": True,
 })
 print(result)  # 显示新增/修改/删除的文件
 
 # 2. 确认无误后执行
 result = g.call("deploy_mod", {
-    "source": "workspace/【MOD文件夹】/YourMod",
+    "source": "workspace/<MOD_SOURCE_DIR>/YourMod",
     "dry_run": False,
 })
 ```
+
+> `<MOD_SOURCE_DIR>` 默认是 `【MOD文件夹】`，可通过环境变量 `MCP_MOD_SOURCE_DIR` 覆盖。
 
 **`deploy_mod` 会做什么：**
 1. 读取工作区下的 Mod 目录
@@ -45,12 +47,12 @@ result = g.call("deploy_mod", {
 
 ```bash
 # PowerShell
-Copy-Item -LiteralPath "workspace/【MOD文件夹】/YourMod" `
+Copy-Item -LiteralPath "workspace/<MOD_SOURCE_DIR>/YourMod" `
           -Destination "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\YourMod" `
           -Recurse
 
 # CMD
-xcopy /E /I "workspace\【MOD文件夹】\YourMod" "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\YourMod"
+xcopy /E /I "workspace\<MOD_SOURCE_DIR>\YourMod" "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\YourMod"
 ```
 
 ---

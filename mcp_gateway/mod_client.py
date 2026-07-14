@@ -15,6 +15,11 @@ from pathlib import Path
 DEFAULT_MOD_PORT = 3100
 DEFAULT_TOKEN = "witch-mod-mcp-dev-2026"
 
+# Mod 源码目录：工作区下存放待部署 Mod 文件的文件夹名。
+# 可通过环境变量 MCP_MOD_SOURCE_DIR 覆盖（不需要重命名实际目录）。
+# csproj 中同名字段需同步修改（搜索 `【MOD文件夹】`）。
+MOD_SOURCE_DIR = os.environ.get("MCP_MOD_SOURCE_DIR", "【MOD文件夹】")
+
 
 def log(msg: str):
     """Log diagnostic messages to stderr (never stdout)."""
@@ -28,7 +33,7 @@ def find_mod_config() -> str | None:
         str(Path.home() / ".config" / "witch-mod-mcp" / "ModConfig.json"),
     ]
     script_dir = Path(__file__).resolve().parent
-    for p in [script_dir / ".." / "【MOD文件夹】", script_dir.parent / "【MOD文件夹】"]:
+    for p in [script_dir / ".." / MOD_SOURCE_DIR, script_dir.parent / MOD_SOURCE_DIR]:
         candidates.append(str(p / "ModConfig.json"))
 
     for c in candidates:

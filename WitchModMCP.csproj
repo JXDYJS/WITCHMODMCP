@@ -40,6 +40,12 @@
     <OutputPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\$(AssemblyName)\Scripts</OutputPath>
   </PropertyGroup>
 
+  <!--
+    MOD_SOURCE_DIR: 源码文件夹名，默认【MOD文件夹】。
+    如果你重命名了该文件夹（例如改为 "MyModSource"），
+    同步修改下方所有 【MOD文件夹】 引用，
+    以及 Python 侧的 MCP_MOD_SOURCE_DIR 环境变量。
+  -->
   <ItemGroup>
     <Folder Include="【MOD文件夹】\Data\" />
     <Folder Include="【MOD文件夹】\Text\" />

@@ -28,10 +28,11 @@ def resolve_token() -> str:
             return sys.argv[i + 1]
 
     out_dir = os.path.dirname(os.path.abspath(__file__))
+    mod_dir = os.environ.get("MCP_MOD_SOURCE_DIR", "【MOD文件夹】")
     candidates = [
         os.environ.get("MCP_MOD_TOKEN", ""),
-        str(Path(out_dir) / "【MOD文件夹】" / "ModConfig.json"),
-        str(Path(out_dir).parent / "【MOD文件夹】" / "ModConfig.json"),
+        str(Path(out_dir) / mod_dir / "ModConfig.json"),
+        str(Path(out_dir).parent / mod_dir / "ModConfig.json"),
     ]
     for c in candidates:
         if not c:

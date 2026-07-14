@@ -13,6 +13,7 @@ Usage:
 
 import os
 from mcp.server.fastmcp import FastMCP
+from mcp_gateway.mod_client import MOD_SOURCE_DIR
 
 try:
     from mcp.types import Resource
@@ -41,10 +42,10 @@ def _read_file(path: str) -> str:
 def _resolve(workspace_dir: str, domain: str, *parts: str) -> str:
     """Resolve a path relative to the skill root for a given domain.
 
-    domain = "base"     → 【MOD文件夹】/mcp_skills/
-    domain = "devtools" → 【MOD文件夹】/mcp_skills/devtools/  (merged from DeveloperTools)
+    domain = "base"     → {MOD_SOURCE_DIR}/mcp_skills/
+    domain = "devtools" → {MOD_SOURCE_DIR}/mcp_skills/devtools/  (merged from DeveloperTools)
     """
-    root = os.path.join(workspace_dir, "【MOD文件夹】", "mcp_skills")
+    root = os.path.join(workspace_dir, MOD_SOURCE_DIR, "mcp_skills")
     if domain == "devtools":
         root = os.path.join(root, "devtools")
     return os.path.join(root, *parts)
