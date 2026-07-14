@@ -66,6 +66,7 @@ class ModConnection:
     def __init__(self, port: int, token: str):
         self.port = port
         self.token = token
+        self._id_counter = 0
 
     # ── low-level HTTP helpers ───────────────────────────────────────
 
@@ -85,7 +86,7 @@ class ModConnection:
 
             conn.request(method, path, body, headers)
             resp = conn.getresponse()
-            data = resp.read().decode("utf-8")
+            data = resp.read().decode("utf-8", errors="replace")
             return resp.status, data
         finally:
             conn.close()
@@ -99,6 +100,8 @@ class ModConnection:
             if status == 200:
                 return json.loads(body)
             return {"status": "error", "http_status": status}
+        except json.JSONDecodeError:
+            return {"status": "error", "message": "Invalid JSON response"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
@@ -113,9 +116,10 @@ class ModConnection:
             Normalised JSON-RPC response dict with lowercase keys
             (result / error / jsonrpc / id).
         """
+        self._id_counter += 1
         req_body = json.dumps({
             "jsonrpc": "2.0",
-            "id": 1,
+            "id": self._id_counter,
             "method": method,
             "params": params or {},
         })
@@ -123,6 +127,11 @@ class ModConnection:
             status, body = self._request("POST", "/", req_body, auth=True)
             data = json.loads(body)
             return self._lower_keys(data)
+        except json.JSONDecodeError:
+            return {
+                "jsonrpc": "2.0",
+                "error": {"code": -32700, "message": "Invalid JSON response from mod"},
+            }
         except Exception as e:
             return {
                 "jsonrpc": "2.0",
@@ -147,6 +156,8 @@ class ModConnection:
             if status == 200 and data.get("status") == "ok":
                 return True, data
             return False, data
+        except json.JSONDecodeError:
+            return False, {"error": "Invalid JSON response"}
         except Exception as e:
             return False, {"error": str(e)}
 
@@ -156,10 +167,11 @@ class ModConnection:
     def _lower_keys(d):
         """Recursively lowercase all dict keys (handles PascalCase from C# Newtonsoft)."""
         if isinstance(d, dict):
-            return {
-                k[0].lower() + k[1:]: ModConnection._lower_keys(v)
-                for k, v in d.items()
-            }
+            result = {}
+            for k, v in d.items():
+                key = k[0].lower() + k[1:] if k else k
+                result[key] = ModConnection._lower_keys(v)
+            return result
         elif isinstance(d, list):
             return [ModConnection._lower_keys(v) for v in d]
         return d

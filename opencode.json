@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "witchmod": {
+      "type": "local",
+      "command": ["E:/miniconda/python.exe", "-m", "mcp_gateway.server"],
+      "cwd": ".",
+      "environment": {
+        "MCP_MOD_PORT": "3100",
+        "MCP_MOD_TOKEN": "witch-mod-mcp-dev-2026",
+        "MCP_HEARTBEAT_INTERVAL": "5",
+        "MCP_HEARTBEAT_MAX_FAIL": "3"
+      },
+      "enabled": true
+    }
+  }
+}

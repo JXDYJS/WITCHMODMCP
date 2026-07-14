@@ -32,8 +32,8 @@ class HeartbeatManager:
         self.mod: ModConnection = mod_conn
         self.workspace_dir = workspace_dir
         self.on_first_heartbeat = on_first_heartbeat
-        self.interval = interval or self.DEFAULT_INTERVAL
-        self.max_failures = max_failures or self.DEFAULT_MAX_FAILURES
+        self.interval = max(interval or self.DEFAULT_INTERVAL, 0.1)
+        self.max_failures = max(max_failures or self.DEFAULT_MAX_FAILURES, 1)
 
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
