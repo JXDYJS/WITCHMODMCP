@@ -29,7 +29,7 @@ from mcp.server.fastmcp import FastMCP
 from mcp_gateway.heartbeat import HeartbeatManager
 from mcp_gateway.mod_client import ModConnection, read_mod_config
 from mcp_gateway.resources import register_resources
-from mcp_gateway.tools import register_readonly_tools
+from mcp_gateway.tools import register_readonly_tools, register_mutation_tools
 
 # ── Workspace path (resolved once at import time) ────────────────────
 
@@ -134,6 +134,11 @@ def main():
     # 3.6. Register low-risk read-only MCP tools
     tool_count = register_readonly_tools(mcp, _mod, _heartbeat)
     log(f"Registered {tool_count} read-only tools")
+
+    # 3.7. Register mutation + flow-control tools with guardrails
+    mut_count = register_mutation_tools(mcp, _mod, _heartbeat)
+    log(f"Registered {mut_count} guarded mutation tools")
+    log(f"Total registered: {tool_count + mut_count} tools")
 
     # 4. Run MCP stdio server (blocks until stdin closes)
     try:

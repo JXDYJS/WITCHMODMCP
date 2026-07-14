@@ -331,4 +331,410 @@ def register_readonly_tools(mcp: FastMCP, mod: ModConnection,
             args["output_dir"] = output_dir
         return _forward(mod, heartbeat, "decompile_source", args)
 
-    return 16  # total tool count
+    return 16
+
+
+def register_mutation_tools(mcp: FastMCP, mod: ModConnection,
+                             heartbeat: HeartbeatManager) -> int:
+    """Register 22 high-risk mutation + flow-control tools with guardrails.
+
+    Each tool description mandates reading a specific resource URI before
+    first invocation. The AI client MUST honour these guardrails.
+
+    Returns the number of tools registered.
+    """
+
+    # ═══════════════════════════════════════════════════════════════════
+    # HIGH — Arbitrary command execution
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def eval_command(command: str) -> str:
+        """[GUARDED: READ resource://witchmod/tools/core BEFORE FIRST USE]
+
+        Execute an arbitrary game console command. This is the MOST POWERFUL
+        and MOST DANGEROUS tool — you can destroy game state, crash the game,
+        or corrupt saves with a single wrong command.
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/core") for full docs.
+        2. Call list_commands() to see available commands and their parameters.
+        3. Call get_scene_state() to verify the current game page supports this cmd.
+        4. Start with read-only commands (help, status) before mutations.
+        5. NEVER guess a command name or parameter — verify with list_commands().
+
+        IF YOU HAVE NOT READ THE CORE MODULE DOCS, YOU ARE UNAUTHORIZED.
+        """
+        return _forward(mod, heartbeat, "eval_command", {"command": command})
+
+    # ═══════════════════════════════════════════════════════════════════
+    # HIGH — Item injection
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def give_item(item_type: str, value: str) -> str:
+        """[GUARDED: READ resource://witchmod/tools/diagnostics BEFORE FIRST USE]
+
+        Inject an item or resource into the player. Supports 30+ types
+        including money, cards, relics, blessings, key items, and more.
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/diagnostics").
+        2. Call get_game_data() to see current inventory before injecting.
+        3. Call get_scene_state() to confirm injection is safe at current page.
+        4. Verify item_type against the diagnostics docs supported-types list.
+
+        IF YOU HAVE NOT READ THE DIAGNOSTICS DOCS, YOU ARE UNAUTHORIZED.
+        """
+        return _forward(mod, heartbeat, "give_item", {
+            "type": item_type, "value": value,
+        })
+
+    # ═══════════════════════════════════════════════════════════════════
+    # HIGH — Lobby state modification
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def set_lobby_state(career: str | None = None,
+                        partner: str | None = None,
+                        strength: int | None = None,
+                        lucky: int | None = None,
+                        perceive: int | None = None,
+                        wisdom: int | None = None,
+                        card_pack: str | None = None,
+                        card_pack_enable: bool | None = None,
+                        confirm: bool = False) -> str:
+        """[GUARDED: READ resource://witchmod/tools/lobby BEFORE FIRST USE]
+
+        Modify the career selection lobby configuration. Changes take effect
+        when you call start_run(), affecting the entire run.
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/lobby").
+        2. Call get_lobby_state() to see current config and valid options.
+        3. Call get_scene_state() to confirm game is on the LOBBY page.
+        4. If confirm=False, this returns a PREVIEW only (read-only safety).
+           You MUST review the preview, then call again with confirm=True.
+        5. Verify attribute totals are within allowed bounds.
+
+        IF confirm=False AND YOU HAVE NOT REVIEWED THE PREVIEW, STOP.
+        IF YOU HAVE NOT READ THE LOBBY DOCS, YOU ARE UNAUTHORIZED.
+        """
+        args = {}
+        if career is not None: args["career"] = career
+        if partner is not None: args["partner"] = partner
+        if strength is not None: args["strength"] = strength
+        if lucky is not None: args["lucky"] = lucky
+        if perceive is not None: args["perceive"] = perceive
+        if wisdom is not None: args["wisdom"] = wisdom
+        if card_pack is not None: args["card_pack"] = card_pack
+        if card_pack_enable is not None: args["card_pack_enable"] = card_pack_enable
+        args["confirm"] = confirm
+        return _forward(mod, heartbeat, "set_lobby_state", args)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # HIGH — Combat entity mutation
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def set_fight_entity(entity_type: str,
+                         hp: int | None = None,
+                         max_hp: int | None = None,
+                         shield: int | None = None,
+                         power: int | None = None,
+                         buff_id: int | None = None,
+                         buff_stack: int | None = None) -> str:
+        """[GUARDED: READ resource://witchmod/tools/combat BEFORE FIRST USE]
+
+        DIRECTLY modify combat entity attributes (player or enemy). Can
+        trivialize fights, break combat scripts, or cause undefined behaviour.
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/combat").
+        2. Call get_fight_state() to see current entity stats before modifying.
+        3. Call get_scene_state() to confirm game is in FIGHT page.
+        4. Use sparingly — prefer play_card() for legitimate combat actions.
+        5. Document every modification so you can reverse it.
+
+        IF YOU HAVE NOT READ THE COMBAT DOCS, YOU ARE UNAUTHORIZED.
+        """
+        args = {"entity_type": entity_type}
+        if hp is not None: args["hp"] = hp
+        if max_hp is not None: args["max_hp"] = max_hp
+        if shield is not None: args["shield"] = shield
+        if power is not None: args["power"] = power
+        if buff_id is not None: args["buff_id"] = buff_id
+        if buff_stack is not None: args["buff_stack"] = buff_stack
+        return _forward(mod, heartbeat, "set_fight_entity", args)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # HIGH — Card pile manipulation
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def set_card_pile(pile: str, card_id: int, action: str = "add",
+                      position: int = 0) -> str:
+        """[GUARDED: READ resource://witchmod/tools/combat BEFORE FIRST USE]
+
+        Low-level card pile manipulation: add/remove/move cards between
+        hand, draw pile, discard pile, and exhaust pile. Can break card
+        game logic if used carelessly.
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/combat").
+        2. Call get_fight_state() to see current pile contents.
+        3. Verify card_id via query_config("CardConfig") if unsure.
+        4. Prefer play_card() for normal plays — use this only for debugging.
+
+        IF YOU HAVE NOT READ THE COMBAT DOCS, YOU ARE UNAUTHORIZED.
+        """
+        return _forward(mod, heartbeat, "set_card_pile", {
+            "pile": pile, "card_id": card_id, "action": action,
+            "position": position,
+        })
+
+    # ═══════════════════════════════════════════════════════════════════
+    # MEDIUM — RNG seed control
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def set_rng_seed(seed: int | None = None,
+                     force_state: str | None = None) -> str:
+        """[READ resource://witchmod/devtools/diagnostics before using]
+
+        Force-set the RNG seed pool for reproducible testing. Use this
+        to reproduce random behaviours consistently across runs.
+
+        Args:
+            seed: Fixed RNG seed value. If None, resets to system random.
+            force_state: Force a specific random state name.
+        """
+        args: dict = {}
+        if seed is not None: args["seed"] = seed
+        if force_state is not None: args["force_state"] = force_state
+        return _forward(mod, heartbeat, "set_rng_seed", args)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # MEDIUM — DLL hot-reload
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def reload_tools() -> str:
+        """[READ resource://witchmod/tools/core before using]
+
+        Hot-reload all MCP tool DLLs without restarting the game. Use after
+        recompiling C# mod code. May cause brief stalls or state issues.
+        """
+        return _forward(mod, heartbeat, "reload_tools")
+
+    # ═══════════════════════════════════════════════════════════════════
+    # MEDIUM — Combat flow
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def play_card(card_index: int | None = None,
+                  card_id: int | None = None,
+                  target_index: int | None = None,
+                  choice_index: int = 0) -> str:
+        """[READ resource://witchmod/tools/combat before using]
+
+        Play a card from hand during combat. Provide card_index (0-based
+        position in hand) or card_id (numeric card ID).
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/combat").
+        2. Call get_fight_state() to see hand contents, energy, valid targets.
+        3. Call get_scene_state() to confirm FIGHT page.
+        4. Verify you have enough energy for the card.
+        5. For targeted cards, provide target_index.
+        6. For modal-choice cards, provide choice_index.
+
+        IF YOU HAVE NOT READ THE COMBAT DOCS, YOU ARE UNAUTHORIZED.
+        """
+        args: dict = {"choice_index": choice_index}
+        if card_index is not None: args["card_index"] = card_index
+        if card_id is not None: args["card_id"] = card_id
+        if target_index is not None: args["target_index"] = target_index
+        return _forward(mod, heartbeat, "play_card", args)
+
+    @mcp.tool()
+    def end_turn() -> str:
+        """[READ resource://witchmod/tools/combat before using]
+
+        Force-end the current player turn. The game proceeds to enemy turn
+        and resolves all pending effects, buffs, and intents.
+
+        Call get_fight_state() first to understand the current board state.
+        """
+        return _forward(mod, heartbeat, "end_turn")
+
+    # ═══════════════════════════════════════════════════════════════════
+    # MEDIUM — Game flow navigation
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def enter_game() -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        Click "Start Game" on the main menu to enter the HUB (game hut).
+        Only works from the MAIN_MENU page.
+
+        Call get_scene_state() first to confirm you are on MAIN_MENU.
+        After calling, poll get_scene_state() until page changes to HUB.
+        """
+        return _forward(mod, heartbeat, "enter_game")
+
+    @mcp.tool()
+    def start_new_game(mode: str) -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        Select a game mode and enter the career selection LOBBY.
+        Only works from the HUB page.
+
+        Call list_game_modes() first to see available modes.
+        Call get_scene_state() to confirm HUB page.
+        After calling, poll get_scene_state() until page changes to LOBBY.
+        """
+        return _forward(mod, heartbeat, "start_new_game", {"mode": mode})
+
+    @mcp.tool()
+    def start_run() -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        Click "Embark" (启程) in the career lobby to start a run.
+        Only works from the LOBBY page. Lobby configuration must be set
+        before calling (use get_lobby_state / set_lobby_state).
+
+        Call get_scene_state() first to confirm LOBBY page.
+        After calling, poll get_scene_state() until page changes to MAP.
+        """
+        return _forward(mod, heartbeat, "start_run")
+
+    @mcp.tool()
+    def load_scene(scene_type: str, scene_id: str | None = None) -> str:
+        """[GUARDED: READ resource://witchmod/tools/gameflow BEFORE FIRST USE]
+
+        Jump directly to a specific scene (event, fight, or fake fight).
+        This BYPASSES normal game flow — use with extreme caution. May
+        skip critical run setup, story triggers, or save state.
+
+        MANDATORY PRE-CALL CHECKLIST:
+        1. FIRST: read_resource("resource://witchmod/tools/gameflow").
+        2. Call get_scene_state() to understand current context.
+        3. Understand that jumping mid-run may corrupt the run state.
+        4. Prefer enter_game -> start_new_game -> start_run natural flow.
+
+        IF YOU HAVE NOT READ THE GAMEFLOW DOCS, YOU ARE UNAUTHORIZED.
+        """
+        args = {"scene_type": scene_type}
+        if scene_id: args["scene_id"] = scene_id
+        return _forward(mod, heartbeat, "load_scene", args)
+
+    @mcp.tool()
+    def claim_rewards() -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        Claim battle rewards and close the rewards UI after a fight.
+        Only works on the post-battle rewards screen.
+
+        Call get_scene_state() first to confirm you are in the rewards flow.
+        """
+        return _forward(mod, heartbeat, "claim_rewards")
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Map navigation
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def map_list_nodes() -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        List all reachable nodes on the current map. Returns node types,
+        icons, and paths. Call BEFORE map_choose_node() to see options.
+
+        Call get_scene_state() first to confirm MAP page.
+        """
+        return _forward(mod, heartbeat, "map_list_nodes")
+
+    @mcp.tool()
+    def map_choose_node(node_index: int) -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        Select and travel to a map node by its index (from map_list_nodes()).
+        This advances the run — the choice is permanent for this run.
+
+        Call map_list_nodes() first to see available nodes and their indices.
+        Call get_scene_state() to confirm MAP page.
+        """
+        return _forward(mod, heartbeat, "map_choose_node", {
+            "node_index": node_index,
+        })
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Event interaction
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def event_advance_dialogue() -> str:
+        """Advance the current event dialogue text.
+
+        Call get_scene_state() first to confirm EVENT page.
+        """
+        return _forward(mod, heartbeat, "event_advance_dialogue")
+
+    @mcp.tool()
+    def event_choose_option(option_index: int) -> str:
+        """[READ resource://witchmod/tools/gameflow before using]
+
+        Select an option in an event UI by 0-based index. Event choices
+        can have permanent run consequences (gain/lose items, HP change).
+
+        Before calling, read the event text via get_scene_state or screenshot.
+        """
+        return _forward(mod, heartbeat, "event_choose_option", {
+            "option_index": option_index,
+        })
+
+    # ═══════════════════════════════════════════════════════════════════
+    # Reward selection
+    # ═══════════════════════════════════════════════════════════════════
+
+    @mcp.tool()
+    def pick_card_reward(card_index: int = 0) -> str:
+        """Select a card from the card reward UI by index (0-based).
+
+        Call get_fight_state() or get_scene_state() first to confirm the
+        reward UI is active. Skipping a reward is irreversible.
+        """
+        return _forward(mod, heartbeat, "pick_card_reward", {
+            "card_index": card_index,
+        })
+
+    @mcp.tool()
+    def skip_card_reward() -> str:
+        """Skip the current card reward selection. IRREVERSIBLE.
+
+        Once skipped, you cannot get this card reward back for this run.
+        """
+        return _forward(mod, heartbeat, "skip_card_reward")
+
+    @mcp.tool()
+    def pick_blessing_reward(blessing_index: int = 0) -> str:
+        """Select a blessing from the blessing choice UI by index (0-based).
+
+        Call get_scene_state() first to confirm the blessing UI is active.
+        Blessings provide permanent run bonuses — choose carefully.
+        """
+        return _forward(mod, heartbeat, "pick_blessing_reward", {
+            "blessing_index": blessing_index,
+        })
+
+    @mcp.tool()
+    def skip_blessing_reward() -> str:
+        """Skip the current blessing reward selection. IRREVERSIBLE.
+
+        Once skipped, you cannot get this blessing for the current run.
+        """
+        return _forward(mod, heartbeat, "skip_blessing_reward")
+
+    return 22
