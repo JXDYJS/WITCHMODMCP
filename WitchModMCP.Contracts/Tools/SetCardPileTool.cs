@@ -70,16 +70,16 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                List<string> cards = args["cards"]?
+                List<string> cards = (args["cards"] as JArray)?
                     .Select(c => c.Value<string>())
                     .Where(x => !string.IsNullOrEmpty(x))
                     .ToList() ?? new List<string>();
 
-                List<int> indices = args["indices"]?
+                List<int> indices = (args["indices"] as JArray)?
                     .Select(c => c.Value<int>())
                     .ToList() ?? new List<int>();
 
-                bool shuffle = args["shuffle"]?.Value<bool>() ?? false;
+                bool shuffle = args["shuffle"] is JToken sh && sh.Type == JTokenType.Boolean && sh.Value<bool>();
 
                 switch (pile.ToLower())
                 {

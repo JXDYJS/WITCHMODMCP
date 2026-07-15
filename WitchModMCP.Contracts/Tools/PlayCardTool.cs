@@ -175,8 +175,8 @@ namespace WitchModMCP.Tools
                     }
 
                     // --- Handle post-play choices ---
-                    var choices = args["choices"];
-                    if (choices != null)
+                    var choices = (args is JObject jo) ? jo["choices"] : null;
+                    if (choices != null && choices.Type != JTokenType.Null)
                     {
                         bool autoConfirm = choices["autoConfirm"]?.Value<bool>() ?? true;
                         bool autoSelectFirst = choices["autoSelectFirst"]?.Value<bool>() ?? false;

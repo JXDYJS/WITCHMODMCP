@@ -29,6 +29,68 @@
 
 ---
 
+## 测试验证原则
+
+**编写 Mod 后必须用 MCP 工具验证，不能只靠人肉检查。**
+
+### 方式一：AI 直接用 MCP Tools 验证（推荐）
+这是最快捷的方式——AI 完成代码后立即调工具验证：
+1. `search_config` 确认数据已加载到 `DataConfigCache`
+2. `get_recent_logs` 检查有无 CSV/Lua 错误
+3. `enter_game` → `start_new_game` → `get_lobby_state` 确认卡包可见
+4. `start_run` → `load_scene fakefight` → `give_item card <id>` 注入测试
+5. `get_fight_state` → `play_card` 验证卡牌效果
+
+### 方式二：编写 Python 测试脚本
+`witch_mcp.py` 支持 `--token` 参数，可在不启动 opencode 的情况下独立运行：
+
+```python
+# test_my_mod.py
+from witch_mcp import WitchMcp
+import sys
+
+mcp = WitchMcp(token="witch-mod-mcp-dev-2026")
+
+def test_data_loaded():
+    r = mcp.search_config("MyMod")
+    assert r["matchCount"] > 0, f"MyMod data not loaded! Got {r['matchCount']} matches"
+    print(f"✅ Data loaded: {r['matchCount']} entries")
+
+def test_card_injectable():
+    mcp.call("enter_game")
+    mcp.call("start_new_game", {"mode": "Normal", "useExistingSave": False})
+    mcp.call("set_lobby_state", {"careerId": "career_1"})
+    mcp.call("start_run")
+    mcp.call("load_scene", {"type": "fakefight"})
+    r = mcp.call("give_item", {"type": "card", "value": "MyMod_CsvFile_CardId"})
+    print(f"✅ Card injectable: {r}")
+
+if __name__ == "__main__":
+    test_data_loaded()
+    test_card_injectable()
+```
+
+运行：`python test_my_mod.py`
+
+> **关于 `witch_mcp.py`：** 它位于工作区根目录，支持 `--token`（Bearer token）和 `--port` 参数。默认 token 为 `witch-mod-mcp-dev-2026`，也可通过环境变量 `MCP_MOD_TOKEN` 设置。`WitchMcp` 类可直接在 Python 中 import 使用。
+
+---
+
+## 调试第一原则：读日志
+
+**任何 Mod 加载/数据问题，第一步永远是 `get_recent_logs`。** 游戏会在日志中打印明确的错误信息：
+
+| 问题 | 日志特征 |
+|------|---------|
+| CSV 列名错误 | `[Mod] Data/xxx.csv 解析失败: 未找到列 YYY` |
+| Lua 编译错误 | `[Lua] xxx.lua: line N: syntax error` |
+| ModConfig 错误 | `[Mod] ModConfig.json 解析失败: ...` |
+| 缺少 BaseScript | `[Mod] 卡牌 xxx 缺少 BaseScript` |
+| PackBelong 无效 | `[Mod] 卡包 xxx 不存在` |
+| Mod 未加载 | 没有 `[Mod] 已加载: YourMod.YourAuthor` 行 |
+
+只有在日志完全干净的情况下，才考虑用 `inspect`/`query_config` 查更深层状态。
+
 ## 跨模块测试工作流
 
 验证一个 Mod 是否工作，按以下顺序执行：
@@ -38,43 +100,66 @@
 scene = g.call("get_scene_state")
 print(f"当前页面: {scene['page']}")
 
-# 2. Mod 加载检查
-state = g.call("dump_mod_state")
-for m in state['mods']:
-    print(m['assemblyName'])
-
-# 3. 错误日志检查
-logs = g.call("get_recent_logs", {"count": 30})
+# 2. 读日志（首要调试手段！）
+logs = g.call("get_recent_logs", {"count": 100})
 for entry in logs:
-    if 'Error' in entry:
-        print(f"  ERROR: {entry}")
+    m = entry.get('message', '')
+    if any(kw in m for kw in ['[Mod]', 'Error', 'CSV', 'Lua', 'YourModName']):
+        print(f"  [{entry['type']}] {m}")
 
-# 4. 配置表验证
-cfg = g.call("query_config", {"tableName": "CardConfig", "id": 卡牌ID})
-print(cfg)
+# 3. 如果有错误 → 修复后重启游戏 → 再回来验证
 
-# 5. 注入卡牌测试
-g.call("give_item", {"item_type": "card", "value": "卡牌ID"})
+# 4. 用 search_config 确认数据加载
+loaded = g.call("search_config", {"pattern": "YourModFolder"})
+if loaded['matchCount'] == 0:
+    print("⚠️ 数据未加载！检查 CSV 格式或日志错误")
+else:
+    print(f"✅ 已加载 {loaded['matchCount']} 条数据")
+    for key in loaded['matchedKeys']:
+        print(f"  {key}")
 
-# 6. 假战斗验证
+# 5. 无错误 → 进入游戏验证
+g.call("enter_game")
+g.call("start_new_game", {"mode": "Normal", "useExistingSave": False})
+
+# 6. 大厅检查卡包是否可见
+lobby = g.call("get_lobby_state")
+print("可用卡包:", [p['id'] for p in lobby['cardPacks']['available']])
+
+# 7. 启程进战斗注入卡牌测试
+g.call("set_lobby_state", {"careerId": "career_1"})
+g.call("start_run")
 g.call("load_scene", {"type": "fakefight"})
+g.call("give_item", {"type": "card", "value": "YourMod_CsvFile_CardId"})
 fight = g.call("get_fight_state")
 print(f"手牌: {len(fight['hand'])}")
 
-# 7. 出牌测试
-result = g.call("play_card", {"card_index": 0, "target_index": 0})
+# 8. 出牌测试
+result = g.call("play_card", {"index": 0, "targetIndex": 0})
 print(f"出牌结果: {result}")
-
-# 8. 结束回合
-g.call("end_turn")
 ```
 
 ---
 
 ## 快速诊断
 
+### 第一步：读日志（`get_recent_logs({"count": 100})`）
+
+找 `[Mod]`、`Error`、`CSV`、`Lua` 关键词。如果是 CSV 加载问题，日志里直接有报错行号。
+
+| 症状 | 日志搜索关键词 | 修复 |
+|------|---------------|------|
+| Mod 没有加载 | 搜 `你的Mod名` | 检查 ModConfig.json `Enabled: true`、文件夹名是否匹配 |
+| CSV 加载失败 | 搜 `CSV`、`解析`、`fail` | 检查列名是否正确（对照模板 `Lib/DataConfigs/`） |
+| Lua 错误 | 搜 `Lua`、`Error` | 检查脚本列语法，确认用冒号 `self:` 而非点 |
+| 卡包不存在 | 搜 `PackBelong`、`卡包` | 确认 `PackBelong` 填的是运行时 ID |
+| 缺少 BaseScript | 搜 `BaseScript` | 添加 `AttackCardItem` 或 `CommonCardItem` |
+
+### 症状速查表（日志优先）
+
 | 症状 | 检查 |
 |------|------|
+| `search_config` 搜 Mod 名得到 0 条 | CSV 未加载，检查 `get_recent_logs` 中的 CSV 解析错误 |
 | `dump_mod_state` 找不到 Mod | ModConfig.json `Enabled=false` |
 | 日志显示 "ModConfig.json parse failed" | JSON 语法错误 |
 | `query_config` 查不到条目 | CSV 在错误的 Data/ 子目录下 |

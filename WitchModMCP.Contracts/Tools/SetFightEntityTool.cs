@@ -120,9 +120,9 @@ namespace WitchModMCP.Tools
                 }
 
                 // Add buffs
-                if (args["addBuffs"] != null)
+                if (args["addBuffs"] is JArray addBuffsArr)
                 {
-                    foreach (var b in (JArray)args["addBuffs"])
+                    foreach (var b in addBuffsArr)
                     {
                         string id = b["id"]?.Value<string>();
                         int level = b["level"]?.Value<int>() ?? 1;
@@ -142,9 +142,9 @@ namespace WitchModMCP.Tools
                 }
 
                 // Remove buffs
-                if (args["removeBuffs"] != null)
+                if (args["removeBuffs"] is JArray removeBuffsArr)
                 {
-                    foreach (var id in (JArray)args["removeBuffs"])
+                    foreach (var id in removeBuffsArr)
                     {
                         string bid = id?.Value<string>();
                         if (!string.IsNullOrEmpty(bid))
@@ -163,7 +163,7 @@ namespace WitchModMCP.Tools
                 }
 
                 // Clear buffs
-                if (args["clearBuffs"] != null && args["clearBuffs"].Value<bool>())
+                if (args["clearBuffs"] is JToken clearB && clearB.Type == JTokenType.Boolean && clearB.Value<bool>())
                 {
                     try { status.ClearAllBuff(); changes.Add("clearBuffs: true"); }
                     catch (Exception ex) { changes.Add($"clearBuffs error: {ex.Message}"); }
@@ -177,8 +177,14 @@ namespace WitchModMCP.Tools
 
         private static IStatusManager ResolveStatus(string target)
         {
-            if (target == "player" && FightPlayer.Instance != null)
-                return FightPlayer.Instance.Status;
+            if (target == "player")
+            {
+                if (FightPlayer.Instance?.Status != null)
+                    return FightPlayer.Instance.Status;
+
+                // Fallback not available in debug fights; return null
+                return null;
+            }
 
             if (int.TryParse(target, out int idx) && EnemyManager.Instance?.enemyList != null)
             {

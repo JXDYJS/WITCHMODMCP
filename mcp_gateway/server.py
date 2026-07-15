@@ -6,20 +6,29 @@ This is the entry point AI tools connect to via stdio.
 It proxies tool calls to the game mod's HTTP server and exposes
 skill documentation as MCP Resources.
 
-Stages:
-  [x] Stage 1 — FastMCP skeleton + mod_client + heartbeat
-  [ ] Stage 2 — Resources (skill docs mapped to resource:// URIs)
-  [ ] Stage 3 — Low-risk read-only tools
-  [ ] Stage 4 — High-risk mutation tools with guardrails
+Design (dynamic discovery):
+  * On startup, only `ping` is registered (plus skill-doc Resources).
+  * The MCP handshake completes immediately — the client sees an empty
+    tools list except for `ping`.
+  * When the first heartbeat to the game mod succeeds (background thread),
+    we fetch the C# tool registry and dynamically register every mod tool
+    with its native inputSchema, then send `notifications/tools/list_changed`
+    so the client re-fetches tools/list and sees all 76+ tools.
+  * All registration + notification happens on the asyncio event loop
+    (scheduled from the heartbeat thread via run_coroutine_threadsafe)
+    — no race with concurrent tools/list messages.
 
 Environment variables:
-    MCP_MOD_PORT       — game mod HTTP port (default: from ModConfig or 3100)
-    MCP_MOD_TOKEN      — auth token (default: from ModConfig or built-in)
-    MCP_HEARTBEAT_INTERVAL — heartbeat interval seconds (default: 5)
-    MCP_HEARTBEAT_MAX_FAIL — consecutive failures before disconnected (default: 3)
-    MCP_DECOMPILE_DIR  — decompile cache directory (default: workspace/.cache/game_src)
+    MCP_MOD_PORT             — game mod HTTP port (default: from ModConfig or 3100)
+    MCP_MOD_TOKEN            — auth token (default: from ModConfig or built-in)
+    MCP_HEARTBEAT_INTERVAL   — heartbeat interval seconds (default: 5)
+    MCP_HEARTBEAT_MAX_FAIL   — consecutive failures before disconnected (default: 3)
+    MCP_DECOMPILE_DIR        — decompile cache directory
+    MCP_DISABLE_DECOMPILE    — set to "1" to skip auto-decompile on first heartbeat
 """
 
+import asyncio
+import json
 import os
 import sys
 from pathlib import Path
@@ -29,7 +38,13 @@ from mcp.server.fastmcp import FastMCP
 from mcp_gateway.heartbeat import HeartbeatManager
 from mcp_gateway.mod_client import ModConnection, read_mod_config
 from mcp_gateway.resources import register_resources
-from mcp_gateway.tools import init as tools_init, register_core_tools, register_dynamic_tools
+from mcp_gateway.tools import (
+    init as tools_init,
+    register_core_tools,
+    register_dynamic_tools,
+    register_dynamic_sync,
+    unregister_dynamic_tools,
+)
 
 # ── Workspace path (resolved once at import time) ────────────────────
 
@@ -39,10 +54,22 @@ _workspace_dir = str(Path(__file__).resolve().parent.parent)
 _heartbeat: HeartbeatManager | None = None
 _mod: ModConnection | None = None
 
+# Captured from inside the patched run_stdio_async (NOT before anyio.run()).
+# These are used by the heartbeat background thread to schedule async work
+# (tool registration + list_changed notification) on the event loop.
+_active_loop: asyncio.AbstractEventLoop | None = None
+_active_write_stream = None  # type: ignore[var-annotated]
+
 # ── FastMCP app ─────────────────────────────────────────────────────
 mcp = FastMCP(
     name="witch-mod-mcp-gateway",
-    instructions="WitchModMCP gateway server v3.0.0 — proxies MCP tools to the game mod and exposes skill documentation as Resources.",
+    instructions=(
+        "WitchModMCP gateway server v3.0.0 — proxies MCP tools to the game mod. "
+        "Tools are discovered dynamically after the game mod heartbeat connects; "
+        "wait for notifications/tools/list_changed before calling game-mod tools. "
+        "If a tool returns 'Game mod is not reachable', start the game with the "
+        "WitchModMCP mod loaded."
+    ),
 )
 
 
@@ -53,19 +80,102 @@ def log(msg: str):
     print(f"[gateway] {msg}", file=sys.stderr, flush=True)
 
 
-# ── Connection check helper (used by tools in later stages) ─────────
+# ── Connection check helper ──────────────────────────────────────────
 
 def check_mod_connected() -> bool:
-    """Return True if the game mod is reachable."""
+    """Return True if the game mod is reachable right now."""
     return _heartbeat is not None and _heartbeat.connected
 
 
-# ── First-heartbeat callback ────────────────────────────────────────
+# ── Decompile helper ─────────────────────────────────────────────────
+
+def _trigger_decompile():
+    if _mod is None:
+        return
+    if os.environ.get("MCP_DISABLE_DECOMPILE") == "1":
+        log("  decompile skipped (MCP_DISABLE_DECOMPILE=1)")
+        return
+    decompile_dir = os.environ.get(
+        "MCP_DECOMPILE_DIR",
+        os.path.join(_workspace_dir, ".cache", "game_src"),
+    )
+    os.makedirs(decompile_dir, exist_ok=True)
+    try:
+        resp = _mod.call_tool("decompile_source", {"outputDir": decompile_dir})
+        result = resp.get("result", {})
+        status = result.get("status", "unknown")
+        log(f"  decompile_source: {status}")
+        if result.get("error"):
+            log(f"  decompile error: {result['error']}")
+    except Exception as e:
+        log(f"  decompile_source failed: {e}")
+
+
+# ── list_changed notification ───────────────────────────────────────
+
+async def _send_tool_list_changed():
+    """Construct an MCP notifications/tools/list_changed message and push it
+    through the captured write_stream so the client learns the tool registry
+    has changed.
+
+    We build the message by hand instead of using ServerSession.send_tool_list_changed
+    because the Session object isn't directly accessible from here — only the
+    raw write_stream is, and constructing the notification JSON-RPC envelope
+    is trivial (see mcp.server.session.ServerSession.send_notification).
+    """
+    if _active_write_stream is None:
+        log("  cannot send tools/list_changed — write_stream not captured")
+        return
+
+    # Local imports keep module import side-effects minimal.
+    from mcp.shared.message import SessionMessage
+    from mcp.types import JSONRPCMessage, JSONRPCNotification
+
+    notification = JSONRPCNotification(
+        jsonrpc="2.0",
+        method="notifications/tools/list_changed",
+    )
+    session_message = SessionMessage(
+        message=JSONRPCMessage(notification),
+        metadata=None,
+    )
+    await _active_write_stream.send(session_message)
+
+
+async def _after_first_heartbeat_async():
+    """Runs on the asyncio event loop when the game mod first connects.
+
+    1. Remove any previously-registered dynamic tools (clean slate, so a
+       re-register after a transient disconnect gives a fresh registry).
+    2. Register all C# mod tools, each with its native inputSchema.
+    3. Send notifications/tools/list_changed so the client re-fetches.
+    """
+    try:
+        unregister_dynamic_tools()
+    except Exception as e:
+        log(f"  unregister_dynamic_tools failed: {e}")
+
+    try:
+        count = register_dynamic_tools()
+        log(f"  register_dynamic_tools: {count} tools registered")
+    except Exception as e:
+        log(f"  register_dynamic_tools failed: {e}")
+        return
+
+    try:
+        await _send_tool_list_changed()
+        log("  sent notifications/tools/list_changed")
+    except Exception as e:
+        log(f"  send_tool_list_changed failed: {e}")
+
+
+# ── First-heartbeat callback (runs in heartbeat thread) ─────────────
 
 def _on_first_heartbeat(resp: dict):
-    """Triggered on first successful heartbeat from the game mod.
-
-    Dynamically registers all C# tools and triggers decompile_source.
+    """Triggered by the heartbeat daemon thread on first successful contact
+    with the game mod. Schedules an async re-registration + notification
+    on the main event loop so freshly compiled C# tools get picked up
+    without restarting the gateway.
     """
     sid = resp.get("sessionId", "?")
     tool_count = resp.get("toolCount", "?")
@@ -77,26 +187,59 @@ def _on_first_heartbeat(resp: dict):
         log("  first-heartbeat: no mod connection, skipping")
         return
 
-    # 1. Dynamically register all C# tools
-    dyn_count = register_dynamic_tools()
-    log(f"  registered {dyn_count} dynamic tools from C# mod")
+    _trigger_decompile()
 
-    # 2. Trigger decompile_source
-    decompile_dir = os.environ.get(
-        "MCP_DECOMPILE_DIR",
-        os.path.join(_workspace_dir, ".cache", "game_src"),
+    if _active_loop is None or _active_loop.is_closed():
+        log("  cannot re-register tools — event loop not captured yet")
+        return
+
+    fut = asyncio.run_coroutine_threadsafe(
+        _after_first_heartbeat_async(), _active_loop
     )
-    os.makedirs(decompile_dir, exist_ok=True)
+    def _log_failure(f: asyncio.Future):
+        if f.cancelled(): return
+        exc = f.exception()
+        if exc is not None:
+            log(f"  _after_first_heartbeat_async raised: {exc!r}")
+    fut.add_done_callback(_log_failure)
 
-    try:
-        decomp_resp = _mod.call_tool("decompile_source", {"outputDir": decompile_dir})
-        result = decomp_resp.get("result", {})
-        status = result.get("status", "unknown")
-        log(f"  decompile_source: {status}")
-        if result.get("error"):
-            log(f"  decompile error: {result['error']}")
-    except Exception as e:
-        log(f"  decompile_source failed: {e}")
+
+# ── Patched run_stdio_async ──────────────────────────────────────────
+#
+# The stock FastMCP.run_stdio_async creates the stdio transport and the
+# lowlevel Server.run() session internally — neither the event loop nor
+# the write_stream are exposed for callers. We replace it with a wrapper
+# that captures both, so the heartbeat background thread can schedule
+# async work (tool registration + the list_changed notification).
+
+async def _capturing_run_stdio(self: FastMCP):
+    """Replacement for FastMCP.run_stdio_async.
+
+    Captures the asyncio event loop and the stdio write_stream into module
+    globals so that the heartbeat thread can:
+      - run async code with asyncio.run_coroutine_threadsafe
+      - send notifications directly via the write_stream
+    """
+    global _active_loop, _active_write_stream
+
+    # Import lazily — stdio_server may not be loaded on other transports.
+    from mcp.server.stdio import stdio_server
+
+    _active_loop = asyncio.get_running_loop()
+    log("Event loop captured for dynamic tool registration")
+
+    async with stdio_server() as (read_stream, write_stream):
+        _active_write_stream = write_stream
+        await self._mcp_server.run(
+            read_stream,
+            write_stream,
+            self._mcp_server.create_initialization_options(),
+        )
+
+
+# Bind the patched method to the FastMCP class. There is only one FastMCP
+# instance in this process, so a class-level patch is safe.
+FastMCP.run_stdio_async = _capturing_run_stdio  # type: ignore[assignment]
 
 
 # ── Entry point ─────────────────────────────────────────────────────
@@ -116,7 +259,11 @@ def main():
     # 2. Create mod connection
     _mod = ModConnection(port, token)
 
-    # 3. Start heartbeat (background daemon thread)
+    # 3. Start heartbeat (background daemon thread, infinite retry).
+    #    The MCP server starts immediately; the heartbeat retries in
+    #    the background until the game mod shows up. The first time the
+    #    mod responds, _on_first_heartbeat fires (on the heartbeat thread)
+    #    and schedules dynamic tool registration on our event loop.
     interval = float(os.environ.get("MCP_HEARTBEAT_INTERVAL") or "5")
     max_fail = int(os.environ.get("MCP_HEARTBEAT_MAX_FAIL") or "3")
 
@@ -128,22 +275,42 @@ def main():
         max_failures=max_fail,
     )
     _heartbeat.start()
-    log("Heartbeat manager started — waiting for game mod...")
+    log("Heartbeat manager started — background retries until game mod responds")
 
-    # 3.5. Initialize tools module with shared state
+    # 4. Initialize tools module with shared state (_mod, _heartbeat, _mcp)
     tools_init(mcp, _mod, _heartbeat)
 
-    # 3.6. Register skill documentation as MCP Resources
+    # 5. Register CORE tool (ping) — always available.
+    core_count = register_core_tools(mcp)
+    log(f"Registered {core_count} core tool (ping)")
+
+    # 5b. Try to synchronously discover and register C# tools from the mod.
+    #     This works if the game mod is already running when the gateway
+    #     starts. If not, only ping is registered until the heartbeat
+    #     connects (which schedules a re-register + list_changed for
+    #     future opencode versions that support dynamic discovery).
+    try:
+        disc_resp = _mod.call_tool("list_tools", {})
+        disc_err = disc_resp.get("error")
+        if not disc_err:
+            tools_info = disc_resp.get("result", {}).get("tools", [])
+            if tools_info:
+                dyn_count = register_dynamic_sync(mcp, tools_info)
+                log(f"Registered {dyn_count} C# tools (sync startup discovery)")
+            else:
+                log("C# mod returned empty tool list — only ping available")
+        else:
+            log(f"C# mod responded with error: {disc_err}")
+    except (ConnectionError, OSError, Exception) as e:
+        log(f"C# mod not reachable at startup ({e}) — only ping until heartbeat")
+
+    # 6. Register skill documentation as MCP Resources (always available)
     resource_count = register_resources(mcp)
     log(f"Registered {resource_count} skill doc resources")
 
-    # 3.7. Register core tools (always available, before heartbeat)
-    core_count = register_core_tools(mcp)
-    log(f"Registered {core_count} core tools")
-
-    # (dynamic C# tools register on first heartbeat via _on_first_heartbeat)
-
-    # 4. Run MCP stdio server (blocks until stdin closes)
+    # 7. Run MCP stdio server (blocks until stdin closes).
+    #    FastMCP.run_stdio_async was patched above to capture the event loop
+    #    and write_stream so the heartbeat thread can schedule async work.
     try:
         mcp.run(transport="stdio")
     finally:

@@ -18,9 +18,13 @@ CLI usage:
     python witch_mcp.py ping
     python witch_mcp.py list_tools
     python witch_mcp.py get_game_data
-    python witch_mcp.py eval_command "{\"command\": \"help give\"}"
-    python witch_mcp.py inspect "{\"typeName\": \"RoleTable\", \"memberPath\": \"Instance.San\"}"
-    python witch_mcp.py --port 3100 query_config "{\"tableName\": \"CardConfig\", \"limit\": 3}"
+    python witch_mcp.py eval_command '{"command": "help give"}'
+    python witch_mcp.py inspect '{"typeName": "RoleTable", "memberPath": "Instance.San"}'
+    python witch_mcp.py --port 3100 query_config '{"tableName": "CardConfig", "limit": 3}'
+    python witch_mcp.py --token "witch-mod-mcp-dev-2026" search_config '{"pattern": "buff", "limit": 5}'
+
+    # PowerShell double-quote escaping:
+    python witch_mcp.py search_config '{\"pattern\": \"buff\", \"limit\": 5}'
 """
 
 import sys
@@ -37,6 +41,7 @@ from typing import Any, Dict, Optional
 
 DEFAULT_PORT = 3100
 DEFAULT_TIMEOUT = 15
+DEFAULT_TOKEN = "witch-mod-mcp-dev-2026"
 
 
 class WitchMcpError(Exception):
@@ -52,11 +57,19 @@ class WitchMcp:
     """Client for one WitchModMCP server instance."""
 
     def __init__(self, port: int = DEFAULT_PORT, host: str = "localhost",
-                 timeout: int = DEFAULT_TIMEOUT):
+                 timeout: int = DEFAULT_TIMEOUT,
+                 token: Optional[str] = None):
         self.host = host
         self.port = port
         self.timeout = timeout
         self._id = 0
+        self.token = token or os.environ.get("MCP_MOD_TOKEN", DEFAULT_TOKEN)
+
+    def _headers(self) -> Dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
 
     def call(self, method: str, params: Optional[Dict[str, Any]] = None) -> Any:
         """Send one JSON-RPC request and return the unwrapped result.
@@ -71,7 +84,7 @@ class WitchMcp:
 
         try:
             conn = http.client.HTTPConnection(self.host, self.port, timeout=self.timeout)
-            conn.request("POST", "/", json.dumps(body), {"Content-Type": "application/json"})
+            conn.request("POST", "/", json.dumps(body), self._headers())
             resp = conn.getresponse()
             raw = resp.read().decode("utf-8")
             conn.close()
@@ -151,6 +164,14 @@ class WitchMcp:
             params["id"] = item_id
         return self.call("query_config", params)
 
+    def search_config(self, pattern: str, limit: int = 20,
+                      include_fields: bool = False) -> Any:
+        return self.call("search_config", {
+            "pattern": pattern,
+            "limit": limit,
+            "includeFields": include_fields,
+        })
+
     # --- mutations (change game state) ------------------------------------
     def eval_command(self, command: str) -> Any:
         return self.call("eval_command", {"command": command})
@@ -167,10 +188,18 @@ class WitchMcp:
 
 def _main(argv) -> int:
     port = DEFAULT_PORT
+    token = None
     args = list(argv)
-    if len(args) >= 2 and args[0] == "--port":
-        port = int(args[1])
-        args = args[2:]
+    while args and args[0].startswith("--"):
+        if args[0] == "--port" and len(args) >= 2:
+            port = int(args[1])
+            args = args[2:]
+        elif args[0] == "--token" and len(args) >= 2:
+            token = args[1]
+            args = args[2:]
+        else:
+            print(f"Unknown option: {args[0]}", file=sys.stderr)
+            return 1
 
     if not args:
         print(__doc__)
@@ -181,7 +210,7 @@ def _main(argv) -> int:
     if len(args) >= 2:
         params = json.loads(args[1])
 
-    client = WitchMcp(port=port)
+    client = WitchMcp(port=port, token=token)
 
     if method == "ping":
         alive = client.ping()
