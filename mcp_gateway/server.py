@@ -20,7 +20,6 @@ Design (dynamic discovery):
 
 Environment variables:
     MCP_MOD_PORT             — game mod HTTP port (default: from ModConfig or 3100)
-    MCP_MOD_TOKEN            — auth token (default: from ModConfig or built-in)
     MCP_HEARTBEAT_INTERVAL   — heartbeat interval seconds (default: 5)
     MCP_HEARTBEAT_MAX_FAIL   — consecutive failures before disconnected (default: 3)
     MCP_DECOMPILE_DIR        — decompile cache directory
@@ -250,14 +249,13 @@ def main():
     # 1. Read configuration
     mod_config = read_mod_config()
     port = int(os.environ.get("MCP_MOD_PORT") or mod_config["port"])
-    token = os.environ.get("MCP_MOD_TOKEN") or mod_config["token"]
 
-    log(f"Mod port: {port}, auth: {'enabled' if token else 'disabled'}")
+    log(f"Mod port: {port}")
     log(f"Config source: {mod_config.get('config_path', 'defaults')}")
     log(f"Workspace: {_workspace_dir}")
 
     # 2. Create mod connection
-    _mod = ModConnection(port, token)
+    _mod = ModConnection(port)
 
     # 3. Start heartbeat (background daemon thread, infinite retry).
     #    The MCP server starts immediately; the heartbeat retries in

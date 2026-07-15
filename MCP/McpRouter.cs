@@ -145,7 +145,7 @@ namespace WitchModMCP.MCP
             return JsonConvert.SerializeObject(response);
         }
 
-        public static Task<string> HandleHeartbeat(int port, string authToken, string body)
+        public static Task<string> HandleHeartbeat(int port, string body)
         {
             JToken bodyToken;
             try { bodyToken = JToken.Parse(body); }
@@ -157,7 +157,6 @@ namespace WitchModMCP.MCP
             {
                 ["status"] = "ok",
                 ["port"] = port,
-                ["auth"] = authToken != null,
                 ["toolCount"] = _tools.Count,
                 ["sessionId"] = ctx["sessionId"],
                 ["isFirstHeartbeat"] = ctx["isFirstHeartbeat"],

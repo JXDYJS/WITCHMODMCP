@@ -13,7 +13,6 @@ import http.client
 from pathlib import Path
 
 DEFAULT_MOD_PORT = 3100
-DEFAULT_TOKEN = "witch-mod-mcp-dev-2026"
 
 
 def log(msg: str):
@@ -34,10 +33,10 @@ def find_mod_config() -> str | None:
 
 
 def read_mod_config() -> dict:
-    """Read game mod config to get port and token.
+    """Read game mod config to get port.
 
     Returns:
-        {"port": int, "token": str, "config_path": str|None}
+        {"port": int, "config_path": str|None}
     """
     path = find_mod_config()
     if path:
@@ -45,11 +44,10 @@ def read_mod_config() -> dict:
             with open(path, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
                 port = cfg.get("MCPPort", DEFAULT_MOD_PORT)
-                token = cfg.get("MCPAuthToken", "")
-                return {"port": port, "token": token, "config_path": path}
+                return {"port": port, "config_path": path}
         except (json.JSONDecodeError, OSError):
             pass
-    return {"port": DEFAULT_MOD_PORT, "token": DEFAULT_TOKEN, "config_path": None}
+    return {"port": DEFAULT_MOD_PORT, "config_path": None}
 
 
 class ModConnection:
@@ -59,16 +57,14 @@ class ModConnection:
     heartbeat thread and MCP handler thread.
     """
 
-    def __init__(self, port: int, token: str):
+    def __init__(self, port: int):
         self.port = port
-        self.token = token
         self._id_counter = 0
 
     # ── low-level HTTP helpers ───────────────────────────────────────
 
     def _request(self, method: str, path: str,
                  body: str | None = None,
-                 auth: bool = False,
                  timeout: int = 5) -> tuple[int, str]:
         """Send an HTTP request and return (status_code, response_body).
 
@@ -77,9 +73,6 @@ class ModConnection:
         conn = http.client.HTTPConnection("localhost", self.port, timeout=timeout)
         try:
             headers = {"Content-Type": "application/json"}
-            if auth and self.token:
-                headers["Authorization"] = f"Bearer {self.token}"
-
             conn.request(method, path, body, headers)
             resp = conn.getresponse()
             data = resp.read().decode("utf-8", errors="replace")
@@ -120,7 +113,7 @@ class ModConnection:
             "params": params or {},
         })
         try:
-            status, body = self._request("POST", "/", req_body, auth=True)
+            status, body = self._request("POST", "/", req_body)
             data = json.loads(body)
             return self._lower_keys(data)
         except json.JSONDecodeError:

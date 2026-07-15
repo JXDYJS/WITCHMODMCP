@@ -49,7 +49,7 @@
 from witch_mcp import WitchMcp
 import sys
 
-mcp = WitchMcp(token="witch-mod-mcp-dev-2026")
+mcp = WitchMcp()
 
 def test_data_loaded():
     r = mcp.search_config("MyMod")
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
 运行：`python test_my_mod.py`
 
-> **关于 `witch_mcp.py`：** 它位于工作区根目录，支持 `--token`（Bearer token）和 `--port` 参数。默认 token 为 `witch-mod-mcp-dev-2026`，也可通过环境变量 `MCP_MOD_TOKEN` 设置。`WitchMcp` 类可直接在 Python 中 import 使用。
+> **关于 `witch_mcp.py`：** 它位于工作区根目录，支持 `--port` 参数。直接连接 `http://localhost:3100/`，无需权鉴。`WitchMcp` 类可直接在 Python 中 import 使用。
 
 ---
 

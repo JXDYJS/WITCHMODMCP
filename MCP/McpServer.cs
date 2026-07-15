@@ -16,14 +16,12 @@ namespace WitchModMCP.MCP
         private bool _disposed;
         private volatile bool _shuttingDown;
         private int _port;
-        private string _authToken;
 
         public bool IsShuttingDown => _shuttingDown;
 
-        public void Start(int port, string authToken = null)
+        public void Start(int port)
         {
             _port = port;
-            _authToken = string.IsNullOrWhiteSpace(authToken) ? null : authToken;
 
             try
             {
@@ -32,11 +30,7 @@ namespace WitchModMCP.MCP
                 _listener.Start();
                 _cts = new CancellationTokenSource();
                 _ = Task.Run(ListenLoop);
-
-                if (_authToken != null)
-                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpServer] Auth enabled, listening on http://localhost:{port}/");
-                else
-                    Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpServer] Auth disabled, listening on http://localhost:{port}/");
+                Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpServer] Listening on http://localhost:{port}/");
             }
             catch (HttpListenerException ex)
             {
@@ -117,7 +111,7 @@ namespace WitchModMCP.MCP
                     context.Request.Url.AbsolutePath.TrimEnd('/') == "/ping")
                 {
                     var pong = Encoding.UTF8.GetBytes(
-                        $"{{\"status\":\"ok\",\"port\":{_port},\"auth\":{(_authToken != null ? "true" : "false")}}}");
+                        $"{{\"status\":\"ok\",\"port\":{_port}}}");
                     context.Response.ContentLength64 = pong.Length;
                     context.Response.OutputStream.Write(pong, 0, pong.Length);
                     return;
@@ -134,7 +128,7 @@ namespace WitchModMCP.MCP
                     }
 
                     string hbResponse = await McpRouter.HandleHeartbeat(
-                        _port, _authToken,
+                        _port,
                         hbBody ?? "{}");
 
                     var hbBuf = Encoding.UTF8.GetBytes(hbResponse);
@@ -177,29 +171,6 @@ namespace WitchModMCP.MCP
                     return;
                 }
 
-                // ──── Auth check (skip for ping) ────
-                if (_authToken != null)
-                {
-                    string methodName = TryExtractMethod(body);
-                    bool isPing = methodName != null &&
-                                  methodName.Equals("ping", StringComparison.OrdinalIgnoreCase);
-
-                    if (!isPing)
-                    {
-                        string authHeader = context.Request.Headers["Authorization"];
-                        if (string.IsNullOrEmpty(authHeader) ||
-                            !authHeader.Equals($"Bearer {_authToken}", StringComparison.Ordinal))
-                        {
-                            context.Response.StatusCode = 401;
-                            var err = Encoding.UTF8.GetBytes(
-                                $"{{\"jsonrpc\":\"2.0\",\"error\":{{\"code\":-32001,\"message\":\"Unauthorized: invalid or missing token\"}}}}");
-                            context.Response.ContentLength64 = err.Length;
-                            context.Response.OutputStream.Write(err, 0, err.Length);
-                            return;
-                        }
-                    }
-                }
-
                 // ──── Route ────
                 string responseJson = await McpRouter.HandleRequest(body ?? "{}");
 
@@ -230,32 +201,6 @@ namespace WitchModMCP.MCP
                 {
                 }
             }
-        }
-
-        private static string TryExtractMethod(string body)
-        {
-            try
-            {
-                using var reader = new Newtonsoft.Json.JsonTextReader(
-                    new System.IO.StringReader(body))
-                {
-                    CloseInput = false
-                };
-
-                while (reader.Read())
-                {
-                    if (reader.TokenType == Newtonsoft.Json.JsonToken.PropertyName &&
-                        string.Equals("method", (string)reader.Value, StringComparison.OrdinalIgnoreCase))
-                    {
-                        reader.Read();
-                        return reader.Value?.ToString();
-                    }
-                }
-            }
-            catch
-            {
-            }
-            return null;
         }
 
         private static async Task<string> ReadWithLimit(StreamReader reader, int maxBytes)

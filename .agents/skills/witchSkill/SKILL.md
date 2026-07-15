@@ -33,7 +33,7 @@ For detailed template usage, see [templates/using-templates.md](./templates/usin
 
 ## Architecture
 
-**DO NOT connect directly to the game's HTTP port.** Communication goes through a gateway:
+Communication goes through a gateway:
 
 ```
 AI (opencode)
@@ -41,16 +41,15 @@ AI (opencode)
   ▼
 mcp_gateway/server.py                ← MCP stdio server
   │  - proxies tools/call → HTTP
-  │  - handles auth (Bearer token)
   │  - background heartbeat
   │  - auto-syncs skill docs + decompile source on first heartbeat
   ▼
 WitchModMCP Mod (in Unity game)
-  │  HTTP server on port MCPPort (default 3100)
+  │  HTTP server on port MCPPort (default 3100) — no auth, localhost only
   │  JSON-RPC 2.0, returns PascalCase via Newtonsoft
 ```
 
-**The AI does NOT send HTTP requests directly to port 3100.** The gateway handles all communication.
+**The game mod's HTTP server binds to localhost only (not exposed to network) and has no auth.** If you write a Python test script, connect directly to `http://localhost:3100/` (see `witch_mcp.py` for a ready-to-use client).
 
 ## Core Rules
 
@@ -88,12 +87,12 @@ get_recent_logs({"count": 100})
 ```
 
 **Advanced method — write a Python test script:**
-Use `witch_mcp.py --token <token>` from the workspace to script automated tests:
+Use `witch_mcp.py` from the workspace to script automated tests:
 
 ```python
 # test_my_mod.py
 from witch_mcp import WitchMcp
-mcp = WitchMcp(token="witch-mod-mcp-dev-2026")
+mcp = WitchMcp()
 
 # Verify data loaded
 result = mcp.search_config("MyMod")
@@ -111,7 +110,7 @@ fight = mcp.call("get_fight_state")
 print(f"Cards in hand: {len(fight['FightCards'])}")
 ```
 
-> The `witch_mcp.py` helper in the workspace supports `--token` and `--port` arguments. It sends the `Authorization: Bearer <token>` header required by the mod's HTTP API. Use this pattern to write idempotent test scripts for your mod.
+> The `witch_mcp.py` helper in the workspace connects directly to the mod at `http://localhost:3100/` with no auth required. Use this pattern to write idempotent test scripts for your mod. Run with `python test_my_mod.py`.
 
 ### Debug Workflow
 

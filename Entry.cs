@@ -35,10 +35,7 @@ namespace WitchModMCP
             var cfgPath = Path.Combine(modConfig.DirectoryName, "ModConfig.json");
             var json = JObject.Parse(File.ReadAllText(cfgPath, Encoding.UTF8));
             int port = json.Value<int>("MCPPort");
-            string authToken = json.Value<string>("MCPAuthToken");
-            if (string.IsNullOrWhiteSpace(authToken))
-                authToken = null;
-            Commands.Log(MOD_TAG, $"[Config] MCPPort={port}, MCPAuthToken={(authToken != null ? "enabled" : "disabled")}");
+            Commands.Log(MOD_TAG, $"[Config] MCPPort={port}");
 
             var contractsDllPath = Path.Combine(modConfig.DirectoryName, "Scripts", "WitchModMCP.Contracts.dll");
             McpToolPlugin.RegisterPluginDll(contractsDllPath);
@@ -47,7 +44,7 @@ namespace WitchModMCP
             Commands.Log(MOD_TAG, $"Contracts DLL: {contractsDllPath}");
 
             Server = new McpServer();
-            Server.Start(port, authToken);
+            Server.Start(port);
         }
     }
 }

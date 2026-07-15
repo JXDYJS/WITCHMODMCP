@@ -144,10 +144,10 @@ result = g.call("search_config", {"pattern": "YourModFolder"})
 if result['matchCount'] == 0:
     print("⚠️ 未找到匹配数据，CSV 可能未加载或格式错误")
 
-# 5. 从 Python 脚本使用（带 auth token）
+# 5. 从 Python 脚本使用
 """
 from witch_mcp import WitchMcp
-mcp = WitchMcp(token="witch-mod-mcp-dev-2026")
+mcp = WitchMcp()
 r = mcp.search_config("buff", limit=5)
 for key in r["matchedKeys"]:
     print(key)
