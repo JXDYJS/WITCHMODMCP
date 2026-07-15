@@ -42,7 +42,7 @@
 5. `get_fight_state` → `play_card` 验证卡牌效果
 
 ### 方式二：编写 Python 测试脚本
-`witch_mcp.py` 支持 `--token` 参数，可在不启动 opencode 的情况下独立运行：
+复制 `[skill]/testing/witch_mcp.py` 到工作区根目录，然后：
 
 ```python
 # test_my_mod.py
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
 运行：`python test_my_mod.py`
 
-> **关于 `witch_mcp.py`：** 它位于工作区根目录，支持 `--port` 参数。直接连接 `http://localhost:3100/`，无需权鉴。`WitchMcp` 类可直接在 Python 中 import 使用。
+> **关于 `witch_mcp.py`：** 它位于 skill 目录 `testing/` 下。复制到工作区根目录后即可 import 使用，连接 `http://localhost:3100/`，无需权鉴。支持 `--port` CLI 参数。
 
 ---
 

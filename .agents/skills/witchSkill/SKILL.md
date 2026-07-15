@@ -49,7 +49,7 @@ WitchModMCP Mod (in Unity game)
   │  JSON-RPC 2.0, returns PascalCase via Newtonsoft
 ```
 
-**The game mod's HTTP server binds to localhost only (not exposed to network) and has no auth.** If you write a Python test script, connect directly to `http://localhost:3100/` (see `witch_mcp.py` for a ready-to-use client).
+**The game mod's HTTP server binds to localhost only (not exposed to network) and has no auth.** If you write a Python test script, connect directly to `http://localhost:3100/`. A ready-to-use client is at `[skill]/testing/witch_mcp.py` — copy it to your workspace root and import.
 
 ## Core Rules
 
@@ -87,7 +87,7 @@ get_recent_logs({"count": 100})
 ```
 
 **Advanced method — write a Python test script:**
-Use `witch_mcp.py` from the workspace to script automated tests:
+Copy `[skill]/testing/witch_mcp.py` to your workspace root, then write:
 
 ```python
 # test_my_mod.py
@@ -110,7 +110,7 @@ fight = mcp.call("get_fight_state")
 print(f"Cards in hand: {len(fight['FightCards'])}")
 ```
 
-> The `witch_mcp.py` helper in the workspace connects directly to the mod at `http://localhost:3100/` with no auth required. Use this pattern to write idempotent test scripts for your mod. Run with `python test_my_mod.py`.
+Run: `python test_my_mod.py`
 
 ### Debug Workflow
 

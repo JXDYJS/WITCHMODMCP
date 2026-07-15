@@ -23,8 +23,6 @@ CLI usage:
     python witch_mcp.py --port 3100 query_config '{"tableName": "CardConfig", "limit": 3}'
     # PowerShell double-quote escaping:
     python witch_mcp.py search_config '{\"pattern\": \"buff\", \"limit\": 5}'
-
-    # Canonical copy: [skill]/testing/witch_mcp.py
 """
 
 import sys

@@ -144,7 +144,7 @@ result = g.call("search_config", {"pattern": "YourModFolder"})
 if result['matchCount'] == 0:
     print("⚠️ 未找到匹配数据，CSV 可能未加载或格式错误")
 
-# 5. 从 Python 脚本使用
+# 5. 从 Python 脚本使用（复制 [skill]/testing/witch_mcp.py 到工作区后运行）
 """
 from witch_mcp import WitchMcp
 mcp = WitchMcp()
