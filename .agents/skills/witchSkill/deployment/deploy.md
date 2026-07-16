@@ -31,7 +31,13 @@ Copy-Item -LiteralPath "path/to/YourMod" -Destination "游戏Mods目录/YourMod"
 
 ## 部署后步骤
 
-1. **重启游戏** — CSV/Lua 变更必须重启才能生效
+1. **重启游戏** — CSV/Lua 变更必须重启才能生效。AI 应直接杀启进程：
+   ```powershell
+   Get-Process -Name "Witch*" -ErrorAction SilentlyContinue | Stop-Process -Force
+   Start-Sleep -Seconds 3
+   Start-Process -FilePath "游戏安装目录/Witch's Apocalyptic Journey.exe"
+   Start-Sleep -Seconds 25
+   ```
 2. **检查 Mod 加载** — `dump_mod_state()` 确认 Mod 出现在列表中
 3. **检查错误** — `get_recent_logs(count=20)` 确认无 Error
 4. **运行测试** — 执行 `tests/test_<ModName>.py`

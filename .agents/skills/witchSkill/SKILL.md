@@ -33,6 +33,15 @@ WitchModMCP is a mod development tool for the game **Witch** (女巫/魔法少�
 
 5. Copy to game Mods folder and restart.
    ⚠️ **每次部署前先删除旧目录！** `Remove-Item -Recurse -Force "$gameDir\Mods\YourMod"` 再 `Copy-Item`。如果目标已存在时重复执行 `Copy-Item -Recurse`，会把源目录**嵌套复制**到目标内部（`YourMod/YourMod/`），导致游戏读到的是旧文件。
+
+   **重启游戏方式：** AI 可以直接 Kill 游戏进程再启动，因为 SKILL 知道游戏安装路径：
+   ```powershell
+   Get-Process -Name "Witch*" -ErrorAction SilentlyContinue | Stop-Process -Force
+   Start-Sleep -Seconds 3
+   Start-Process -FilePath "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey.exe"
+   Start-Sleep -Seconds 25
+   ```
+   CSV/Lua 变更必须重启游戏才能生效。C# DLL 热重载用 `reload_tools` 工具即可（见规则 24）。
 ```
 
 > **⚠️ 严禁手搓目录：必须从模板复制。** `New-Item` / `mkdir` 手动创建目录会丢失模板中的关键文件（`Scripts/Lib/DataConfigs/` 下的 160+ 个 CSV 列名参考、`Scripts/ScriptSample.lua`、`Icon.png` 等），直接导致 CSV 列名错误或资源缺失。**一律用 `git clone` → `Copy-Item` 从模板复制**。
@@ -176,7 +185,7 @@ When a mod doesn't work (card not found, pack not showing, data not loading):
 21. **Lua uses colon calls**: `self:AddBuff(id, level)`, not `self.AddBuff(id, level)`.
 22. **xLua cannot use `[]` for dictionaries**: use `dict:get_Item("key")` / `dict:set_Item("key", "value")`.
 23. **C# types use `CS.` prefix**: `CS.UnityEngine.Debug.Log(...)`.
-24. **All changes require game restart** (except C# DLL can use `reload_tools`).
+24. **CSV/Lua 变更必须重启游戏**（C# DLL 变更可用 `reload_tools` 热重载）。AI 应直接 `Stop-Process` + `Start-Process` 杀启进程，无需手动操作。
 
 ## Module Index
 
