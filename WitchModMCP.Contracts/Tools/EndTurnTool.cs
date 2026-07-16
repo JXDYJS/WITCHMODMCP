@@ -1,6 +1,9 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using UnityEngine;
 using Witch.UI;
 using Witch.UI.Window;
 using WitchModMCP.Dispatcher;
@@ -42,6 +45,15 @@ namespace WitchModMCP.Tools
 
                 try
                 {
+                    // Recover FightPlayer.Instance if it was lost between scene transitions
+                    EnsureFightPlayerInstance();
+                    if (FightPlayer.Instance == null)
+                    {
+                        result["result"] = "error";
+                        result["message"] = "无法结束回合: 未找到 FightPlayer 实例";
+                        return (JToken)result;
+                    }
+
                     // Same call as the end-turn button in FightUI
                     FightManager.Instance.CmdAnnounceDone(
                         FightPlayer.Instance.InstanceId,
@@ -60,6 +72,24 @@ namespace WitchModMCP.Tools
 
                 return (JToken)result;
             });
+        }
+
+        private static void EnsureFightPlayerInstance()
+        {
+            if (FightPlayer.Instance != null) return;
+            var fp = Resources.FindObjectsOfTypeAll<FightPlayer>()
+                .FirstOrDefault(f => f.isActiveAndEnabled);
+            if (fp == null) fp = Resources.FindObjectsOfTypeAll<FightPlayer>().FirstOrDefault();
+            if (fp != null)
+            {
+                var field = typeof(FightPlayer).GetField("instance",
+                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                if (field != null) field.SetValue(null, fp);
+                var backing = typeof(FightPlayer).GetField("<Instance>k__BackingField",
+                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                if (backing != null) backing.SetValue(null, fp);
+                Debug.Log($"[WitchModMCP] FightPlayer.Instance recovered from EndTurnTool");
+            }
         }
     }
 }

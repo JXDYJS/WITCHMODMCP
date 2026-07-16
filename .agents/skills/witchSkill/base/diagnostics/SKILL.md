@@ -103,14 +103,14 @@ print(result['item'])
 |-----------|------|----------|---------|-------------|
 | `pattern` | string | Yes | — | 搜索关键词（忽略大小写）。匹配 DataConfigCache 的 key 和 NativeIds |
 | `limit` | int | No | 20 | 最多返回条数 |
-| `includeFields` | bool | No | false | 是否返回匹配条目的核心字段（Id/Name/Type/Rarity 等）。设为 true 会略微增加耗时 |
+| `includeFields` | bool | No | false | 是否返回匹配条目的全部数据字段（Id/Rarity/UseScript/InitScript/Icon 等所有 CSV 列）。设为 true 会略微增加耗时 |
 | `searchNativeIds` | bool | No | true | 是否同时搜索 NativeIds（游戏原生 ID 注册表）。NativeIds 包含 `buff_regenerate` 等内置 ID |
 
 **返回字段：**
 
 | 字段 | 说明 |
 |------|------|
-| `matchedKeys` | 匹配的 DataConfigCache key 列表。`includeFields=true` 时每项是 `{_key, id, name, type, ...}` 对象 |
+| `matchedKeys` | 匹配的 DataConfigCache key 列表。`includeFields=true` 时每项是 `{"_key": "...", "Id": "...", "UseScript": "...", ...}` 对象，包含该条目在 CSV 中定义的所有列 |
 | `matchCount` | DataConfigCache 中的匹配数 |
 | `totalCacheSize` | DataConfigCache 总条目数 (~2180) |
 | `nativeIdMatches` | NativeIds 中的匹配 ID 列表（仅 `searchNativeIds=true` 时） |
@@ -286,13 +286,15 @@ Grant resources or items to the player via the game's `Commands.give()` system. 
 | `type` | string | Yes | Item type: `money`, `san`, `maxsan`, `card`, `relic`, `bless`, `power`, `exp`, `level`, `str`/`strength`, `luc`/`lucky`, `per`/`perceive`, `wis`/`wisdom`, `draw`, `randomcard`, `randomrelic`, `time`, `truth`/`true`, `win` |
 | `value` | string | Yes | Amount, config ID, or `"all"` |
 
+> **⚠️ Card must have both Data + Text CSV.** `Commands.give("card", id)` calls `GetOne(DataType.Card, id)["Name"]` to display the card name in the result message. This requires the card to have a matching `Text/Card/<file>.csv` with a `Name` column (see the Insights skill for CSV schemas). If only `Data/Card/<file>.csv` exists without `Text/Card/`, the command will fail with "给与物品失败". This is by design — a card is considered incomplete without localization data. Always create both CSV files.
+
 **Python:**
 ```python
 # Give 100 gold
 g.call("give_item", {"type": "money", "value": "100"})
 
-# Give a specific card
-g.call("give_item", {"type": "card", "value": "card_strike_1"})
+# Give a specific card (requires Text/Card/ CSV with Name column)
+g.call("give_item", {"type": "card", "value": "YourMod_Card_plague_spread"})
 
 # Give all cards
 g.call("give_item", {"type": "card", "value": "all"})
@@ -308,5 +310,7 @@ g.call("give_item", {"type": "randomrelic", "value": "1"})
 3. `dump_mod_state` is the first thing to check when a mod fails to load or behave correctly.
 4. `get_screenshot` is useful for visual verification but produces large payloads — prefer reading structured data when possible.
 5. `give_item` duplicates functionality of `eval_command give ...` but provides structured JSON output instead of raw console text. Prefer `give_item` over `eval_command` for item granting.
-6. `set_rng_seed` is for reproduction of specific scenarios — use `seed` for full-run reproducibility and `forceRng` to control a single dice roll.
-7. `raycast_mouse` helps identify which GameObject the mouse is over — useful for scene debugging and understanding UI/click hierarchies.
+6. When `give_item` with `type=card` fails with "给与物品失败", first verify the card runtime ID exists (`search_config`). If it exists, the most likely cause is a missing `Text/Card/<file>.csv` — the game requires both `Data/Card/` and `Text/Card/` CSV files for a card to be fully registered. Add the Text CSV with at minimum `Id` and `Name` columns.
+7. `search_config` with `includeFields=true` returns ALL data columns (including `useScript`, `drawScript`, `dropScript`, `effects`, `tag`). Use it to inspect a card's full Lua scripts and metadata.
+8. `set_rng_seed` is for reproduction of specific scenarios — use `seed` for full-run reproducibility and `forceRng` to control a single dice roll.
+9. `raycast_mouse` helps identify which GameObject the mouse is over — useful for scene debugging and understanding UI/click hierarchies.

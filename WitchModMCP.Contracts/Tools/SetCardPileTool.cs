@@ -142,19 +142,21 @@ namespace WitchModMCP.Tools
                             case "add":
                             {
                                 var fightUI = UIManager.Instance?.GetUI<FightUI>("FightUI");
-                                // 先把卡加到抽牌堆
+                                // First try the normal draw path
                                 foreach (var cid in cards)
                                     fm.cardList.Add(new DataConfig(cid, DataType.Card));
-                                // 再用游戏自身的抽牌机制抽到手上
+                                EnsureFightPlayerInstance();
                                 if (fightUI != null)
                                     DrawIntoHand(fightUI, cards.Count);
-                                changes.Add($"hand add: draw {cards.Count} cards into hand");
+                                // Fallback: if hand still empty, create CardItems directly
+                                if (FightUI.cardItemList.Count == 0 && cards.Count > 0)
+                                    DirectAddToHand(cards);
+                                changes.Add($"hand add: {cards.Count} cards");
                                 break;
                             }
                             case "set":
                             {
                                 var fightUI = UIManager.Instance?.GetUI<FightUI>("FightUI");
-                                // 清空手牌
                                 for (int i = FightUI.cardItemList.Count - 1; i >= 0; i--)
                                 {
                                     var ci = FightUI.cardItemList[i];
@@ -164,12 +166,15 @@ namespace WitchModMCP.Tools
                                 FightUI.cardItemList.Clear();
                                 changes.Add("hand cleared for set");
 
-                                // 把目标卡加到抽牌堆顶部
+                                // First try normal draw path
                                 for (int i = cards.Count - 1; i >= 0; i--)
                                     fm.cardList.Add(new DataConfig(cards[i], DataType.Card));
-                                // 抽到手上
+                                EnsureFightPlayerInstance();
                                 if (fightUI != null)
                                     DrawIntoHand(fightUI, cards.Count);
+                                // Fallback: create CardItems directly
+                                if (FightUI.cardItemList.Count == 0 && cards.Count > 0)
+                                    DirectAddToHand(cards);
                                 changes.Add($"hand set: {cards.Count} cards");
                                 break;
                             }
@@ -367,6 +372,67 @@ namespace WitchModMCP.Tools
                 result["changes"] = changes;
                 return (JToken)result;
             });
+        }
+
+        private static void EnsureFightPlayerInstance()
+        {
+            if (FightPlayer.Instance != null) return;
+            var fp = Resources.FindObjectsOfTypeAll<FightPlayer>()
+                .FirstOrDefault(f => f.isActiveAndEnabled);
+            if (fp == null) fp = Resources.FindObjectsOfTypeAll<FightPlayer>().FirstOrDefault();
+            if (fp != null)
+            {
+                var field = typeof(FightPlayer).GetField("instance",
+                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                if (field != null) field.SetValue(null, fp);
+                var backing = typeof(FightPlayer).GetField("<Instance>k__BackingField",
+                    BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+                if (backing != null) backing.SetValue(null, fp);
+                Debug.Log($"[WitchModMCP] FightPlayer.Instance recovered: {fp.name}");
+            }
+        }
+
+        private static void DirectAddToHand(List<string> cardIds)
+        {
+            var container = FightUI.cardItemList;
+            foreach (var cid in cardIds)
+            {
+                try
+                {
+                    var dc = new DataConfig(cid, DataType.Card);
+                    var action = dc.data?.GetValueOrDefault("Action", "");
+                    var go = new GameObject($"MCP_Card_{cid}");
+                    // Ensure a RectTransform for UI layout
+                    var rt = go.AddComponent<RectTransform>();
+                    var fui = UIManager.Instance?.GetUI<FightUI>("FightUI");
+                    if (fui != null) rt.SetParent(fui.transform);
+                    go.SetActive(true);
+
+                    CardItem ci;
+                    if (action == "Attack" || action == "attack")
+                        ci = go.AddComponent<AttackCardItem>();
+                    else
+                        ci = go.AddComponent<CommonCardItem>();
+
+                    // Set dataConfig via reflection (property setter may not exist)
+                    var dcProp = typeof(CardItem).GetProperty("dataConfig",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (dcProp != null && dcProp.CanWrite)
+                        dcProp.SetValue(ci, dc);
+                    else
+                    {
+                        var dcField = typeof(CardItem).GetField("dataConfig",
+                            BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                        dcField?.SetValue(ci, dc);
+                    }
+
+                    container.Add(ci);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"[WitchModMCP] DirectAddToHand failed for {cid}: {ex.Message}");
+                }
+            }
         }
 
         private static void DrawIntoHand(FightUI fightUI, int count)

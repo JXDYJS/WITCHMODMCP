@@ -22,6 +22,8 @@ result = g.call("deploy_mod", {
 如果 `deploy_mod` 不可用，AI 给用户提供复制命令建议（路径根据用户实际目录生成）：
 
 ```bash
+# ⚠️ 务必先删除旧目录，否则重复执行 -Recurse 会嵌套复制（YourMod/YourMod/）
+Remove-Item -LiteralPath "游戏Mods目录/YourMod" -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item -LiteralPath "path/to/YourMod" -Destination "游戏Mods目录/YourMod" -Recurse
 ```
 

@@ -33,7 +33,7 @@ namespace WitchModMCP.Tools
                 ["includeFields"] = new JObject
                 {
                     ["type"] = "boolean",
-                    ["description"] = "是否额外返回匹配条目的核心字段（Id/Name/Type/Rarity/Expend 等），默认 false。设为 true 会略微增加耗时",
+                    ["description"] = "是否额外返回匹配条目的全部字段（Id/Rarity/UseScript/InitScript 等），默认 false。设为 true 会略微增加耗时",
                     ["default"] = false
                 },
                 ["searchNativeIds"] = new JObject
@@ -116,32 +116,10 @@ namespace WitchModMCP.Tools
                                         object dataDict = GetMemberValueByName(val, val.GetType(), "data");
                                         if (dataDict is IDictionary dd)
                                         {
-                                            int fieldCount = 0;
                                             foreach (string dk in dd.Keys)
                                             {
-                                                if (fieldCount >= 8) break;
                                                 string ddk = dk?.ToString() ?? "";
-                                                string low = ddk.ToLower();
-                                                if (low == "id" || low == "name" || low == "type" ||
-                                                    low == "rarity" || low == "action" || low == "expend" ||
-                                                    low == "packbelong" || low == "icon" ||
-                                                    low == "basescript" || low == "script" ||
-                                                    low == "note" || low == "description" ||
-                                                    low == "initScript".ToLower())
-                                                {
-                                                    entry[ddk] = dd[ddk]?.ToString() ?? "";
-                                                    fieldCount++;
-                                                }
-                                            }
-                                            if (fieldCount == 0)
-                                            {
-                                                int i = 0;
-                                                foreach (string dk in dd.Keys)
-                                                {
-                                                    if (i >= 3) break;
-                                                    entry[dk?.ToString() ?? ""] = dd[dk]?.ToString() ?? "";
-                                                    i++;
-                                                }
+                                                entry[ddk] = dd[ddk]?.ToString() ?? "";
                                             }
                                         }
                                         else
