@@ -59,6 +59,9 @@ _mod: ModConnection | None = None
 _active_loop: asyncio.AbstractEventLoop | None = None
 _active_write_stream = None  # type: ignore[var-annotated]
 
+# Track last-known tool count so we can re-register when reload_tools adds new ones
+_last_tool_count: int = 0
+
 # ── FastMCP app ─────────────────────────────────────────────────────
 mcp = FastMCP(
     name="witch-mod-mcp-gateway",
@@ -176,9 +179,11 @@ def _on_first_heartbeat(resp: dict):
     on the main event loop so freshly compiled C# tools get picked up
     without restarting the gateway.
     """
+    global _last_tool_count
     sid = resp.get("sessionId", "?")
-    tool_count = resp.get("toolCount", "?")
+    tool_count = resp.get("toolCount", 0)
     modules = resp.get("activeModules", [])
+    _last_tool_count = tool_count
     log(f"First heartbeat — sessionId={sid}, toolCount={tool_count}, "
         f"activeModules={len(modules)}")
 
@@ -200,6 +205,33 @@ def _on_first_heartbeat(resp: dict):
         exc = f.exception()
         if exc is not None:
             log(f"  _after_first_heartbeat_async raised: {exc!r}")
+    fut.add_done_callback(_log_failure)
+
+
+def _on_heartbeat(resp: dict):
+    """Triggered on every heartbeat after the first. Re-registers tools when
+    tool count changes (e.g. after reload_tools added new tools).
+    """
+    global _last_tool_count
+    tool_count = resp.get("toolCount", 0)
+    if tool_count == _last_tool_count or tool_count == 0:
+        return
+    prev = _last_tool_count
+    _last_tool_count = tool_count
+    log(f"Heartbeat: toolCount changed from {prev} to {tool_count}")
+
+    if _active_loop is None or _active_loop.is_closed():
+        log("  cannot re-register — event loop not available")
+        return
+
+    fut = asyncio.run_coroutine_threadsafe(
+        _after_first_heartbeat_async(), _active_loop
+    )
+    def _log_failure(f: asyncio.Future):
+        if f.cancelled(): return
+        exc = f.exception()
+        if exc is not None:
+            log(f"  _on_heartbeat async raised: {exc!r}")
     fut.add_done_callback(_log_failure)
 
 
@@ -269,6 +301,7 @@ def main():
         mod_conn=_mod,
         workspace_dir=_workspace_dir,
         on_first_heartbeat=_on_first_heartbeat,
+        on_heartbeat=_on_heartbeat,
         interval=interval,
         max_failures=max_fail,
     )

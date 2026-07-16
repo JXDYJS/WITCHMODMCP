@@ -26,12 +26,14 @@ class HeartbeatManager:
         mod_conn: ModConnection,
         workspace_dir: str,
         on_first_heartbeat: Callback | None = None,
+        on_heartbeat: Callback | None = None,
         interval: float | None = None,
         max_failures: int | None = None,
     ):
         self.mod: ModConnection = mod_conn
         self.workspace_dir = workspace_dir
         self.on_first_heartbeat = on_first_heartbeat
+        self.on_heartbeat = on_heartbeat
         self.interval = max(interval or self.DEFAULT_INTERVAL, 0.1)
         self.max_failures = max(max_failures or self.DEFAULT_MAX_FAILURES, 1)
 
@@ -94,14 +96,16 @@ class HeartbeatManager:
                         self._connected = False
                     triggered = False
 
-            if triggered and resp and self.on_first_heartbeat:
-                try:
-                    self.on_first_heartbeat(resp)
-                except Exception as e:
-                    print(
-                        f"[heartbeat] on_first_heartbeat error: {e}",
-                        file=sys.stderr,
-                        flush=True,
-                    )
+            if resp:
+                cb = self.on_first_heartbeat if triggered else self.on_heartbeat
+                if cb:
+                    try:
+                        cb(resp)
+                    except Exception as e:
+                        print(
+                            f"[heartbeat] callback error: {e}",
+                            file=sys.stderr,
+                            flush=True,
+                        )
 
             self._stop.wait(self.interval)
