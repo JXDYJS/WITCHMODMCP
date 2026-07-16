@@ -186,7 +186,7 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 |--------|----------|---------|
 | [Core](./base/core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | discovery, console command, eval_command |
 | [Meta](./base/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `check_mode_saves`, `list_game_modes` | scene state, game data, 场景检测, 页面状态 |
-| [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity` | 战斗, 出牌, 打牌, combat |
+| [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_skills_state`, `use_skill` | 战斗, 出牌, 打牌, combat, 技能 |
 | [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
 | [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow |
 | [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item` | 调试, 反射, 查配置, debug, diagnostics |
@@ -230,6 +230,8 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 | "Which mods are loaded?" | Diagnostics | `dump_mod_state` |
 | "What GameObjects are in the scene?" | Diagnostics | `get_scene_tree` |
 | "Show recent game logs" | Diagnostics | `get_recent_logs` |
+| "Use character skill 1/2" | Combat | `use_skill` |
+| "Check skill cooldowns" | Combat | `get_skills_state` |
 | "Play card X at enemy Y" | Combat | `play_card` |
 | "End my turn" | Combat | `end_turn` |
 | "Set up a lobby with career X / pack Y" | Lobby | `set_lobby_state` |
