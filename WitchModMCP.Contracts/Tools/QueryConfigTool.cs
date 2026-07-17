@@ -22,7 +22,7 @@ namespace WitchModMCP.Tools
                 ["tableName"] = new JObject
                 {
                     ["type"] = "string",
-                    ["description"] = "配置表名，如 CardConfig、RelicConfig。留空则列出所有可用表名"
+                    ["description"] = "配置表名，如 Card、Event、Enemy。留空则列出所有可用配置表。注意：Career/Buff/Relic/Blessing 等数据在 DataConfigCache 中，请用 search_config 查询"
                 },
                 ["id"] = new JObject
                 {

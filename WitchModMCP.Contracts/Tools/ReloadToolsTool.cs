@@ -8,7 +8,7 @@ namespace WitchModMCP.Tools
     public class ReloadToolsTool : IMcpTool
     {
         public string Name => "reload_tools";
-        public string Description => "热重载所有 MCP 工具。在修改工具代码并重新编译 DLL 后，调用此接口即可让新工具/修改后的工具立即生效，无需重启游戏或按 F5。调完后建议用 list_tools 确认。";
+        public string Description => "热重载所有 MCP 工具。在修改工具代码并重新编译 DLL 后，调用此接口即可让新工具/修改后的工具立即生效，无需重启游戏或按 F5。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -23,7 +23,7 @@ namespace WitchModMCP.Tools
                 return (JToken)new JObject
                 {
                     ["status"] = "ok",
-                    ["hint"] = "工具已热重载，调用 list_tools 可查看当前工具列表"
+                    ["hint"] = "工具已热重载，新工具/修改后的工具已生效"
                 };
             });
         }

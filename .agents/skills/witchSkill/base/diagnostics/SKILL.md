@@ -15,7 +15,20 @@ Developer backdoor tools for deep inspection and debugging. These tools break th
 > 3. The game prints specific error messages for: CSV parse failures, Lua compilation errors, missing `BaseScript`, invalid `PackBelong`, ModConfig JSON errors
 > 4. Only escalate to `inspect` / `query_config` if logs are clean and you need deeper runtime state
 >
-> **Do NOT use `inspect` or `query_config` to debug CSV loading issues** — the game already logs them. Reading private fields (`DataConfigCache`, `_tables`) is almost never the right approach.
+> **Do NOT use `inspect` or `query_config` to debug CSV loading issues** — the game already logs them. Reading private fields is almost never the right approach.
+
+---
+
+## Data Architecture: Two Storage Layers
+
+Game config data lives in two separate storage systems. Which tool to use depends on which layer the data is in:
+
+| Layer | Where | Access Tool | Contains |
+|-------|-------|-------------|----------|
+| **`_tables`** | Structured config tables, keyed by `DataType` enum | `query_config` | `Card`, `Event`, `Map`, `Enemy`, `EnemyCard`, `Level`, `Partner`, `PartnerCard` (34 tables) |
+| **`DataConfigCache`** | Runtime ID registry, flat dict of all loaded entries | `search_config` | `Career`/职业, `Buff`, `Relic`/遗物, `CardPack`/卡包, `Blessing`/祝福, `Partner`/随从 等 (~2183 entries) |
+
+**Quick rule:** If you want to look up data by **ID string** (like `career_1`, `buff_vulnerability`, a card runtime ID), use **`search_config`**. If you want to browse a **structured table** (like all Cards or all Events), use **`query_config`**.
 
 ## Tools
 
@@ -52,7 +65,7 @@ result = g.call("inspect", {"typeName": "RoleTable"})
 print(result['members']['static'])
 print(result['members']['instance'])
 
-# Read a specific member value
+# Read a specific member value (singleton chain)
 result = g.call("inspect", {
     "typeName": "RoleTable",
     "memberPath": "Instance.San"
@@ -65,33 +78,46 @@ result = g.call("inspect", {
     "memberPath": "Instance.Status",
     "maxDepth": 2
 })
+
+# Chain through singleton: GameConfigManager → Instance → DataConfigCache
+result = g.call("inspect", {
+    "typeName": "GameConfigManager",
+    "memberPath": "Instance.DataConfigCache",
+    "maxDepth": 1,
+    "maxItems": 5
+})
+print(f"DataConfigCache type: {result.get('memberType')}")
+print(f"Sample: {str(result.get('value', ''))[:200]}")
 ```
+
+> **⚠️ `memberPath` 参数是链式访问的关键。** 把 `typeName` 设为目标类的类名，然后通过 `Instance`、`instance` 等静态属性进入单例实例，再用 `.` 分隔链式访问子成员。**不要**把整个路径写在 `typeName` 里（如 `typeName: "GameConfigManager.Instance.DataConfigCache"` 不会生效）。
 
 ### query_config
 
-Query the game's config table system. Without `tableName`, lists all available tables with their type and item count. With `tableName`, returns sample rows. With `tableName` + `id`, returns a specific config entry.
+Query the game's `_tables` (structured config tables like Card, Event, Enemy). Without `tableName`, lists all discoverable members on GameConfigManager. With `tableName` set to `_tables`, returns sample entries from the 34 config tables. With `tableName` + `id`, finds a specific entry by scanning the table's items for a matching `Id` field.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `tableName` | string | No | — | Config table name, e.g. `CardConfig`, `RelicConfig`, `CareerConfig`. Omit to list tables. |
-| `id` | int | No | — | Specific config entry ID |
+| `tableName` | string | No | — | Set to `_tables` to browse structured config tables. Omit to list all discoverable members. |
+| `id` | int | No | — | Config entry numeric ID. Scans table items for match. |
 | `limit` | int | No | 5 | Max sample rows to return |
+
+> **⚠️ Career, Buff, Relic, Blessing 等数据不在 `_tables` 中。** 要查这些请用 `search_config`。这是两层数据架构的设计，具体见上方"Data Architecture"章节。
 
 **Examples:**
 ```python
-# List all config tables
-tables = g.call("query_config")
-for t in tables['availableTables']:
-    print(f"  {t['name']}: {t['type']} ({t.get('itemCount', '?')} items)")
+# List all discoverable members on GameConfigManager
+members = g.call("query_config")
+for m in members['availableTables']:
+    print(f"  {m['name']}: {m['type']}")
 
-# Query a config table
-result = g.call("query_config", {"tableName": "CardConfig", "limit": 3})
-print(f"Total: {result.get('totalCount', '?')}")
+# Browse _tables (the 34 config tables)
+result = g.call("query_config", {"tableName": "_tables", "limit": 3})
 for s in result['samples']:
     print(s)
 
-# Query by ID
-result = g.call("query_config", {"tableName": "CardConfig", "id": 1001})
+# Query a specific entry by numeric ID within _tables
+result = g.call("query_config", {"tableName": "_tables", "id": 1001})
 print(result['item'])
 ```
 
@@ -159,11 +185,13 @@ for key in r["matchedKeys"]:
 | 场景 | 用哪个 |
 |------|--------|
 | 查某张卡牌的运行时 ID | `search_config({"pattern": "卡牌名"})` |
-| 查 `_tables` 字典里的结构化配置表 | `query_config({"tableName": "CardConfig"})` |
+| 查结构化配置表（Card/Event/Enemy） | `query_config({"tableName": "_tables", "limit": 5})` |
 | 验证 Mod 的 CSV 数据已加载 | `search_config({"pattern": "ModFolder"})` |
-| 查具体 ID 的配置详情 | `query_config({"tableName": "CardConfig", "id": 1001})` |
+| 查具体 ID 的配置详情 | `search_config({"pattern": "career_1", "includeFields": true})` |
 | 翻所有数据找某关键词 | `search_config({"pattern": "uncommon"})` |
 | 查内置 Buff 是否注册 | `search_config({"pattern": "buff_regenerate", "searchNativeIds": true})` |
+| 看某个职业/角色的详细配置 | `search_config({"pattern": "career_5", "includeFields": true})` |
+| 查 Buff 的 Lua 脚本 | `search_config({"pattern": "buff_burn", "includeFields": true})` |
 
 ### dump_mod_state
 

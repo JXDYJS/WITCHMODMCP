@@ -14,7 +14,7 @@ namespace WitchModMCP.Tools
     public class MapListNodeTool : IMcpTool
     {
         public string Name => "map_list_nodes";
-        public string Description => "列出当前地图上可到达的节点。返回每个节点的索引、类型和名称。需在地图页面。";
+        public string Description => "列出当前地图上可到达的节点。返回每个节点的索引、名称和交互状态。需在地图页面。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",

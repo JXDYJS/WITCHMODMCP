@@ -45,7 +45,7 @@ namespace WitchModMCP.Tools
                 ["includeInactive"] = new JObject
                 {
                     ["type"] = "boolean",
-                    ["description"] = "是否包含非 activat 对象，默认 false",
+                    ["description"] = "是否包含非 active 对象，默认 false",
                     ["default"] = false
                 }
             }

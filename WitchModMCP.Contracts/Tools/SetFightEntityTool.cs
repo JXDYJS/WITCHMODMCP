@@ -16,9 +16,9 @@ namespace WitchModMCP.Tools
             ["properties"] = new JObject
             {
                 ["target"] = new JObject { ["type"] = "string", ["description"] = "\"player\" 或敌人索引(0开始)" },
-                ["hp"] = new JObject { ["type"] = "integer" },
-                ["maxHp"] = new JObject { ["type"] = "integer" },
-                ["shield"] = new JObject { ["type"] = "integer" },
+                ["hp"] = new JObject { ["type"] = "integer", ["description"] = "设置当前 HP" },
+                ["maxHp"] = new JObject { ["type"] = "integer", ["description"] = "设置最大 HP" },
+                ["shield"] = new JObject { ["type"] = "integer", ["description"] = "设置护盾值" },
                 ["power"] = new JObject { ["type"] = "integer", ["description"] = "仅玩家有效" },
                 ["maxPower"] = new JObject { ["type"] = "integer", ["description"] = "仅玩家有效" },
                 ["addBuffs"] = new JObject
@@ -37,9 +37,10 @@ namespace WitchModMCP.Tools
                 ["removeBuffs"] = new JObject
                 {
                     ["type"] = "array",
-                    ["items"] = new JObject { ["type"] = "string" }
+                    ["items"] = new JObject { ["type"] = "string" },
+                    ["description"] = "要移除的 Buff ID 列表，如 [\"buff_vulnerability\", \"buff_burn\"]"
                 },
-                ["clearBuffs"] = new JObject { ["type"] = "boolean" }
+                ["clearBuffs"] = new JObject { ["type"] = "boolean", ["description"] = "是否清除所有 Buff" }
             },
             ["required"] = new JArray { "target" }
         };

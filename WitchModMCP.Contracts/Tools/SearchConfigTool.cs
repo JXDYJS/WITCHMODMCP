@@ -13,7 +13,7 @@ namespace WitchModMCP.Tools
     public class SearchConfigTool : IMcpTool
     {
         public string Name => "search_config";
-        public string Description => "在游戏 DataConfigCache 中按关键词模糊搜索配置条目。用于快速查找卡牌、Buff、卡包、遗物等所有已加载内容的运行时 ID，是 query_config 的补充（query_config 查 _tables 表，search_config 查 DataConfigCache 全量条目）。";
+        public string Description => "在游戏 DataConfigCache 中按关键词模糊搜索配置条目。用于快速查找卡牌、Buff、卡包、遗物、职业、祝福等所有已加载内容的运行时 ID。与 query_config 互补：query_config 查结构化配置表（Card/Event/Enemy 等），search_config 查 DataConfigCache（所有运行时 ID，含 Career/Buff/Relic/Blessing）。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",

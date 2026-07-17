@@ -13,7 +13,7 @@ namespace WitchModMCP.Tools
     public class DecompileSourceTool : IMcpTool
     {
         public string Name => "decompile_source";
-        public string Description => "反编译 Witch.dll / Witch.Core.dll 到指定目录，按 DLL hash 分目录管理。自动检测 hash 变化，已缓存的不会重复翻编。";
+        public string Description => "反编译 Witch.dll / Witch.Core.dll 到指定目录，按 DLL hash 分目录管理。自动检测 hash 变化，已缓存的不会重复反编。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
