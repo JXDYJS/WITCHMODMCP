@@ -1,6 +1,6 @@
 ---
 name: witch-mod-mcp-meta
-description: "WitchModMCP meta/global state tools: page detection, player snapshot, save inspection, game mode listing. Use when the user wants to know what page the game is on, read the player's current stats (HP/SAN/money/deck), check available saves, or list game modes. Triggers: get_scene_state, get_game_data, check_mode_saves, list_game_modes, scene state, game data, 场景检测, 页面状态, 存档, 游戏模式."
+description: "WitchModMCP meta/global state tools: page detection, player snapshot, game install info, save inspection, game mode listing. Use when the user wants to know what page the game is on, read the player's current stats (HP/SAN/money/deck), find the game installation path, check available saves, or list game modes. Triggers: get_scene_state, get_game_data, get_game_info, check_mode_saves, list_game_modes, scene state, game data, 游戏路径, 安装目录, 场景检测, 页面状态, 存档, 游戏模式."
 ---
 
 # Meta Module
@@ -13,6 +13,7 @@ Global state probes — detect the current game page, read player/runtime snapsh
 |------|--------|---------|
 | `get_scene_state` | — | `{page, inRun, inFight, fightType?, player?, modals, transitioning, overlays}` |
 | `get_game_data` | — | `{player?, fight?, runtime?}` — player HP/SAN/money/deck snapshot |
+| `get_game_info` | — | `{dataPath, gameRoot, managedPath, modsPath, unityVersion, platform, loadedMods}` — game install info |
 | `check_mode_saves` | `{mode?}` | `{hasSaves, totalSaves, validSaves, saves: [{name, mode, level, career?, cardCount, relicCount}]}` |
 | `list_game_modes` | — | `{modes: [{mode, hasSave, saveCount, save?}]}` |
 
@@ -89,6 +90,34 @@ Empty `player` → no save loaded. `*Error` field → that section threw an exce
 data = g.get_game_data()
 if "player" in data:
     print(f"HP: {data['player']['hp']}/{data['player']['maxHp']}")
+```
+
+### get_game_info
+
+Returns the game's installation paths and version information. Useful for scripts that need to locate the game's files on disk.
+
+**Return fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `dataPath` | string | Unity `Application.dataPath` — the game's `_Data` folder |
+| `gameRoot` | string | Parent of dataPath — the game install root directory |
+| `managedPath` | string | Path to `Managed/` (game DLLs) |
+| `modsPath` | string | Path to `Mods/` directory |
+| `unityVersion` | string | Unity engine version (e.g. `6000.0.46f1`) |
+| `platform` | string | Build target platform (`WindowsPlayer`) |
+| `productName` | string | Unity product name |
+| `companyName` | string | Unity company name |
+| `loadedMods` | array | `[{name, directory}]` — all currently loaded mods and their disk paths |
+| `loadedModDirectories` | array | Raw mod directory paths from GameConfigManager |
+
+**Python:**
+```python
+info = g.call("get_game_info")
+print(f"Game: {info['productName']} ({info['unityVersion']})")
+print(f"Root: {info['gameRoot']}")
+print(f"Mods: {info['modsPath']}")
+for m in info.get('loadedMods', []):
+    print(f"  {m['name']}: {m['directory']}")
 ```
 
 ### check_mode_saves

@@ -12,7 +12,7 @@ This folder contains detailed documentation for each module. For transport proto
 | Module | Tools | Description |
 |--------|-------|-------------|
 | [Core](./core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | Tool discovery, console command execution, hot-reload |
-| [Meta](./meta/SKILL.md) | `get_scene_state`, `get_game_data`, `check_mode_saves`, `list_game_modes` | Global state probes — page detection, player snapshot, save inspection |
+| [Meta](./meta/SKILL.md) | `get_scene_state`, `get_game_data`, `get_game_info`, `check_mode_saves`, `list_game_modes` | Global state probes — page detection, player snapshot, game install info, save inspection |
 | [Combat](./combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity` | Battle-read/write loop — state snapshot, card play, entity modification |
 | [Lobby](./lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | Career selection hall read & write — career, partner, attributes, card packs |
 | [Gameflow](./gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `load_scene`, `claim_rewards` | Game state machine navigation — menu → hub → lobby → map → fight |
