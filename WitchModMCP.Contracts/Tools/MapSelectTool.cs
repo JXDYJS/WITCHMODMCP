@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -135,30 +136,72 @@ namespace WitchModMCP.Tools
     public class MapSelectAssignTool : IMcpTool
     {
         public string Name => "map_select_assign";
-        public string Description => "将可选节点放置到指定槽位。slotIndex: 槽位索引(0-5)，nodeIndex: 可选节点索引(从 map_select_state 获得)。";
+        public string Description => "将可选节点放置到指定槽位。支持批量操作。使用 nodeId（稳定 ID，从 map_select_state 的 selectableNodes 中获得）而非容易变化的 index。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
             ["properties"] = new JObject
             {
-                ["slotIndex"] = new JObject { ["type"] = "integer", ["description"] = "槽位索引 (0-5)" },
-                ["nodeIndex"] = new JObject { ["type"] = "integer", ["description"] = "可选节点索引 (从 map_select_state 的 selectableNodes 中获得)" }
-            },
-            ["required"] = new JArray { "slotIndex", "nodeIndex" }
+                ["slotIndex"] = new JObject { ["type"] = "integer", ["description"] = "（可选，与 nodeId 搭配使用）单次放置时的槽位索引 (0-5)" },
+                ["nodeId"] = new JObject { ["type"] = "string", ["description"] = "（可选，与 slotIndex 搭配使用）单次放置时的节点 NodeId" },
+                ["mappings"] = new JObject
+                {
+                    ["type"] = "array",
+                    ["description"] = "批量放置映射列表，每个元素指定槽位和节点 ID",
+                    ["items"] = new JObject
+                    {
+                        ["type"] = "object",
+                        ["properties"] = new JObject
+                        {
+                            ["slotIndex"] = new JObject { ["type"] = "integer", ["description"] = "槽位索引 (0-5)" },
+                            ["nodeId"] = new JObject { ["type"] = "string", ["description"] = "节点 NodeId（稳定 ID，从 map_select_state 获取）" }
+                        },
+                        ["required"] = new JArray { "slotIndex", "nodeId" }
+                    }
+                }
+            }
         };
 
         public async Task<JToken> Execute(JToken args)
         {
-            int slotIndex = args?["slotIndex"]?.Value<int>() ?? -1;
-            int nodeIndex = args?["nodeIndex"]?.Value<int>() ?? -1;
-            if (slotIndex < 0 || slotIndex > 5)
-                throw new ArgumentException("slotIndex 必须在 0-5 之间");
-            if (nodeIndex < 0)
-                throw new ArgumentException("nodeIndex 必须 >= 0");
+            var mappings = new List<(int slotIndex, string nodeId)>();
+
+            var mappingsArr = args?["mappings"];
+            if (mappingsArr != null && mappingsArr.Type == JTokenType.Array && mappingsArr.HasValues)
+            {
+                foreach (var m in mappingsArr)
+                {
+                    int si = m["slotIndex"]?.Value<int>() ?? -1;
+                    string nid = m["nodeId"]?.Value<string>();
+                    if (si < 0 || si > 5)
+                        throw new ArgumentException("每个 mapping 的 slotIndex 必须在 0-5 之间");
+                    if (string.IsNullOrEmpty(nid))
+                        throw new ArgumentException("每个 mapping 必须有 nodeId");
+                    mappings.Add((si, nid));
+                }
+            }
+            else
+            {
+                int slotIndex = args?["slotIndex"]?.Value<int>() ?? -1;
+                string nodeId = args?["nodeId"]?.Value<string>();
+                if (slotIndex < 0 || slotIndex > 5)
+                    throw new ArgumentException("slotIndex 必须在 0-5 之间，或使用 mappings 数组进行批量放置");
+                if (string.IsNullOrEmpty(nodeId))
+                    throw new ArgumentException("需要提供 nodeId，或使用 mappings 数组进行批量放置");
+                mappings.Add((slotIndex, nodeId));
+            }
 
             return await GameDispatcher.RunOnMainThread(() =>
             {
                 var result = new JObject();
+
+                if (mappings.Count == 0)
+                {
+                    result["result"] = "error";
+                    result["message"] = "未提供任何放置映射";
+                    return (JToken)result;
+                }
+
                 var mapUI = UIManager.Instance?.GetUI<MapSelectUI>("MapSelectUI");
                 if (mapUI == null || !mapUI.gameObject.activeInHierarchy)
                 {
@@ -167,7 +210,6 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                // Find selectable card in MapSelect container by nodeIndex
                 var selectContainer = mapUI.transform.Find("MapSelect");
                 if (selectContainer == null)
                 {
@@ -176,88 +218,126 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                MapItem sourceItem = null;
-                int curIdx = 0;
-                foreach (Transform child in selectContainer)
-                {
-                    var item = child.GetComponent<MapItem>();
-                    if (item == null) continue;
-                    if (curIdx == nodeIndex)
-                    {
-                        sourceItem = item;
-                        break;
-                    }
-                    curIdx++;
-                }
-
-                if (sourceItem == null)
-                {
-                    result["result"] = "error";
-                    result["message"] = $"未找到 nodeIndex={nodeIndex} 的可选节点";
-                    result["selectableCount"] = curIdx;
-                    return (JToken)result;
-                }
-
-                // Find target slot
                 var nodeContent = mapUI.transform.Find("Map/NodeContent");
-                if (nodeContent == null || slotIndex >= nodeContent.childCount)
+                if (nodeContent == null)
                 {
                     result["result"] = "error";
-                    result["message"] = $"未找到 slotIndex={slotIndex} 的槽位";
+                    result["message"] = "未找到槽位容器(Map/NodeContent)";
                     return (JToken)result;
                 }
 
-                var targetSlot = nodeContent.GetChild(slotIndex);
-                var targetContent = targetSlot.Find("Content");
-                if (targetContent == null)
+                var placed = new JArray();
+                var errors = new JArray();
+
+                foreach (var (slotIndex, nodeId) in mappings)
                 {
-                    result["result"] = "error";
-                    result["message"] = "槽位缺少 Content 子对象";
-                    return (JToken)result;
-                }
-
-                // Clear existing card in slot if any
-                var existingItem = targetContent.GetComponentInChildren<MapItem>(true);
-                if (existingItem != null)
-                {
-                    GameObject.Destroy(existingItem.gameObject);
-                }
-
-                // Hide the Null placeholder in slot if it exists
-                var nullObj = targetContent.Find("Null");
-                if (nullObj != null)
-                    nullObj.gameObject.SetActive(false);
-
-                // Move MapItem to slot
-                sourceItem.transform.SetParent(targetContent, false);
-                sourceItem.transform.localPosition = Vector3.zero;
-                sourceItem.transform.localRotation = Quaternion.identity;
-                sourceItem.transform.localScale = Vector3.one;
-
-                // Sync via SetNodes() (reflection since it may be private)
-                try
-                {
-                    var setNodesMethod = typeof(MapSelectUI).GetMethod("SetNodes",
-                        BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                    if (setNodesMethod != null)
+                    // Find source by stable nodeId (not index)
+                    MapItem sourceItem = null;
+                    foreach (Transform child in selectContainer)
                     {
-                        setNodesMethod.Invoke(mapUI, null);
+                        var item = child.GetComponent<MapItem>();
+                        if (item == null || item.node?.data == null) continue;
+
+                        if (item.node.data.TryGetValue("NodeId", out var val)
+                            && val is string s && s == nodeId)
+                        {
+                            sourceItem = item;
+                            break;
+                        }
                     }
-                    else
+
+                    if (sourceItem == null)
                     {
-                        // Fallback: sync via CmdSelectMap directly
+                        errors.Add(new JObject
+                        {
+                            ["slotIndex"] = slotIndex,
+                            ["nodeId"] = nodeId,
+                            ["error"] = "未找到此 nodeId 的可选节点（可能已被放置或不存在）"
+                        });
+                        continue;
+                    }
+
+                    if (slotIndex >= nodeContent.childCount)
+                    {
+                        errors.Add(new JObject
+                        {
+                            ["slotIndex"] = slotIndex,
+                            ["nodeId"] = nodeId,
+                            ["error"] = $"槽位索引 {slotIndex} 超出范围"
+                        });
+                        continue;
+                    }
+
+                    var targetSlot = nodeContent.GetChild(slotIndex);
+                    var targetContent = targetSlot.Find("Content");
+                    if (targetContent == null)
+                    {
+                        errors.Add(new JObject
+                        {
+                            ["slotIndex"] = slotIndex,
+                            ["nodeId"] = nodeId,
+                            ["error"] = "槽位缺少 Content 子对象"
+                        });
+                        continue;
+                    }
+
+                    // Clear existing card in slot
+                    var existingItem = targetContent.GetComponentInChildren<MapItem>(true);
+                    if (existingItem != null)
+                        GameObject.Destroy(existingItem.gameObject);
+
+                    var nullObj = targetContent.Find("Null");
+                    if (nullObj != null)
+                        nullObj.gameObject.SetActive(false);
+
+                    // Move MapItem to slot
+                    sourceItem.transform.SetParent(targetContent, false);
+                    sourceItem.transform.localPosition = Vector3.zero;
+                    sourceItem.transform.localRotation = Quaternion.identity;
+                    sourceItem.transform.localScale = Vector3.one;
+
+                    placed.Add(new JObject
+                    {
+                        ["slotIndex"] = slotIndex,
+                        ["nodeId"] = nodeId
+                    });
+                }
+
+                // Sync once after all placements
+                if (placed.Count > 0)
+                {
+                    try
+                    {
+                        var setNodesMethod = typeof(MapSelectUI).GetMethod("SetNodes",
+                            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                        if (setNodesMethod != null)
+                            setNodesMethod.Invoke(mapUI, null);
+                        else
+                            FallbackSync(mapUI);
+                    }
+                    catch
+                    {
                         FallbackSync(mapUI);
                     }
                 }
-                catch
+
+                string status = errors.Count > 0
+                    ? (placed.Count > 0 ? "partial" : "error")
+                    : "success";
+
+                result["result"] = status;
+                result["placed"] = placed;
+                result["placedCount"] = placed.Count;
+
+                if (errors.Count > 0)
                 {
-                    FallbackSync(mapUI);
+                    result["errors"] = errors;
+                    result["errorCount"] = errors.Count;
                 }
 
-                result["result"] = "success";
-                result["message"] = $"已将节点 [index={nodeIndex}] 放置到槽位 {slotIndex}";
-                result["slotIndex"] = slotIndex;
-                result["nodeIndex"] = nodeIndex;
+                result["message"] = placed.Count > 0
+                    ? $"成功放置 {placed.Count} 个节点" + (errors.Count > 0 ? $"，{errors.Count} 个失败" : "")
+                    : "未放置任何节点";
 
                 return (JToken)result;
             });
@@ -282,9 +362,9 @@ namespace WitchModMCP.Tools
                 if (item?.node?.data != null)
                 {
                     item.node.data.TryGetValue("Id", out var id);
-                    item.node.data.TryGetValue("NodeId", out var nodeId);
+                    item.node.data.TryGetValue("NodeId", out var nid);
                     ids[i] = id;
-                    nodeIds[i] = nodeId;
+                    nodeIds[i] = nid;
                 }
                 else
                 {

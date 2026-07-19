@@ -17,6 +17,102 @@ description: "DeveloperTools game flow tools: page detection, game state machine
 | `start_run` | — | `{result, message, page, level?}` | 大厅 → 启程。轮询等待（最长 20s），有自动回退机制 |
 | `check_mode_saves` | `{mode?}` | `{hasSaves, totalSaves, validSaves, saves}` | 检查指定模式的存档详情 |
 | `list_game_modes` | — | `{modes: [{mode, hasSave, saveCount, save?}]}` | 列出所有可用的游戏模式 |
+| `map_select_state` | — | `{selectableNodes, slots, canContinue}` | 获取地图节点编排界面状态 |
+| `map_select_assign` | `{mappings}` 或 `{slotIndex, nodeId}` | `{placed, errors}` | 将可选节点放置到槽位。**支持批量** |
+| `map_select_clear` | `{slotIndex}` | `{result}` | 清空指定槽位 |
+| `map_select_confirm` | — | `{result}` | 确认编排并继续前进 |
+
+---
+
+### map_select_state
+
+获取地图节点编排界面(MapSelectUI)的当前状态。
+
+**返回字段：**
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `selectableNodes` | array | 可选节点列表（"手牌"） |
+| `selectableNodes[].nodeId` | string | **稳定 ID**，唯一标识一个节点（如 "shop"、"Breaks"、"level_10006"） |
+| `selectableNodes[].index` | int | **⚠️ 不稳定序号**，每次状态刷新都会变化，不要依赖 |
+| `slots` | array | 6个槽位（0=起点, 1-4=中间, 5=终点） |
+| `canContinue` | bool | 是否所有槽位已填满可以继续 |
+
+**重要：`index` 字段是遍历时动态生成的序号，不是稳定 ID。** 每次放置节点后，可选列表缩小、索引全部偏移。**永远不要用 `index` 来定位节点。**
+
+### map_select_assign
+
+将可选节点放置到槽位。**推荐使用批量模式。**
+
+**参数（两种模式）：**
+
+1️⃣ **批量模式（推荐）** — 通过 `mappings` 数组一次填所有槽位：
+```json
+{
+  "mappings": [
+    {"slotIndex": 1, "nodeId": "shop"},
+    {"slotIndex": 2, "nodeId": "level_10042"},
+    {"slotIndex": 3, "nodeId": "Breaks"},
+    {"slotIndex": 4, "nodeId": "level_10006"}
+  ]
+}
+```
+
+2️⃣ **单次模式** — 通过顶层 `slotIndex` + `nodeId`：
+```json
+{"slotIndex": 1, "nodeId": "shop"}
+```
+
+**参数说明：**
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `slotIndex` | int | 槽位索引 (0-5) |
+| `nodeId` | string | **稳定 ID**，从 `map_select_state` 的 `selectableNodes[].nodeId` 获取 |
+| `mappings` | array | 批量放置映射列表，自动处理所有放置后只需同步一次 |
+
+**返回：**
+| 字段 | 说明 |
+|------|------|
+| `result` | `"success"` / `"partial"` / `"error"` |
+| `placed` | 成功放置的 `[{slotIndex, nodeId}]` |
+| `errors` | 失败的 `[{slotIndex, nodeId, error}]` |
+
+**⚠️ 关键行为变更警告：**
+- 旧版使用 `nodeIndex`（整数序号），现**已移除**。改用 `nodeId` 字符串
+- `nodeIndex` 是容器遍历的动态序号，每次放置后可选节点列表缩小、所有序号偏移。用 `nodeId` 可避免此问题
+- 批量模式下，所有放置在同一主线程帧内处理，**只同步一次**，比逐次调用更高效可靠
+- 如果同一个 `nodeId` 被多次引用，只有第一次生效（节点被移走后不在可选列表中）
+
+**Python：**
+```python
+# 批量填充所有槽位（推荐）
+g.call("map_select_assign", {
+    "mappings": [
+        {"slotIndex": 1, "nodeId": "shop"},
+        {"slotIndex": 2, "nodeId": "level_10042"},
+        {"slotIndex": 3, "nodeId": "Breaks"},
+        {"slotIndex": 4, "nodeId": "level_10006"}
+    ]
+})
+```
+
+### map_select_clear
+
+清空指定槽位的节点。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `slotIndex` | int | 是 | 槽位索引 (0-5) |
+
+### map_select_confirm
+
+确认当前地图节点编排并继续前进。所有6个槽位都必须已填充。
+
+**Python：**
+```python
+state = g.call("map_select_state")
+if state['canContinue']:
+    g.call("map_select_confirm")
+```
 
 ---
 
@@ -213,3 +309,5 @@ g.call("load_scene", {"type": "fakefight"})             # 假战斗
 3. **start_run 的回退机制** — 如果 `GameEntryUI.StartGame()` 失败，工具自动尝试 `PlayerManager.StartGame()`。变更细节在 `changes` 字段中
 4. **假战斗 vs 真战斗** — `load_scene type=fakefight` 快速进入测试战斗；`type=fight` 消耗地图进度。优先用 fakefight 做卡牌测试
 5. **存档管理** — 测试前用 `check_mode_saves` 确认已有存档，避免意外覆盖
+6. **地图节点编排一定要用 `nodeId` 而非 `index`** — `index` 是动态遍历序号，每次放置后变化。`nodeId`（如 "shop"、"Breaks"、"level_10006"）是配置表稳定 ID，不变不重复
+7. **推荐用批量 `mappings` 一次填完** — 一次性传递所有 `{slotIndex, nodeId}`，工具内部按顺序处理，只同步一次。比逐次调用 `map_select_assign` 更高效可靠
