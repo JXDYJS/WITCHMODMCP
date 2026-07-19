@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Cysharp.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Witch.UI;
 using Witch.UI.Window;
 using WitchModMCP.Dispatcher;
@@ -22,97 +24,158 @@ namespace WitchModMCP.Tools
             ["properties"] = new JObject()
         };
 
-        private static MapSelectUI TryGetMapSelectUI()
-        {
-            var ui = UIManager.Instance?.GetUI<MapSelectUI>("MapSelectUI");
-            if (ui == null || !ui.gameObject.activeInHierarchy)
-                return null;
-            return ui;
-        }
-
         public async Task<JToken> Execute(JToken args)
         {
             return await GameDispatcher.RunOnMainThread(() =>
             {
                 var result = new JObject();
-                var mapUI = TryGetMapSelectUI();
-                if (mapUI == null)
+                var mapUI = UIManager.Instance?.GetUI<MapSelectUI>("MapSelectUI");
+                if (mapUI == null || !mapUI.gameObject.activeInHierarchy)
                 {
                     result["result"] = "error";
                     result["message"] = "当前不在节点编排界面(MapSelectUI)";
                     return (JToken)result;
                 }
 
-                result["isSelecting"] = mapUI.transform.Find("MapSelect") != null;
+                result["isSelecting"] = true;
 
-                // 1. Selectable nodes (cards in "MapSelect" container)
+                var mapManager = MapManager.Instance;
+                var mapTree = mapManager?.MapTree;
+
+                // 1. Selectable nodes from MapTree.SelectNode (backend — stable, no index issues)
+                // Filter out nodes already placed in slots (by checking backend mapData)
+                var placedNodeIds = mapManager?.mapData != null
+                    ? new HashSet<string>(mapManager.mapData.Where(id => !string.IsNullOrEmpty(id)))
+                    : new HashSet<string>();
+
                 var selectableNodes = new JArray();
-                var selectContainer = mapUI.transform.Find("MapSelect");
-                if (selectContainer != null)
+                if (mapTree?.SelectNode != null)
                 {
-                    int idx = 0;
-                    foreach (Transform child in selectContainer)
+                    foreach (var node in mapTree.SelectNode)
                     {
-                        var item = child.GetComponent<MapItem>();
-                        if (item == null || item.node == null || item.node.data == null)
+                        if (node?.data == null) continue;
+                        var nid = GetData(node, "NodeId");
+                        if (placedNodeIds.Contains(nid)) continue;
+                        selectableNodes.Add(new JObject
                         {
-                            idx++;
-                            continue;
-                        }
-
-                        var nd = new JObject
-                        {
-                            ["index"] = idx,
-                            ["id"] = GetData(item.node, "Id"),
-                            ["nodeId"] = GetData(item.node, "NodeId"),
-                            ["type"] = item.node.type ?? GetData(item.node, "Type"),
-                            ["note"] = GetData(item.node, "Note"),
-                            ["name"] = GetData(item.node, "Name")
-                        };
-                        selectableNodes.Add(nd);
-                        idx++;
+                            ["nodeId"] = nid,
+                            ["id"] = GetData(node, "Id"),
+                            ["type"] = node.type ?? GetData(node, "Type"),
+                            ["note"] = GetData(node, "Note"),
+                            ["name"] = GetData(node, "Name")
+                        });
                     }
                 }
                 result["selectableNodes"] = selectableNodes;
 
-                // 2. Slots
+                // 2. Slots — read from MapManager.mapList/mapData (backend — source of truth)
+                // Also cross-reference with UI for slot names.
+                string[] slotNames = { "Start", "Node1", "Node2", "Node3", "Node4", "End" };
                 var slots = new JArray();
                 var nodeContent = mapUI.transform.Find("Map/NodeContent");
-                if (nodeContent != null)
+
+                // Build node info lookup from MapTree (all reachable nodes)
+                var nodeInfoLookup = new Dictionary<string, MapTree.Node>();
+                if (mapTree != null)
                 {
-                    for (int i = 0; i < nodeContent.childCount; i++)
+                    void CollectNodes(MapTree.Node n)
+                    {
+                        if (n?.data == null) return;
+                        var nid = GetData(n, "NodeId");
+                        if (!string.IsNullOrEmpty(nid) && !nodeInfoLookup.ContainsKey(nid))
+                            nodeInfoLookup[nid] = n;
+                        if (n.childrens != null)
+                            foreach (var c in n.childrens)
+                                CollectNodes(c);
+                    }
+                    if (mapTree.SelectNode != null)
+                        foreach (var n in mapTree.SelectNode)
+                        {
+                            var nid = GetData(n, "NodeId");
+                            if (!string.IsNullOrEmpty(nid) && !nodeInfoLookup.ContainsKey(nid))
+                                nodeInfoLookup[nid] = n;
+                        }
+                    if (mapTree.root != null)
+                        CollectNodes(mapTree.root);
+                }
+
+                int slotCount = Math.Min(mapManager?.mapList?.Length ?? 0, 6);
+                if (nodeContent != null)
+                    slotCount = Math.Min(nodeContent.childCount, 6);
+
+                for (int i = 0; i < slotCount; i++)
+                {
+                    string slotName = (nodeContent != null && i < nodeContent.childCount)
+                        ? nodeContent.GetChild(i).name
+                        : slotNames[i];
+
+                    var slotObj = new JObject
+                    {
+                        ["index"] = i,
+                        ["name"] = slotName
+                    };
+
+                    // Check backend first, then UI as fallback
+                    string backendId = (mapManager?.mapList != null && i < mapManager.mapList.Length)
+                        ? mapManager.mapList[i] : null;
+                    string backendNodeId = (mapManager?.mapData != null && i < mapManager.mapData.Length)
+                        ? mapManager.mapData[i] : null;
+
+                    bool backendFilled = !string.IsNullOrEmpty(backendNodeId);
+
+                    // Try UI for more detailed node info
+                    string uiId = null, uiNodeId = null, uiType = null, uiNote = null, uiName = null;
+                    MapItem slotItem = null;
+                    if (nodeContent != null && i < nodeContent.childCount)
                     {
                         var slot = nodeContent.GetChild(i);
-                        var slotObj = new JObject
-                        {
-                            ["index"] = i,
-                            ["name"] = slot.name
-                        };
-
                         var contentChild = slot.Find("Content");
-                        MapItem slotItem = contentChild != null
-                            ? contentChild.GetComponentInChildren<MapItem>(true)
-                            : null;
-
-                        if (slotItem != null && slotItem.node != null && slotItem.node.data != null)
+                        slotItem = contentChild?.GetComponentInChildren<MapItem>(true);
+                        if (slotItem?.node?.data != null)
                         {
-                            slotObj["filled"] = true;
-                            slotObj["node"] = new JObject
-                            {
-                                ["id"] = GetData(slotItem.node, "Id"),
-                                ["nodeId"] = GetData(slotItem.node, "NodeId"),
-                                ["type"] = slotItem.node.type ?? GetData(slotItem.node, "Type"),
-                                ["note"] = GetData(slotItem.node, "Note"),
-                                ["name"] = GetData(slotItem.node, "Name")
-                            };
+                            uiId = GetData(slotItem.node, "Id");
+                            uiNodeId = GetData(slotItem.node, "NodeId");
+                            uiType = slotItem.node.type ?? GetData(slotItem.node, "Type");
+                            uiNote = GetData(slotItem.node, "Note");
+                            uiName = GetData(slotItem.node, "Name");
                         }
-                        else
-                        {
-                            slotObj["filled"] = false;
-                        }
-
-                        slots.Add(slotObj);
                     }
+
+                    bool filled = backendFilled || (slotItem != null && slotItem.node?.data != null);
+                    slotObj["filled"] = filled;
+
+                    if (filled)
+                    {
+                        var useId = backendId ?? uiId;
+                        var useNodeId = backendNodeId ?? uiNodeId;
+                        string nodeType = uiType;
+                        string nodeNote = uiNote;
+                        string nodeName = uiName;
+
+                        // Look up missing info from node lookup
+                        if ((string.IsNullOrEmpty(nodeType) || string.IsNullOrEmpty(nodeName))
+                            && !string.IsNullOrEmpty(useNodeId)
+                            && nodeInfoLookup.TryGetValue(useNodeId, out var infoNode))
+                        {
+                            if (string.IsNullOrEmpty(nodeType))
+                                nodeType = infoNode.type ?? GetData(infoNode, "Type");
+                            if (string.IsNullOrEmpty(nodeNote))
+                                nodeNote = GetData(infoNode, "Note");
+                            if (string.IsNullOrEmpty(nodeName))
+                                nodeName = GetData(infoNode, "Name");
+                        }
+
+                        slotObj["node"] = new JObject
+                        {
+                            ["id"] = useId ?? "",
+                            ["nodeId"] = useNodeId ?? "",
+                            ["type"] = nodeType ?? "",
+                            ["note"] = nodeNote ?? "",
+                            ["name"] = nodeName ?? ""
+                        };
+                    }
+
+                    slots.Add(slotObj);
                 }
                 result["slots"] = slots;
 
@@ -136,7 +199,7 @@ namespace WitchModMCP.Tools
     public class MapSelectAssignTool : IMcpTool
     {
         public string Name => "map_select_assign";
-        public string Description => "将可选节点放置到指定槽位。支持批量操作。使用 nodeId（稳定 ID，从 map_select_state 的 selectableNodes 中获得）而非容易变化的 index。";
+        public string Description => "将可选节点放置到指定槽位。支持批量操作。使用 nodeId（稳定 ID，从 map_select_state 的 selectableNodes 中获得）。后端驱动，直接操作 MapManager 数据而非 UI。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -210,19 +273,34 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                var selectContainer = mapUI.transform.Find("MapSelect");
-                if (selectContainer == null)
+                var mapManager = MapManager.Instance;
+                if (mapManager == null)
                 {
                     result["result"] = "error";
-                    result["message"] = "未找到可选节点容器(MapSelect)";
+                    result["message"] = "MapManager 不可用";
                     return (JToken)result;
                 }
 
-                var nodeContent = mapUI.transform.Find("Map/NodeContent");
-                if (nodeContent == null)
+                var mapTree = mapManager.MapTree;
+
+                // Build lookup: NodeId → MapTree.Node from selectable list
+                var selectableLookup = new Dictionary<string, MapTree.Node>();
+                if (mapTree?.SelectNode != null)
+                {
+                    foreach (var n in mapTree.SelectNode)
+                    {
+                        if (n?.data == null) continue;
+                        var nid = GetData(n, "NodeId");
+                        if (!string.IsNullOrEmpty(nid) && !selectableLookup.ContainsKey(nid))
+                            selectableLookup[nid] = n;
+                    }
+                }
+
+                // Only allow single placement per call
+                if (mappings.Count != 1)
                 {
                     result["result"] = "error";
-                    result["message"] = "未找到槽位容器(Map/NodeContent)";
+                    result["message"] = "每次只能放置 1 个节点，请传入 1 组 slotIndex/nodeId";
                     return (JToken)result;
                 }
 
@@ -231,22 +309,7 @@ namespace WitchModMCP.Tools
 
                 foreach (var (slotIndex, nodeId) in mappings)
                 {
-                    // Find source by stable nodeId (not index)
-                    MapItem sourceItem = null;
-                    foreach (Transform child in selectContainer)
-                    {
-                        var item = child.GetComponent<MapItem>();
-                        if (item == null || item.node?.data == null) continue;
-
-                        if (item.node.data.TryGetValue("NodeId", out var val)
-                            && val is string s && s == nodeId)
-                        {
-                            sourceItem = item;
-                            break;
-                        }
-                    }
-
-                    if (sourceItem == null)
+                    if (!selectableLookup.TryGetValue(nodeId, out var sourceNode))
                     {
                         errors.Add(new JObject
                         {
@@ -257,7 +320,7 @@ namespace WitchModMCP.Tools
                         continue;
                     }
 
-                    if (slotIndex >= nodeContent.childCount)
+                    if (slotIndex < 0 || slotIndex >= 6)
                     {
                         errors.Add(new JObject
                         {
@@ -268,34 +331,6 @@ namespace WitchModMCP.Tools
                         continue;
                     }
 
-                    var targetSlot = nodeContent.GetChild(slotIndex);
-                    var targetContent = targetSlot.Find("Content");
-                    if (targetContent == null)
-                    {
-                        errors.Add(new JObject
-                        {
-                            ["slotIndex"] = slotIndex,
-                            ["nodeId"] = nodeId,
-                            ["error"] = "槽位缺少 Content 子对象"
-                        });
-                        continue;
-                    }
-
-                    // Clear existing card in slot
-                    var existingItem = targetContent.GetComponentInChildren<MapItem>(true);
-                    if (existingItem != null)
-                        GameObject.Destroy(existingItem.gameObject);
-
-                    var nullObj = targetContent.Find("Null");
-                    if (nullObj != null)
-                        nullObj.gameObject.SetActive(false);
-
-                    // Move MapItem to slot
-                    sourceItem.transform.SetParent(targetContent, false);
-                    sourceItem.transform.localPosition = Vector3.zero;
-                    sourceItem.transform.localRotation = Quaternion.identity;
-                    sourceItem.transform.localScale = Vector3.one;
-
                     placed.Add(new JObject
                     {
                         ["slotIndex"] = slotIndex,
@@ -303,22 +338,98 @@ namespace WitchModMCP.Tools
                     });
                 }
 
-                // Sync once after all placements
                 if (placed.Count > 0)
                 {
-                    try
+                    // Only support single placement — batch is removed.
+                    // Take the first (and only) mapping.
+                    var (slotIndex, nodeId) = mappings[0];
+
+                    var selectContainer = mapUI.transform.Find("MapSelect");
+                    var nodeContent = mapUI.transform.Find("Map/NodeContent");
+                    if (selectContainer == null || nodeContent == null
+                        || slotIndex >= nodeContent.childCount)
                     {
-                        var setNodesMethod = typeof(MapSelectUI).GetMethod("SetNodes",
-                            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                        if (setNodesMethod != null)
-                            setNodesMethod.Invoke(mapUI, null);
-                        else
-                            FallbackSync(mapUI);
+                        result["result"] = "error";
+                        result["message"] = "找不到手牌容器或目标槽位";
+                        return (JToken)result;
                     }
-                    catch
+
+                    // Find the hand card
+                    Transform handCard = null;
+                    foreach (Transform child in selectContainer)
                     {
-                        FallbackSync(mapUI);
+                        var item = child.GetComponent<MapItem>();
+                        if (item == null || item.node?.data == null) continue;
+                        if (GetData(item.node, "NodeId") == nodeId)
+                        {
+                            handCard = child;
+                            break;
+                        }
                     }
+                    if (handCard == null)
+                    {
+                        result["result"] = "error";
+                        result["message"] = $"在手牌中未找到 NodeId={nodeId} 的卡片";
+                        return (JToken)result;
+                    }
+
+                    var targetContent = nodeContent.GetChild(slotIndex).Find("Content");
+                    if (targetContent == null)
+                    {
+                        result["result"] = "error";
+                        result["message"] = "目标槽位没有 Content 子对象";
+                        return (JToken)result;
+                    }
+
+                    var mapItem = handCard.GetComponent<MapItem>();
+                    if (mapItem == null)
+                    {
+                        result["result"] = "error";
+                        result["message"] = "卡片缺少 MapItem 组件";
+                        return (JToken)result;
+                    }
+
+                    // Clear existing card in slot (if overwriting)
+                    var existingItem = targetContent.GetComponentInChildren<MapItem>(true);
+                    if (existingItem != null)
+                        GameObject.Destroy(existingItem.gameObject);
+
+                    // Save map instance ID for backend update
+                    var mapId = GetData(mapItem.node, "Id");
+                    placed[0]["mapId"] = mapId;
+
+                    // === Let the game's own RemoveFromParent handle Null activation ===
+                    // Set lastParent to selectContainer so RemoveFromParent finds
+                    // the last Null child and activates it naturally.
+                    mapItem.lastParent = selectContainer;
+                    mapItem.lastPos = handCard.localPosition;
+
+                    // === SetParent triggers OnTransformParentChanged ===
+                    // RemoveFromParent: activates Null in hand (deferred via UniTask)
+                    // AddToParent: deactivates Null in slot, positions card
+                    handCard.SetParent(targetContent, false);
+
+                    // Match game's RayCheck final state after first placement
+                    mapItem.hasSelected = true;
+                    mapItem.initAngle = Vector3.zero;
+                    float cardScale = mapItem.initScale;
+                    handCard.localScale = new Vector3(cardScale, cardScale, cardScale);
+                    var objGroup = handCard.GetComponent<ObjectGroup>();
+                    if (objGroup != null) objGroup.blocksRaycasts = true;
+                    var sortingGroup = handCard.GetComponent<SortingGroup>();
+                    if (sortingGroup != null) sortingGroup.sortingOrder = -20;
+
+                    // Game calls SetNodes() AFTER placement
+                    try { mapUI.SetNodes(); } catch { }
+
+                    // Game defers UpdateCardItemPos to next frame via UniTask
+                    UniTask.WaitForEndOfFrame().ContinueWith(() =>
+                    {
+                        try { mapUI.UpdateCardItemPos(); } catch { }
+                    }).Forget();
+
+                    result["movedCount"] = 1;
+                    result["nullActivatedCount"] = 1; // handled by RemoveFromParent
                 }
 
                 string status = errors.Count > 0
@@ -343,37 +454,10 @@ namespace WitchModMCP.Tools
             });
         }
 
-        private static void FallbackSync(MapSelectUI mapUI)
+        private static string GetData(MapTree.Node node, string key)
         {
-            var nodeContent = mapUI.transform.Find("Map/NodeContent");
-            if (nodeContent == null) return;
-
-            int count = nodeContent.childCount;
-            var ids = new string[count];
-            var nodeIds = new string[count];
-
-            for (int i = 0; i < count; i++)
-            {
-                var slot = nodeContent.GetChild(i);
-                var contentChild = slot.Find("Content");
-                var item = contentChild != null
-                    ? contentChild.GetComponentInChildren<MapItem>(true)
-                    : null;
-                if (item?.node?.data != null)
-                {
-                    item.node.data.TryGetValue("Id", out var id);
-                    item.node.data.TryGetValue("NodeId", out var nid);
-                    ids[i] = id;
-                    nodeIds[i] = nid;
-                }
-                else
-                {
-                    ids[i] = null;
-                    nodeIds[i] = null;
-                }
-            }
-
-            MapManager.Instance.CmdSelectMap(ids, nodeIds);
+            if (node?.data == null) return "";
+            return node.data.TryGetValue(key, out var val) ? val ?? "" : "";
         }
     }
 
@@ -412,7 +496,7 @@ namespace WitchModMCP.Tools
                 if (nodeContent == null || slotIndex >= nodeContent.childCount)
                 {
                     result["result"] = "error";
-                    result["message"] = $"未找到 slotIndex={slotIndex} 的槽位";
+                    result["message"] = "找不到目标槽位";
                     return (JToken)result;
                 }
 
@@ -425,20 +509,46 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                // Destroy existing MapItem
-                var existingItem = targetContent.GetComponentInChildren<MapItem>(true);
-                if (existingItem != null)
+                // Find the card in the slot
+                var slotCard = targetContent.GetComponentInChildren<MapItem>(true);
+                if (slotCard == null)
                 {
-                    GameObject.Destroy(existingItem.gameObject);
+                    result["result"] = "error";
+                    result["message"] = "槽位中没有卡片";
+                    return (JToken)result;
                 }
 
-                // Show the Null placeholder
-                var nullObj = targetContent.Find("Null");
-                if (nullObj != null)
-                    nullObj.gameObject.SetActive(true);
+                var selectContainer = mapUI.transform.Find("MapSelect");
+                if (selectContainer == null)
+                {
+                    result["result"] = "error";
+                    result["message"] = "找不到手牌容器";
+                    return (JToken)result;
+                }
 
-                // Sync via SetNodes()
-                SyncMap(mapUI);
+                // === Physically return card to hand, matching game's RayCheck ===
+                // Set lastParent to slot Content so RemoveFromParent activates Null in slot
+                slotCard.lastParent = targetContent;
+                slotCard.lastPos = slotCard.transform.localPosition;
+                slotCard.transform.SetParent(selectContainer, false);
+
+                // === Game's flow after parent changed to MapSelect ===
+                mapUI.SetNodes();
+
+                // hasSelected = true → returning to hand branch
+                slotCard.hasSelected = false;
+                var rt = slotCard.GetComponent<RectTransform>();
+                rt.anchorMin = new Vector2(0.5f, 0.5f);
+                rt.anchorMax = new Vector2(0.5f, 0.5f);
+                slotCard.transform.localScale = new Vector3(slotCard.initScale, slotCard.initScale, slotCard.initScale);
+                var objGroup = slotCard.GetComponent<ObjectGroup>();
+                if (objGroup != null) objGroup.blocksRaycasts = true;
+
+                // Defer UpdateCardItemPos to next frame (matching game)
+                UniTask.WaitForEndOfFrame().ContinueWith(() =>
+                {
+                    try { mapUI.UpdateCardItemPos(); } catch { }
+                }).Forget();
 
                 result["result"] = "success";
                 result["message"] = $"已清空槽位 {slotIndex}";
@@ -447,44 +557,10 @@ namespace WitchModMCP.Tools
             });
         }
 
-        private static void SyncMap(MapSelectUI mapUI)
+        private static string GetData(MapTree.Node node, string key)
         {
-            try
-            {
-                var setNodesMethod = typeof(MapSelectUI).GetMethod("SetNodes",
-                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-                if (setNodesMethod != null)
-                {
-                    setNodesMethod.Invoke(mapUI, null);
-                    return;
-                }
-            }
-            catch { }
-
-            // Fallback
-            var nodeContent = mapUI.transform.Find("Map/NodeContent");
-            if (nodeContent == null) return;
-
-            int count = nodeContent.childCount;
-            var ids = new string[count];
-            var nodeIds = new string[count];
-
-            for (int i = 0; i < count; i++)
-            {
-                var slot = nodeContent.GetChild(i);
-                var contentChild = slot.Find("Content");
-                var item = contentChild != null
-                    ? contentChild.GetComponentInChildren<MapItem>(true)
-                    : null;
-                if (item?.node?.data != null)
-                {
-                    item.node.data.TryGetValue("Id", out var id);
-                    item.node.data.TryGetValue("NodeId", out var nodeId);
-                    ids[i] = id;
-                    nodeIds[i] = nodeId;
-                }
-            }
-            MapManager.Instance.CmdSelectMap(ids, nodeIds);
+            if (node?.data == null) return "";
+            return node.data.TryGetValue(key, out var val) ? val ?? "" : "";
         }
     }
 
@@ -511,7 +587,6 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                // Call TryContinue via reflection (likely private)
                 try
                 {
                     var tryContinueMethod = typeof(MapSelectUI).GetMethod("TryContinue",

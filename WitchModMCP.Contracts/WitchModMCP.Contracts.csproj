@@ -83,6 +83,10 @@
       <HintPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed\UnityEngine.ScreenCaptureModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UniTask">
+      <HintPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed\UniTask.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="CopyToModFolder" AfterTargets="Build"

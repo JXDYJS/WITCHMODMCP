@@ -159,16 +159,23 @@ namespace WitchModMCP.Tools
                 node["components"] = comps;
             }
 
-            var transform = go.transform;
-            var pos = transform.localPosition;
+            var t = go.transform;
+            var pos = t.localPosition;
             node["localPosition"] = new JObject
             {
                 ["x"] = Math.Round(pos.x, 3),
                 ["y"] = Math.Round(pos.y, 3),
                 ["z"] = Math.Round(pos.z, 3)
             };
+            var scale = t.localScale;
+            node["localScale"] = new JObject
+            {
+                ["x"] = Math.Round(scale.x, 3),
+                ["y"] = Math.Round(scale.y, 3),
+                ["z"] = Math.Round(scale.z, 3)
+            };
 
-            int childCount = transform.childCount;
+            int childCount = t.childCount;
             node["childCount"] = childCount;
 
             if (childCount > 0 && depth < maxDepth)
@@ -178,7 +185,7 @@ namespace WitchModMCP.Tools
 
                 for (int i = 0; i < childCount && displayed < maxChildren; i++)
                 {
-                    var child = transform.GetChild(i).gameObject;
+                    var child = t.GetChild(i).gameObject;
                     if (!includeInactive && !child.activeSelf && !child.activeInHierarchy)
                         continue;
 
