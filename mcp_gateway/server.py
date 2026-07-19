@@ -59,8 +59,10 @@ _mod: ModConnection | None = None
 _active_loop: asyncio.AbstractEventLoop | None = None
 _active_write_stream = None  # type: ignore[var-annotated]
 
-# Track last-known tool count so we can re-register when reload_tools adds new ones
+# Track last-known tool count / reload version so we can re-register when
+# the C# side rebuilds or reloads its tool assembly.
 _last_tool_count: int = 0
+_last_reload_count: int = 0
 
 # ── FastMCP app ─────────────────────────────────────────────────────
 mcp = FastMCP(
@@ -164,6 +166,20 @@ async def _after_first_heartbeat_async():
         log(f"  register_dynamic_tools failed: {e}")
         return
 
+    # Cache game path for deploy_mod
+    try:
+        if _mod is not None:
+            resp = _mod.call_tool("get_game_info", {})
+            if not resp.get("error"):
+                gi = resp.get("result", {})
+                gr = gi.get("gameRoot") or ""
+                if gr:
+                    from mcp_gateway.tools import cache_game_path
+                    cache_game_path(gr)
+                    log(f"  cached game path: {gr}")
+    except Exception as e:
+        log(f"  cache_game_path failed: {e}")
+
     try:
         await _send_tool_list_changed()
         log("  sent notifications/tools/list_changed")
@@ -179,11 +195,13 @@ def _on_first_heartbeat(resp: dict):
     on the main event loop so freshly compiled C# tools get picked up
     without restarting the gateway.
     """
-    global _last_tool_count
+    global _last_tool_count, _last_reload_count
     sid = resp.get("sessionId", "?")
     tool_count = resp.get("toolCount", 0)
+    reload_count = resp.get("reloadCount", 0)
     modules = resp.get("activeModules", [])
     _last_tool_count = tool_count
+    _last_reload_count = reload_count
     log(f"First heartbeat — sessionId={sid}, toolCount={tool_count}, "
         f"activeModules={len(modules)}")
 
@@ -210,15 +228,28 @@ def _on_first_heartbeat(resp: dict):
 
 def _on_heartbeat(resp: dict):
     """Triggered on every heartbeat after the first. Re-registers tools when
-    tool count changes (e.g. after reload_tools added new tools).
+    tool count changes (e.g. after reload_tools added new tools) or when
+    the C# reload count bumps (schema changes).
     """
-    global _last_tool_count
+    global _last_tool_count, _last_reload_count
     tool_count = resp.get("toolCount", 0)
-    if tool_count == _last_tool_count or tool_count == 0:
+    reload_count = resp.get("reloadCount", 0)
+
+    changed = False
+    if tool_count != _last_tool_count and tool_count > 0:
+        prev = _last_tool_count
+        _last_tool_count = tool_count
+        log(f"Heartbeat: toolCount changed from {prev} to {tool_count}")
+        changed = True
+
+    if reload_count != _last_reload_count:
+        prev = _last_reload_count
+        _last_reload_count = reload_count
+        log(f"Heartbeat: reloadCount changed from {prev} to {reload_count}")
+        changed = True
+
+    if not changed:
         return
-    prev = _last_tool_count
-    _last_tool_count = tool_count
-    log(f"Heartbeat: toolCount changed from {prev} to {tool_count}")
 
     if _active_loop is None or _active_loop.is_closed():
         log("  cannot re-register — event loop not available")

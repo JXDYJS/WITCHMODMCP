@@ -33,9 +33,10 @@ namespace WitchModMCP.Tools
                     var gameRoot = Path.GetDirectoryName(dataPath);
                     if (gameRoot != null)
                     {
+                        result["gameRoot"] = gameRoot;
                         var parent = Path.GetDirectoryName(gameRoot);
                         if (parent != null)
-                            result["gameRoot"] = parent;
+                            result["gameRootParent"] = parent;
                     }
 
                     var managedPath = Path.Combine(dataPath, "Managed");

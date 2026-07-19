@@ -15,6 +15,8 @@ namespace WitchModMCP.MCP
     public static class McpRouter
     {
         private static readonly ConcurrentDictionary<string, IMcpTool> _tools = new();
+        private static int _reloadCount = 0;
+        public static int ReloadCount => _reloadCount;
 
         public static void RegisterTool(IMcpTool tool)
         {
@@ -42,6 +44,7 @@ namespace WitchModMCP.MCP
         public static void ReloadAllTools()
         {
             ClearTools();
+            _reloadCount++;
             foreach (var type in McpToolPlugin.DiscoverToolTypes())
             {
                 try
@@ -163,6 +166,7 @@ namespace WitchModMCP.MCP
                 ["timestamp"] = ctx["timestamp"],
                 ["workspacePath"] = ctx["workspacePath"],
                 ["pid"] = ctx["pid"],
+                ["reloadCount"] = _reloadCount,
                 ["activeModules"] = BuildActiveModules(),
             };
 
