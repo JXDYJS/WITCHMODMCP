@@ -1,6 +1,6 @@
 ---
 name: witch-mod-mcp-diagnostics
-description: "WitchModMCP diagnostics and developer backdoor tools: C# runtime reflection, config table queries, mod state inspection, scene GameObject tree, log capture, raycasting, screenshot capture, RNG seed control, and item injection. Use when the user needs to debug mod behaviour by reflecting over C# objects, querying game config tables like CardConfig/RelicConfig, inspecting which mods loaded, navigating the Unity scene hierarchy, capturing screen output, controlling randomness, or injecting test items. Triggers: diagnostics, debug, inspect, query_config, search_config, dump_mod_state, get_scene_tree, raycast_mouse, set_rng_seed, get_screenshot, give_item, reflection, 调试, 反射, 查配置, 日志, 截图, 场景树."
+description: "WitchModMCP diagnostics and developer backdoor tools: C# runtime reflection, config table queries, mod state inspection, scene GameObject tree, log capture, raycasting, screenshot capture, RNG seed control, item injection, and generic UI scanning/clicking. Use when the user needs to debug mod behaviour by reflecting over C# objects, querying game config tables like CardConfig/RelicConfig, inspecting which mods loaded, navigating the Unity scene hierarchy, capturing screen output, discovering clickable UI elements, controlling randomness, or injecting test items. Triggers: diagnostics, debug, inspect, query_config, search_config, dump_mod_state, get_scene_tree, raycast_mouse, set_rng_seed, get_screenshot, give_item, scan_ui, click_ui, reflection, 调试, 反射, 查配置, 日志, 截图, 场景树, 扫描UI, 点击UI."
 ---
 
 # Diagnostics Module
@@ -44,6 +44,8 @@ Game config data lives in two separate storage systems. Which tool to use depend
 | `set_rng_seed` | `{seed?, forceRng?}` | `{result, changes: []}` |
 | `get_screenshot` | `{format="png", quality=75}` | `{mimeType, base64, width, height, size}` |
 | `give_item` | `{type, value}` | `{type, value, result}` |
+| `scan_ui` | `{panel?, includeInactive=false, interactableOnly=true}` | `{totalElements, elements: [{index, text, type, interactable, hierarchy, panel}]}` |
+| `click_ui` | `{index, allowInactive=false}` | `{result, message, text?, hierarchy?, type?}` |
 
 ---
 
@@ -334,6 +336,66 @@ g.call("give_item", {"type": "card", "value": "all"})
 
 # Give a random relic
 g.call("give_item", {"type": "randomrelic", "value": "1"})
+```
+
+### scan_ui
+
+Scan all active UI elements (Button + ButtonManager) in the current scene and return a structured list. Use this to discover what clickable elements are available on the current page.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `panel` | string | No | — | Filter by panel name (fuzzy match), e.g. `TopBarUI`, `SafeBoxUI` |
+| `includeInactive` | bool | No | `false` | Include non-active / non-interactable elements |
+| `interactableOnly` | bool | No | `true` | Only return elements that are currently interactable |
+
+**Response fields (per element):**
+| Field | Type | Description |
+|-------|------|-------------|
+| `index` | int | Stable index for use with `click_ui` (0-based, sorted by hierarchy) |
+| `text` | string | Button display text (or GameObject name if no text) |
+| `type` | string | `"Button"` or `"ButtonManager"` |
+| `interactable` | bool | Whether the element is currently interactable |
+| `hierarchy` | string | Full path from root GameObject, e.g. `Canvas/TopBarUI/Content/Buttons/Status` |
+| `panel` | string | Top-level panel name for filtering |
+
+**Notes:**
+- The same GameObject may have both a `Button` and a `ButtonManager` — each gets its own index.
+- Hierarchy paths are the primary way to distinguish elements with identical texts (e.g. two `ExitButton` entries in different panels).
+- Index is ephemeral — re-scan if the scene changes.
+
+**Python:**
+```python
+# Full scan
+result = g.call("scan_ui")
+for el in result["elements"]:
+    print(f"[{el['index']}] {el['type']:14} panel={el['panel']} text={el['text']}")
+
+# Filter by panel
+topbar = g.call("scan_ui", {"panel": "TopBarUI"})
+
+# Find a specific button
+for el in result["elements"]:
+    if el["text"] == "Status" and el["panel"] == "TopBarUI":
+        print(f"Status button index: {el['index']}")
+```
+
+### click_ui
+
+Click a UI element identified by `scan_ui` index. Supports both `Button` (standard Unity) and `ButtonManager` (game custom) components.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `index` | int | Yes | — | Element index from `scan_ui` (0-based) |
+| `allowInactive` | bool | No | `false` | Allow clicking even if the element is not interactable |
+
+> **⚠️ This is a generic fallback tool.** If a specialized tool exists for the current UI (e.g. `event_choose_option`, `map_choose_node`, `pick_card_reward`, `select_deck_cards`), prefer that instead — specialized tools handle additional state synchronization (like drag-and-drop, card selection tracking) that a raw click cannot replicate.
+
+**Python:**
+```python
+# First scan to find what's available
+scan = g.call("scan_ui", {"panel": "TopBarUI"})
+# Click the first element in TopBarUI
+g.call("click_ui", {"index": scan["elements"][0]["index"]})
 ```
 
 ## Best practices

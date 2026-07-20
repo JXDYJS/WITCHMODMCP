@@ -1,6 +1,6 @@
 ---
 name: witch-mod-mcp
-description: "Mod development aid for the game Witch (女巫/魔法少女/魔女/终末旅途 roguelike deckbuilder): inspect and drive a running game instance through the WitchModMCP in-game HTTP server to develop, debug, and verify mods. Use when a mod developer wants to read live game state (player HP/SAN/money/deck, fight status, run progress), reflect over C# objects, query config tables, dump the scene tree or loaded-mod state, tail logs, or trigger console commands / items / scenes to reproduce and test mod behavior. Not a cheat/trainer tool for regular players. Triggers: WitchModMCP, Witch mod dev, MCPPort, get_game_data, eval_command, query_config, inspect RoleTable, dump_mod_state, reload_tools, 女巫 mod 开发, 调试 mod, 游戏状态, play_card, end_turn, load_scene, give_item, get_fight_state, set_lobby_state, raycast_mouse, set_rng_seed."
+description: "Mod development aid for the game Witch (女巫/魔法少女/魔女/终末旅途 roguelike deckbuilder): inspect and drive a running game instance through the WitchModMCP in-game HTTP server to develop, debug, and verify mods. Use when a mod developer wants to read live game state (player HP/SAN/money/deck, fight status, run progress), reflect over C# objects, query config tables, dump the scene tree or loaded-mod state, tail logs, or trigger console commands / items / scenes to reproduce and test mod behavior. Not a cheat/trainer tool for regular players. Triggers: WitchModMCP, Witch mod dev, MCPPort, get_game_data, eval_command, query_config, inspect RoleTable, dump_mod_state, reload_tools, scan_ui, click_ui, 女巫 mod 开发, 调试 mod, 游戏状态, play_card, end_turn, load_scene, give_item, get_fight_state, set_lobby_state, raycast_mouse, set_rng_seed."
 ---
 
 # WitchModMCP
@@ -198,7 +198,7 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 | [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | 战斗, 出牌, 打牌, combat, 技能, 选牌, 弃牌 |
 | [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
 | [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `map_select_state`, `map_select_assign`, `map_select_clear`, `map_select_confirm`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow, 地图选点, 节点编排 |
-| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info` | 调试, 反射, 查配置, debug, diagnostics, 环境信息 |
+| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info`, `scan_ui`, `click_ui` | 调试, 反射, 查配置, debug, diagnostics, 环境信息 |
 | [Game Insights](./insights/SKILL.md) | **§11 CSV schemas**, **§13 Quick-Start Guides** (add cards §13.1, add career §13.3, SkillScript patterns §11.5c, testing §13.7) | CSV schemas, Lua effect API, mod directory structure, built-in buff IDs |
 | [Templates](./templates/using-templates.md) | (reference) | ModTemplate / DllTemplate usage, CSV column reference, example mod |
 | [Code Patterns](./code-patterns/entry-patterns.md) | (reference) | Entry.lua patterns, Hook patterns, career mod architecture |
@@ -239,6 +239,8 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 | "Read RoleTable.Instance.San" | Diagnostics | `inspect` |
 | "Which mods are loaded?" | Diagnostics | `dump_mod_state` |
 | "What GameObjects are in the scene?" | Diagnostics | `get_scene_tree` |
+| "What clickable UI elements are available on this page?" | Diagnostics | `scan_ui` |
+| "Click a specific UI element" | Diagnostics | `scan_ui` → `click_ui` |
 | "Show recent game logs" | Diagnostics | `get_recent_logs` |
 | "Use character skill 1/2" | Combat | `use_skill` |
 | "Check skill cooldowns" | Combat | `get_skills_state` |

@@ -16,7 +16,7 @@ This folder contains detailed documentation for each module. For transport proto
 | [Combat](./combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | Battle-read/write loop — state snapshot, card play, skill use, entity modification, card selection |
 | [Lobby](./lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | Career selection hall read & write — career, partner, attributes, card packs |
 | [Gameflow](./gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `map_select_state`, `map_select_assign`, `map_select_clear`, `map_select_confirm`, `load_scene`, `claim_rewards` | Game state machine navigation — menu → hub → lobby → map → passage → fight |
-| [Diagnostics](./diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info` | Developer backdoor tools — reflection, config queries, scene inspection, item injection, env info |
+| [Diagnostics](./diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info`, `scan_ui`, `click_ui` | Developer backdoor tools — reflection, config queries, scene/UI inspection, item injection, env info |
 | [Game Insights](../insights/SKILL.md) | (knowledge base, no tools) | Game architecture, CSV schemas, Lua effect API, mod directory structure — load before creating mod content |
 
 ## Usage pattern
