@@ -153,12 +153,15 @@ MAIN_MENU ──enter_game──→ HUB ──start_new_game──→ LOBBY ─�
 | `CardChoiceUI` | `pick_card_reward` 或 `skip_card_reward` |
 | `BlessingChoiceGenerator` | `pick_blessing_reward` 或 `skip_blessing_reward` |
 | `DeckUI` | `get_deck_selection` → `select_deck_cards` |
-| `BreaksUI` | `page_leave` 离开休息点 |
+| `BreaksUI` | 用 `scan_ui` 找到继续/离开按钮，再用 `click_ui` 点 |
 | `EventUI` | `event_choose_option` 或 `event_advance_dialogue` |
-| `ShopUI` | 暂无工具 |
+| `ShopUI` | 使用 `get_shop_state`, `shop_buy`, `shop_sell`, `shop_refresh` |
 | `SafeBoxUI` | 使用 `safebox_*` 系列工具 |
 | `MapSelectUI` | `map_select_state` → `map_select_assign` → `map_select_confirm` |
-| `SettingUI` / `BackpackUI` | `page_leave` 关闭 |
+| `OutDeckUI` | `get_outdeck_state` → `outdeck_move_card` / `outdeck_decompose` |
+| `SettingUI` / `BackpackUI` / 其他任意UI | 用 `scan_ui` 列出所有可交互按钮，再用 `click_ui` 点击目标按钮 |
+
+> 💡 `scan_ui` + `click_ui` 是 **通用导航工具**。不知道如何进入/离开某个页面、不知道该点什么时，先调 `scan_ui` 扫描当前所有可交互按钮，再用 `click_ui` 按索引点击。无需任何硬编码。
 
 **Python：**
 ```python

@@ -58,14 +58,16 @@ Detects the current game UI page. Returns which page is active and whether there
 | `CardChoiceUI` | Call `pick_card_reward` or `skip_card_reward` |
 | `BlessingChoiceGenerator` | Call `pick_blessing_reward` or `skip_blessing_reward` |
 | `DeckUI` | Call `get_deck_selection` → `select_deck_cards` |
-| `BreaksUI` | Call `page_leave` to leave rest point |
+| `BreaksUI` | Use `scan_ui` to find the continue/leave button, then `click_ui` |
 | `EventUI` | Call `event_choose_option` or `event_advance_dialogue` |
-| `ShopUI` | No tools yet |
+| `ShopUI` | Use `get_shop_state`, `shop_buy`, `shop_sell`, `shop_refresh` |
 | `SafeBoxUI` | Use `safebox_*` tools |
 | `MapSelectUI` | Use `map_select_state` → `map_select_assign` → `map_select_confirm` |
-| `SettingUI` | Call `page_leave` to close |
-| `BackpackUI` | Call `page_leave` to close |
+| `OutDeckUI` | Call `get_outdeck_state` → `outdeck_move_card` / `outdeck_decompose` |
+| `SettingUI` / `BackpackUI` / any other UI | Use `scan_ui` to list interactable buttons, then `click_ui` to pick the right one |
 | `null` | No modal; use page-level tools normally |
+
+> ℹ️ `scan_ui` + `click_ui` is the **general-purpose navigation tool**. Whenever you don't know how to enter/leave a page or what to click, call `scan_ui` to discover all interactable buttons on screen, then use `click_ui` by index. This works for any UI without hardcoded logic.
 
 **Python:**
 ```python

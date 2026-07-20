@@ -198,6 +198,7 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 | [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | 战斗, 出牌, 打牌, combat, 技能, 选牌, 弃牌 |
 | [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
 | [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `map_select_state`, `map_select_assign`, `map_select_clear`, `map_select_confirm`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow, 地图选点, 节点编排 |
+| [Deck](./base/deck/SKILL.md) | `get_outdeck_state`, `outdeck_move_card`, `outdeck_decompose` | 牌组, deck, 装备/备选, 分解, 卡牌管理, outdeck |
 | [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info`, `scan_ui`, `click_ui` | 调试, 反射, 查配置, debug, diagnostics, 环境信息 |
 | [Game Insights](./insights/SKILL.md) | **§11 CSV schemas**, **§13 Quick-Start Guides** (add cards §13.1, add career §13.3, SkillScript patterns §11.5c, testing §13.7) | CSV schemas, Lua effect API, mod directory structure, built-in buff IDs |
 | [Templates](./templates/using-templates.md) | (reference) | ModTemplate / DllTemplate usage, CSV column reference, example mod |
@@ -253,6 +254,9 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 | "I recompiled my tool DLL" | Core | `reload_tools` → `list_tools` |
 | "Fill map node slots / start passage" | Gameflow | `map_select_state` → `map_select_assign` → `map_select_confirm` |
 | "Move to next node in passage" | Gameflow | `map_select_confirm` (same tool) |
+| "Manage my deck (equip/unequip cards)" | Deck | `get_outdeck_state` → `outdeck_move_card` |
+| "Decompose/destroy a card" | Deck | `get_outdeck_state` → `outdeck_decompose` |
+| "Check deck limits" | Deck | `get_outdeck_state` |
 | "What developer tools are available?" | Diagnostics | `get_env_info` |
 | "Dump environment info" | Diagnostics | `get_env_info` |
 
