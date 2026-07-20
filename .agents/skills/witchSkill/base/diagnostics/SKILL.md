@@ -351,18 +351,19 @@ Scan all active UI elements (Button + ButtonManager) in the current scene and re
 **Response fields (per element):**
 | Field | Type | Description |
 |-------|------|-------------|
-| `index` | int | **全局索引**（按 hierarchy 排序），始终和 `click_ui` 的索引一致。即使加了 `panel` 过滤，index 也是全局的 |
+| `index` | int | 全局索引（按 hierarchy 排序），panel 过滤不影响 index 值 |
 | `text` | string | Button display text (or GameObject name if no text) |
 | `type` | string | `"Button"` or `"ButtonManager"` |
 | `interactable` | bool | Whether the element is currently interactable |
+| `instanceId` | int | **Unity 运行时唯一 ID（Object.GetInstanceID）**，传给 `click_ui` 可稳定定位元素，不怕索引漂移 |
 | `hierarchy` | string | Full path from root GameObject, e.g. `Canvas/TopBarUI/Content/Buttons/Status` |
 | `panel` | string | Top-level panel name for filtering |
 
 **Notes:**
-- The same GameObject may have both a `Button` and a `ButtonManager` — each gets its own index.
-- Hierarchy paths are the primary way to distinguish elements with identical texts (e.g. two `ExitButton` entries in different panels).
-- Index is ephemeral — re-scan if the scene changes.
-- ⚠️ **index 始终是全局的**。如果加 `panel` 过滤，返回的元素 index 值仍然是全局索引，不是局部 0-N。例如 `scan_ui({"panel": "ShopUI"})` 返回的 ExitButton 可能是 index 25，而不是 17。`click_ui` 必须用这个全局 index。
+- The same GameObject may have both a `Button` and a `ButtonManager` — each gets its own index and instanceId.
+- **推荐用 `instanceId` 代替 `index`** 传给 `click_ui`。instanceId 是 Unity 运行时唯一 ID，不会被元素增删（index 漂移）影响。
+- `index` 仍然可用，但元素被 Destroy 后索引会漂移。instanceId 不会。`
+- ⚠️ **index 始终是全局的**。如果加 `panel` 过滤，返回的元素 index 值仍然是全局索引。
 
 **Python:**
 ```python
@@ -382,20 +383,25 @@ for el in result["elements"]:
 
 ### click_ui
 
-Click a UI element identified by `scan_ui` index. Supports both `Button` (standard Unity) and `ButtonManager` (game custom) components.
+Click a UI element identified by `scan_ui` instanceId or index. Supports both `Button` (standard Unity) and `ButtonManager` (game custom) components.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `index` | int | Yes | — | Element index from `scan_ui` (0-based) |
+| `instanceId` | int | No* | — | **（推荐）** `scan_ui` 返回的运行时实例 ID（Unity Object.GetInstanceID），不怕索引漂移 |
+| `index` | int | No* | — | （后备）`scan_ui` 返回的 0-based 索引，instanceId 不可用时使用 |
 | `allowInactive` | bool | No | `false` | Allow clicking even if the element is not interactable |
+
+*`instanceId` 和 `index` 至少提供一个。`instanceId` 优先。
 
 > **⚠️ This is a generic fallback tool.** If a specialized tool exists for the current UI (e.g. `event_choose_option`, `map_choose_node`, `pick_card_reward`, `select_deck_cards`), prefer that instead — specialized tools handle additional state synchronization (like drag-and-drop, card selection tracking) that a raw click cannot replicate.
 
 **Python:**
 ```python
-# First scan to find what's available
+# Scan to get instanceId + index
 scan = g.call("scan_ui", {"panel": "TopBarUI"})
-# Click the first element in TopBarUI
+# Recommended: click by instanceId (stable)
+g.call("click_ui", {"instanceId": scan["elements"][0]["instanceId"]})
+# Fallback: click by index
 g.call("click_ui", {"index": scan["elements"][0]["index"]})
 ```
 
