@@ -39,7 +39,7 @@ Game config data lives in two separate storage systems. Which tool to use depend
 | `search_config` | `{pattern, limit=20, includeFields=false}` | Fuzzy keyword search across DataConfigCache (all runtime IDs) |
 | `dump_mod_state` | — | `{modCount, mods: [{assemblyName, assemblyLocation, assemblyVersion, initTypes}], relatedAssemblies}` |
 | `get_scene_tree` | `{rootName?, maxDepth=10, maxChildren=50, includeComponents=true, includeInactive=false}` | `{sceneName, hierarchy: [node…]}` |
-| `get_recent_logs` | `{count=50}` | JSON array of recent log entries |
+| `get_recent_logs` | `{count=50, level="All"}` | JSON array of recent log entries |
 | `raycast_mouse` | `{screenX?, screenY?, maxResults=30}` | `{hitCount, hits: [{gameObjectName, hierarchyPath, components, ...}]}` |
 | `set_rng_seed` | `{seed?, forceRng?}` | `{result, changes: []}` |
 | `get_screenshot` | `{format="png", quality=75}` | `{mimeType, base64, width, height, size}` |
@@ -238,12 +238,17 @@ Retrieve the most recent log entries from the in-memory ring buffer (captured vi
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `count` | int | No | 50 | Number of recent entries to return |
+| `level` | string | No | `"All"` | Level filter: `All`, `Log`, `Warning`, `Error` |
 
 **Python:**
 ```python
+# Last 20 log entries
 logs = g.call("get_recent_logs", {"count": 20})
 for entry in logs:
     print(entry)
+
+# Last 50 errors only
+errors = g.call("get_recent_logs", {"count": 50, "level": "Error"})
 ```
 
 ### raycast_mouse

@@ -12,11 +12,11 @@ This folder contains detailed documentation for each module. For transport proto
 | Module | Tools | Description |
 |--------|-------|-------------|
 | [Core](./core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | Tool discovery, console command execution, hot-reload |
-| [Meta](./meta/SKILL.md) | `get_scene_state`, `get_game_data`, `get_game_info`, `check_mode_saves`, `list_game_modes` | Global state probes — page detection, player snapshot, game install info, save inspection |
-| [Combat](./combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity` | Battle-read/write loop — state snapshot, card play, entity modification |
+| [Meta](./meta/SKILL.md) | `get_scene_state`, `get_game_data`, `get_game_info`, `check_mode_saves`, `list_game_modes`, `get_recent_logs` | Global state probes — page detection, player snapshot, game install info, save inspection, log reading |
+| [Combat](./combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | Battle-read/write loop — state snapshot, card play, skill use, entity modification, card selection |
 | [Lobby](./lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | Career selection hall read & write — career, partner, attributes, card packs |
-| [Gameflow](./gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `load_scene`, `claim_rewards` | Game state machine navigation — menu → hub → lobby → map → fight |
-| [Diagnostics](./diagnostics/SKILL.md) | `inspect`, `query_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item` | Developer backdoor tools — reflection, config queries, scene inspection, item injection |
+| [Gameflow](./gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `map_select_state`, `map_select_assign`, `map_select_clear`, `map_select_confirm`, `load_scene`, `claim_rewards` | Game state machine navigation — menu → hub → lobby → map → passage → fight |
+| [Diagnostics](./diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info` | Developer backdoor tools — reflection, config queries, scene inspection, item injection, env info |
 | [Game Insights](../insights/SKILL.md) | (knowledge base, no tools) | Game architecture, CSV schemas, Lua effect API, mod directory structure — load before creating mod content |
 
 ## Usage pattern

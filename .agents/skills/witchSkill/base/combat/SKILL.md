@@ -13,9 +13,13 @@ Complete battle read-write loop. All tools require the game to be in a fight (`g
 |------|--------|---------|-------|
 | `get_fight_state` | — | `{inFight, phase, player, enemies, hand, drawPile, discardPile, exhaustPile, masterDeckCount, inSelectionMode}` | Full battle snapshot |
 | `play_card` | `{cardId? / index?, targetIndex?, choices?}` | `{result, cardId, handBefore, handAfter, targetHpBefore?, targetHpAfter?}` | Play a card from hand |
+| `use_skill` | `{index, targetIndex?, ignoreCooldown?, setCooldown?}` | `{result, skillRuntimeId, skillName, player?}` | Use career skill 1 or 2 |
+| `get_skills_state` | — | `{careerId, careerName, skills: [{index, runtimeId, name, cooldown, canUse}]}` | Check skill cooldowns and availability |
 | `end_turn` | — | `{result, message, phase?}` | End the player's current turn |
 | `set_card_pile` | `{pile, action, cards?, indices?, shuffle?}` | `{result, changes: []}` | Manipulate hand/draw/discard/exhaust piles |
 | `set_fight_entity` | `{target, hp?, maxHp?, shield?, power?, maxPower?, addBuffs?, removeBuffs?, clearBuffs?}` | `{result, changes: []}` | Modify player or enemy attributes |
+| `get_deck_selection` | — | `{totalCards, cards: [{index, cardId, name, cost, rarity, tag, isSelected}]}` | When DeckUI is open (card selection modal), list all selectable cards. |
+| `select_deck_cards` | `{indices: [int]}` | `{result, clicked, clickedCount, message}` | Select/toggle cards in the DeckUI modal. Auto-closes when required count is reached. |
 
 ---
 
@@ -82,6 +86,77 @@ result = g.call("play_card", {
     "cardId": "card_strike_1",
     "choices": {"discardIndices": [3, 4]}
 })
+```
+
+### use_skill
+
+Use a career skill (Skill1/Skill2). Must be in combat during the player's turn.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `index` | int | Yes | — | Skill index: 1 or 2 |
+| `targetIndex` | int | No | — | Target enemy index (optional) |
+| `ignoreCooldown` | bool | No | true | Whether to ignore cooldown |
+| `setCooldown` | int | No | — | Set cooldown after use (game default if omitted) |
+
+Note: Some skills trigger a card selection modal (e.g. "choose a card from draw pile"). After calling `use_skill`, check `get_fight_state` for `inSelectionMode`, then use `get_deck_selection` + `select_deck_cards` to handle the modal.
+
+**Python:**
+```python
+# Use skill 1 on enemy 0
+result = g.call("use_skill", {"index": 1, "targetIndex": 0})
+print(f"Skill used: {result['skillName']}, HP now: {result['player']['hp']}")
+
+# Use skill with cooldown management
+result = g.call("use_skill", {
+    "index": 2, "ignoreCooldown": False, "setCooldown": 3
+})
+```
+
+### get_skills_state
+
+Check the current skill state — cooldown, availability, and runtime IDs.
+
+**Python:**
+```python
+skills = g.call("get_skills_state")
+for s in skills['skills']:
+    print(f"Skill {s['index']}: {s['name']} (cd={s['cooldown']}, canUse={s['canUse']})")
+```
+
+### get_deck_selection
+
+When a card/game effect opens the DeckUI (e.g. "choose a card from draw pile" or "discard cards"), list all selectable cards.
+
+**Return:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `totalCards` | int | Number of selectable cards |
+| `cards` | array | `[{index, cardId, name, cost, rarity, tag, isSelected}]` |
+
+**Python:**
+```python
+# After a skill triggers a card selection modal
+selection = g.call("get_deck_selection")
+for c in selection['cards']:
+    print(f"  [{c['index']}] {c['name']} ({c['cardId']}) — {'selected' if c['isSelected'] else ''}")
+```
+
+### select_deck_cards
+
+Select/toggle cards in the DeckUI modal. When the required selection count is reached (e.g. "choose 1 card"), the UI auto-closes.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `indices` | int[] | Yes | Card indices to click (0-based). Toggles selection state. |
+
+**Python:**
+```python
+# Select card at index 4 (auto-closes if count reached)
+g.call("select_deck_cards", {"indices": [4]})
+
+# Multi-select (for "discard 2" type effects)
+g.call("select_deck_cards", {"indices": [0, 2]})
 ```
 
 ### end_turn

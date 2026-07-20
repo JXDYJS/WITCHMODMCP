@@ -13,7 +13,8 @@ namespace WitchModMCP.Tools
     public class GetSceneStateTool : IMcpTool
     {
         public string Name => "get_scene_state";
-        public string Description => "检测当前游戏页面/状态。返回当前所在页面(MAIN_MENU/MODE_SELECT/LOBBY/MAP/FIGHT/HUB)、战斗状态、弹窗/转场阻挡、跑局信息等。";
+        public string Description => "检测当前游戏页面/状态。返回当前所在页面(MAIN_MENU/MODE_SELECT/LOBBY/MAP/FIGHT/HUB)、战斗状态、弹窗/转场阻挡、跑局信息等。" +
+            "activeUI 字段直接告诉你当前顶层的弹窗/模态是什么，无需查场景树。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -40,6 +41,47 @@ namespace WitchModMCP.Tools
 
                 result["modals"] = hasModal;
                 result["transitioning"] = isTransitioning;
+
+                // --- 活跃 UI 弹窗检测（直接告诉 AI 应该用什么工具） ---
+                var activeUIs = new JArray();
+                string activeUI = null;
+
+                void CheckUI(string uiName, Func<bool> check)
+                {
+                    if (check())
+                    {
+                        activeUIs.Add(uiName);
+                        if (activeUI == null) activeUI = uiName;
+                    }
+                }
+
+                CheckUI("BattleRewardsUI", () => IsUIActive<BattleRewardsUI>("BattleRewardsUI"));
+                CheckUI("CardChoiceUI", () => IsUIActive<CardChoiceUI>("CardChoiceUI"));
+                CheckUI("DeckUI", () => IsUIActive<DeckUI>("DeckUI"));
+                CheckUI("BreaksUI", () =>
+                {
+                    var b = UnityEngine.Object.FindAnyObjectByType<BreaksUI>();
+                    return b != null && b.gameObject.activeInHierarchy;
+                });
+                CheckUI("EventUI", () => IsUIActive<EventUI>("EventUI"));
+                CheckUI("ShopUI", () => IsUIActive<ShopUI>("ShopUI"));
+                CheckUI("SafeBoxUI", () => IsUIActive<SafeBoxUI>("SafeBoxUI"));
+                CheckUI("OutsiderShopUI", () =>
+                {
+                    var o = UIManager.Instance?.GetUI<OutsiderShopUI>("OutsiderShopUI");
+                    return o != null && o.gameObject.activeInHierarchy;
+                });
+                CheckUI("CardEnchUI", () =>
+                {
+                    var c = UIManager.Instance?.GetUI<CardEnchUI>("CardEnchUI");
+                    return c != null && c.gameObject.activeInHierarchy;
+                });
+                CheckUI("MapSelectUI", () => IsUIActive<MapSelectUI>("MapSelectUI"));
+                CheckUI("SettingUI", () => IsUIActive<SettingUI>("SettingUI"));
+                CheckUI("BackpackUI", () => IsUIActive<BackpackUI>("BackpackUI"));
+
+                result["activeUI"] = activeUI;
+                result["activeUIs"] = activeUIs;
 
                 // --- 叠加层检测（可以与其他页面共存） ---
                 var overlays = new JArray();

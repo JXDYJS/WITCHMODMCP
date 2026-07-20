@@ -194,11 +194,11 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 | Module | Tools / Docs | Triggers |
 |--------|----------|---------|
 | [Core](./base/core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | discovery, console command, eval_command |
-| [Meta](./base/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `check_mode_saves`, `list_game_modes` | scene state, game data, 场景检测, 页面状态 |
-| [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_skills_state`, `use_skill` | 战斗, 出牌, 打牌, combat, 技能 |
+| [Meta](./base/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `get_game_info`, `check_mode_saves`, `list_game_modes`, `get_recent_logs` | scene state, game data, game info, 场景检测, 页面状态, 日志 |
+| [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | 战斗, 出牌, 打牌, combat, 技能, 选牌, 弃牌 |
 | [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
-| [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow |
-| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item` | 调试, 反射, 查配置, debug, diagnostics |
+| [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `map_select_state`, `map_select_assign`, `map_select_clear`, `map_select_confirm`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow, 地图选点, 节点编排 |
+| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info` | 调试, 反射, 查配置, debug, diagnostics, 环境信息 |
 | [Game Insights](./insights/SKILL.md) | **§11 CSV schemas**, **§13 Quick-Start Guides** (add cards §13.1, add career §13.3, SkillScript patterns §11.5c, testing §13.7) | CSV schemas, Lua effect API, mod directory structure, built-in buff IDs |
 | [Templates](./templates/using-templates.md) | (reference) | ModTemplate / DllTemplate usage, CSV column reference, example mod |
 | [Code Patterns](./code-patterns/entry-patterns.md) | (reference) | Entry.lua patterns, Hook patterns, career mod architecture |
@@ -229,6 +229,7 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 | "Test / debug my mod content" | [insights](./insights/SKILL.md) §13.7 | search_config + get_recent_logs + give_item → verify |
 | "What page/state is the game in?" | Meta | `get_scene_state` |
 | "What are the player's HP/money/deck?" | Meta | `get_game_data` |
+| "What game version / install path?" | Meta | `get_game_info` |
 | "What console commands exist?" | Core | `list_commands` → `eval_command` |
 | "I need gold / a relic / a card" | Diagnostics | `give_item` |
 | "Take me to a boss fight" | Gameflow | `load_scene` |
@@ -243,9 +244,15 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 | "Check skill cooldowns" | Combat | `get_skills_state` |
 | "Play card X at enemy Y" | Combat | `play_card` |
 | "End my turn" | Combat | `end_turn` |
+| "Choose/select a card from a list" | Combat | `get_deck_selection` → `select_deck_cards` |
+| "Discard cards" | Combat | `get_deck_selection` → `select_deck_cards` (same DeckUI mechanism) |
 | "Set up a lobby with career X / pack Y" | Lobby | `set_lobby_state` |
 | "Start a new run" | Gameflow | `start_new_game` → `set_lobby_state` → `start_run` |
 | "I recompiled my tool DLL" | Core | `reload_tools` → `list_tools` |
+| "Fill map node slots / start passage" | Gameflow | `map_select_state` → `map_select_assign` → `map_select_confirm` |
+| "Move to next node in passage" | Gameflow | `map_select_confirm` (same tool) |
+| "What developer tools are available?" | Diagnostics | `get_env_info` |
+| "Dump environment info" | Diagnostics | `get_env_info` |
 
 > **New mod creation workflow (card/cardpack/character):** Load this skill → `git clone` the template → load [insights/SKILL.md](./insights/SKILL.md) for CSV schema details → refer to §13.x quick-start guides for step-by-step instructions.
 

@@ -11,11 +11,12 @@ Global state probes — detect the current game page, read player/runtime snapsh
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `get_scene_state` | — | `{page, inRun, inFight, fightType?, player?, modals, transitioning, overlays}` |
+| `get_scene_state` | — | `{page, inRun, inFight, fightType?, player?, modals, transitioning, overlays, level}` |
 | `get_game_data` | — | `{player?, fight?, runtime?}` — player HP/SAN/money/deck snapshot |
 | `get_game_info` | — | `{dataPath, gameRoot, managedPath, modsPath, unityVersion, platform, loadedMods}` — game install info |
 | `check_mode_saves` | `{mode?}` | `{hasSaves, totalSaves, validSaves, saves: [{name, mode, level, career?, cardCount, relicCount}]}` |
 | `list_game_modes` | — | `{modes: [{mode, hasSave, saveCount, save?}]}` |
+| `get_recent_logs` | `{count=50, level="All"}` | JSON array of recent log entries, optional level filter (`All`, `Log`, `Warning`, `Error`) |
 
 ---
 
@@ -44,9 +45,27 @@ Detects the current game UI page. Returns which page is active and whether there
 | `fightPlayer` | object | `{hp, maxHp, power, shield}` when inFight |
 | `modals` | bool | Whether a blocking modal is open |
 | `transitioning` | bool | Whether a scene transition/animation is playing |
+| `activeUI` | string or null | **The topmost active modal/popup** — tells you exactly what tool to use next without checking the scene tree. `null` = no active modal. |
+| `activeUIs` | string[] | All currently active UI modals (topmost first) |
 | `overlays` | string[] | Active overlay UIs (e.g. `SettingUI`, `BackpackUI`) |
 | `player` | object | `{hp, maxHp, san, maxSan, money}` from RoleTable |
 | `level` | int | Current level when inRun |
+
+**activeUI quick reference:**
+| Value | What to do next |
+|-------|----------------|
+| `BattleRewardsUI` | Call `claim_rewards` |
+| `CardChoiceUI` | Call `pick_card_reward` or `skip_card_reward` |
+| `BlessingChoiceGenerator` | Call `pick_blessing_reward` or `skip_blessing_reward` |
+| `DeckUI` | Call `get_deck_selection` → `select_deck_cards` |
+| `BreaksUI` | Call `page_leave` to leave rest point |
+| `EventUI` | Call `event_choose_option` or `event_advance_dialogue` |
+| `ShopUI` | No tools yet |
+| `SafeBoxUI` | Use `safebox_*` tools |
+| `MapSelectUI` | Use `map_select_state` → `map_select_assign` → `map_select_confirm` |
+| `SettingUI` | Call `page_leave` to close |
+| `BackpackUI` | Call `page_leave` to close |
+| `null` | No modal; use page-level tools normally |
 
 **Python:**
 ```python

@@ -1,6 +1,11 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.UI;
 using Witch.UI;
 using Witch.UI.Window;
 using WitchModMCP.Dispatcher;
@@ -18,6 +23,8 @@ namespace WitchModMCP.Tools
             ["properties"] = new JObject()
         };
 
+        private static readonly BindingFlags _publicInstance = BindingFlags.Public | BindingFlags.Instance;
+
         public async Task<JToken> Execute(JToken args)
         {
             return await GameDispatcher.RunOnMainThread(() =>
@@ -25,33 +32,79 @@ namespace WitchModMCP.Tools
                 var result = new JObject();
                 result["actions"] = new JArray();
 
-                // 1. BattleRewardsUI — 奖励总界面
+                // 1. BattleRewardsUI — 找到"关闭"按钮并点击
                 var rewardsUI = UIManager.Instance?.GetUI<BattleRewardsUI>("BattleRewardsUI");
                 if (rewardsUI != null && rewardsUI.gameObject.activeInHierarchy)
                 {
-                    rewardsUI.Close();
-                    result["claimed"] = true;
-                    ((JArray)result["actions"]).Add("BattleRewardsUI closed, unconverted rewards → gold");
+                    var closeBtn = rewardsUI.transform.Find("Window Manager/Close");
+                    if (closeBtn != null)
+                    {
+                        if (TryClickButtonManager(closeBtn.gameObject) || TryClickStandardButton(closeBtn.gameObject))
+                        {
+                            result["claimed"] = true;
+                            ((JArray)result["actions"]).Add("BattleRewardsUI closed via button click");
+                        }
+                    }
                 }
 
-                // 2. CardChoiceUI — 选卡界面（通常在奖励之后出现）
+                // 2. CardChoiceUI — 退出按钮
                 var cardChoiceUI = UIManager.Instance?.GetUI<CardChoiceUI>("CardChoiceUI");
                 if (cardChoiceUI != null && cardChoiceUI.gameObject.activeInHierarchy)
                 {
-                    cardChoiceUI.Close();
+                    var exitBtn = cardChoiceUI.transform.Find("ExitButton");
+                    if (exitBtn != null)
+                    {
+                        TryClickButtonManager(exitBtn.gameObject);
+                        TryClickStandardButton(exitBtn.gameObject);
+                    }
                     ((JArray)result["actions"]).Add("CardChoiceUI closed");
                 }
 
-                // 3. BlessingChoiceGenerator — 祝福选择界面
+                // 3. BlessingChoiceGenerator — 第一个可交互按钮
                 var blessGen = UIManager.Instance?.Find("BlessingChoiceGenerator");
                 if (blessGen != null && blessGen.gameObject.activeInHierarchy)
                 {
-                    blessGen.Close();
+                    var buttons = blessGen.GetComponentsInChildren<Button>(false)
+                        .Where(b => b.interactable && b.gameObject.activeInHierarchy)
+                        .ToList();
+                    if (buttons.Count > 0)
+                    {
+                        buttons[0].onClick.Invoke();
+                    }
                     ((JArray)result["actions"]).Add("BlessingChoiceGenerator closed");
                 }
 
                 return (JToken)result;
             });
+        }
+
+        private static bool TryClickButtonManager(GameObject obj)
+        {
+            var monos = obj.GetComponents<MonoBehaviour>();
+            foreach (var comp in monos)
+            {
+                if (comp == null) continue;
+                if (comp.GetType().Name != "ButtonManager") continue;
+
+                var onClickField = comp.GetType().GetField("onClick", _publicInstance);
+                if (onClickField?.GetValue(comp) is UnityEvent onClick)
+                {
+                    onClick.Invoke();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TryClickStandardButton(GameObject obj)
+        {
+            var btn = obj.GetComponent<Button>();
+            if (btn != null)
+            {
+                btn.onClick.Invoke();
+                return true;
+            }
+            return false;
         }
     }
 }

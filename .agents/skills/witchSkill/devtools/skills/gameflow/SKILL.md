@@ -18,7 +18,7 @@ description: "DeveloperTools game flow tools: page detection, game state machine
 | `check_mode_saves` | `{mode?}` | `{hasSaves, totalSaves, validSaves, saves}` | 检查指定模式的存档详情 |
 | `list_game_modes` | — | `{modes: [{mode, hasSave, saveCount, save?}]}` | 列出所有可用的游戏模式 |
 | `map_select_state` | — | `{selectableNodes, slots, canContinue}` | 获取地图节点编排界面状态 |
-| `map_select_assign` | `{mappings}` 或 `{slotIndex, nodeId}` | `{placed, errors}` | 将可选节点放置到槽位。**支持批量** |
+| `map_select_assign` | `{slotIndex, nodeId}` | `{result, placed, message}` | 将可选节点放置到槽位。**单次放一个** |
 | `map_select_clear` | `{slotIndex}` | `{result}` | 清空指定槽位 |
 | `map_select_confirm` | — | `{result}` | 确认编排并继续前进 |
 
@@ -41,58 +41,30 @@ description: "DeveloperTools game flow tools: page detection, game state machine
 
 ### map_select_assign
 
-将可选节点放置到槽位。**推荐使用批量模式。**
+将可选节点放置到槽位。**每次调用只放一个节点。**
 
-**参数（两种模式）：**
-
-1️⃣ **批量模式（推荐）** — 通过 `mappings` 数组一次填所有槽位：
-```json
-{
-  "mappings": [
-    {"slotIndex": 1, "nodeId": "shop"},
-    {"slotIndex": 2, "nodeId": "level_10042"},
-    {"slotIndex": 3, "nodeId": "Breaks"},
-    {"slotIndex": 4, "nodeId": "level_10006"}
-  ]
-}
-```
-
-2️⃣ **单次模式** — 通过顶层 `slotIndex` + `nodeId`：
-```json
-{"slotIndex": 1, "nodeId": "shop"}
-```
-
-**参数说明：**
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `slotIndex` | int | 槽位索引 (0-5) |
-| `nodeId` | string | **稳定 ID**，从 `map_select_state` 的 `selectableNodes[].nodeId` 获取 |
-| `mappings` | array | 批量放置映射列表，自动处理所有放置后只需同步一次 |
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `slotIndex` | int | 是 | 槽位索引 (0-5) |
+| `nodeId` | string | 是 | **稳定 ID**，从 `map_select_state` 的 `selectableNodes[].nodeId` 获取 |
 
 **返回：**
 | 字段 | 说明 |
 |------|------|
-| `result` | `"success"` / `"partial"` / `"error"` |
+| `result` | `"success"` / `"error"` |
 | `placed` | 成功放置的 `[{slotIndex, nodeId}]` |
-| `errors` | 失败的 `[{slotIndex, nodeId, error}]` |
+| `message` | 状态描述 |
 
-**⚠️ 关键行为变更警告：**
-- 旧版使用 `nodeIndex`（整数序号），现**已移除**。改用 `nodeId` 字符串
-- `nodeIndex` 是容器遍历的动态序号，每次放置后可选节点列表缩小、所有序号偏移。用 `nodeId` 可避免此问题
-- 批量模式下，所有放置在同一主线程帧内处理，**只同步一次**，比逐次调用更高效可靠
-- 如果同一个 `nodeId` 被多次引用，只有第一次生效（节点被移走后不在可选列表中）
+**⚠️ 关键行为说明：**
+- 使用 `nodeId`（稳定配置表ID）而非 `index`。`index` 是容器遍历的动态序号，每次放置后偏移
+- 旧版曾支持 `mappings` 批量数组和 `nodeIndex`，均已移除。当前版本每次只放一个节点
+- 如果同一个 `nodeId` 已被放置，再次引用会失败
 
 **Python：**
 ```python
-# 批量填充所有槽位（推荐）
-g.call("map_select_assign", {
-    "mappings": [
-        {"slotIndex": 1, "nodeId": "shop"},
-        {"slotIndex": 2, "nodeId": "level_10042"},
-        {"slotIndex": 3, "nodeId": "Breaks"},
-        {"slotIndex": 4, "nodeId": "level_10006"}
-    ]
-})
+# 逐次放置
+g.call("map_select_assign", {"slotIndex": 1, "nodeId": "shop"})
+g.call("map_select_assign", {"slotIndex": 2, "nodeId": "level_10007"})
 ```
 
 ### map_select_clear
@@ -107,11 +79,22 @@ g.call("map_select_assign", {
 
 确认当前地图节点编排并继续前进。所有6个槽位都必须已填充。
 
+**这个工具同时负责两件事：**
+1. **开始路线** — 首次填充完所有槽位后确认，开始走路线
+2. **下一个节点** — 完成一个节点（事件/战斗/建筑）后再次确认，前进到路线上下一个节点
+
+也就是说，走完一层的过程中需要**多次调用** `map_select_confirm`。
+
 **Python：**
 ```python
+# 填充后确认
 state = g.call("map_select_state")
 if state['canContinue']:
     g.call("map_select_confirm")
+
+# 完成第一个节点后，游戏回到选点界面
+# 再次确认就到下一个节点
+g.call("map_select_confirm")
 ```
 
 ---
@@ -158,8 +141,24 @@ MAIN_MENU ──enter_game──→ HUB ──start_new_game──→ LOBBY ─�
 | `player` | object | `{hp, maxHp, san, maxSan, money}` |
 | `modals` | bool | 是否有遮挡弹窗 |
 | `transitioning` | bool | 是否有转场动画 |
+| `activeUI` | string/null | **最上层的活动弹窗/模态** — 直接告诉你当前该用什么工具，无需查场景树。`null` = 无活跃弹窗 |
+| `activeUIs` | string[] | 所有活跃的 UI 弹窗（最上层排第一个） |
 | `overlays` | string[] | 活动覆盖层（SettingUI, BackpackUI） |
 | `level` | int | 当前层数（跑局中） |
+
+**activeUI 快速参考：**
+| 值 | 下一步该做什么 |
+|----|--------------|
+| `BattleRewardsUI` | `claim_rewards` |
+| `CardChoiceUI` | `pick_card_reward` 或 `skip_card_reward` |
+| `BlessingChoiceGenerator` | `pick_blessing_reward` 或 `skip_blessing_reward` |
+| `DeckUI` | `get_deck_selection` → `select_deck_cards` |
+| `BreaksUI` | `page_leave` 离开休息点 |
+| `EventUI` | `event_choose_option` 或 `event_advance_dialogue` |
+| `ShopUI` | 暂无工具 |
+| `SafeBoxUI` | 使用 `safebox_*` 系列工具 |
+| `MapSelectUI` | `map_select_state` → `map_select_assign` → `map_select_confirm` |
+| `SettingUI` / `BackpackUI` | `page_leave` 关闭 |
 
 **Python：**
 ```python

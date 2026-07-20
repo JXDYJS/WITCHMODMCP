@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 using Witch.UI;
 using Witch.UI.Window;
@@ -26,6 +28,8 @@ namespace WitchModMCP.Tools
             ["required"] = new JArray { "index" }
         };
 
+        private static readonly BindingFlags _publicInstance = BindingFlags.Public | BindingFlags.Instance;
+
         public async Task<JToken> Execute(JToken args)
         {
             int? index = args?["index"]?.Value<int>();
@@ -44,31 +48,55 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                var buttons = eventUI.GetComponentsInChildren<Button>(false)
-                    .Where(b => b.interactable && b.gameObject.activeInHierarchy)
-                    .ToList();
+                // 反射找 ButtonManager（不依赖 Plugins.dll），找不到再 fallback 到标准 Button
+                var allButtons = new List<(UnityEngine.Component comp, string name)>();
+                CollectClickableOptions(eventUI.transform, allButtons);
 
-                if (buttons.Count == 0)
+                if (allButtons.Count == 0)
+                {
+                    // Fallback: 找标准的 Button
+                    var stdButtons = eventUI.GetComponentsInChildren<Button>(false)
+                        .Where(b => b.interactable && b.gameObject.activeInHierarchy)
+                        .ToList();
+                    foreach (var b in stdButtons)
+                        allButtons.Add((b, b.GetComponentInChildren<Text>(true)?.text ?? b.name));
+                }
+
+                if (allButtons.Count == 0)
                 {
                     result["result"] = "error";
                     result["message"] = "事件中没有找到可交互的按钮";
                     return (JToken)result;
                 }
 
-                if (index.Value > buttons.Count)
+                if (index.Value > allButtons.Count)
                 {
                     result["result"] = "error";
-                    result["message"] = $"索引 {index.Value} 超出范围，共有 {buttons.Count} 个选项";
-                    result["totalChoices"] = buttons.Count;
+                    result["message"] = $"索引 {index.Value} 超出范围，共有 {allButtons.Count} 个选项";
+                    result["totalChoices"] = allButtons.Count;
                     return (JToken)result;
                 }
 
-                var target = buttons[index.Value - 1];
-                var btnText = target.GetComponentInChildren<Text>(true)?.text ?? target.name;
+                var (target, btnText) = allButtons[index.Value - 1];
 
                 try
                 {
-                    target.onClick.Invoke();
+                    // 尝试 ButtonManager.onClick（反射）
+                    if (TryInvokeButtonManagerClick(target))
+                    {
+                        // success
+                    }
+                    // Fallback: 标准 Button.onClick
+                    else if (target is Button btn)
+                    {
+                        btn.onClick.Invoke();
+                    }
+                    else
+                    {
+                        result["result"] = "error";
+                        result["message"] = "选项组件无法触发点击";
+                        return (JToken)result;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -81,10 +109,43 @@ namespace WitchModMCP.Tools
                 result["message"] = $"已选择选项 {index.Value}: {btnText}";
                 result["choice"] = btnText;
                 result["choiceIndex"] = index.Value;
-                result["totalChoices"] = buttons.Count;
+                result["totalChoices"] = allButtons.Count;
 
                 return (JToken)result;
             });
+        }
+
+        private static void CollectClickableOptions(Transform root, List<(UnityEngine.Component, string)> results)
+        {
+            var monos = root.GetComponentsInChildren<MonoBehaviour>(false);
+            foreach (var comp in monos)
+            {
+                if (comp == null) continue;
+                var type = comp.GetType();
+                if (type.Name != "ButtonManager") continue;
+
+                // 检查 isInteractable
+                var interactField = type.GetField("isInteractable", _publicInstance);
+                bool interactable = interactField == null || (bool)interactField.GetValue(comp);
+                if (!interactable) continue;
+
+                var text = comp.GetComponentInChildren<Text>(true)?.text ?? comp.name;
+                results.Add((comp, text));
+            }
+        }
+
+        private static bool TryInvokeButtonManagerClick(UnityEngine.Component comp)
+        {
+            var type = comp.GetType();
+            if (type.Name != "ButtonManager") return false;
+
+            var onClickField = type.GetField("onClick", _publicInstance);
+            if (onClickField?.GetValue(comp) is UnityEvent onClick)
+            {
+                onClick.Invoke();
+                return true;
+            }
+            return false;
         }
     }
 
@@ -107,10 +168,11 @@ namespace WitchModMCP.Tools
                 var eventUI = UIManager.Instance?.GetUI<EventUI>("EventUI");
                 if (eventUI != null && eventUI.gameObject.activeInHierarchy)
                 {
-                    eventUI.TryChangeMap();
+                    // 改为调 Entry() 而不是 TryChangeMap()，确保 EntryScript 执行
+                    eventUI.Entry();
                     result["result"] = "success";
                     result["message"] = "已触发事件结束 / 返回地图";
-                    result["action"] = "TryChangeMap";
+                    result["action"] = "Entry";
                 }
                 else
                 {
