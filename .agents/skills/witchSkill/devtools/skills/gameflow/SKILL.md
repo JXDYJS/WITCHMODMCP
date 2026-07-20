@@ -154,7 +154,7 @@ MAIN_MENU ──enter_game──→ HUB ──start_new_game──→ LOBBY ─�
 | `BlessingChoiceGenerator` | `pick_blessing_reward` 或 `skip_blessing_reward` |
 | `DeckUI` | `get_deck_selection` → `select_deck_cards` |
 | `BreaksUI` | 用 `scan_ui` 找到继续/离开按钮，再用 `click_ui` 点 |
-| `EventUI` | `event_choose_option` 或 `event_advance_dialogue` |
+| `EventUI` | `event_choose_option` 或 `event_advance_dialogue` ⚠️ 部分事件有多阶段选项，选完一次后重新检查 `activeUI`，如果 EventUI 还在则继续选 |
 | `ShopUI` | 使用 `get_shop_state`, `shop_buy`, `shop_sell`, `shop_refresh` |
 | `SafeBoxUI` | 使用 `safebox_*` 系列工具 |
 | `MapSelectUI` | `map_select_state` → `map_select_assign` → `map_select_confirm` |

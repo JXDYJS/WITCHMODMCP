@@ -193,6 +193,7 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 
 | Module | Tools / Docs | Triggers |
 |--------|----------|---------|
+| **[Gameplay](./gameplay/SKILL.md)** | **正常游玩完整流程指南（不含开发工具）** | **游玩, 跑局, 正常流程, 怎么玩, gameplay** |
 | [Core](./base/core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | discovery, console command, eval_command |
 | [Meta](./base/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `get_game_info`, `check_mode_saves`, `list_game_modes`, `get_recent_logs` | scene state, game data, game info, 场景检测, 页面状态, 日志 |
 | [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | 战斗, 出牌, 打牌, combat, 技能, 选牌, 弃牌 |

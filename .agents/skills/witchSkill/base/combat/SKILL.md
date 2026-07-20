@@ -99,7 +99,20 @@ Use a career skill (Skill1/Skill2). Must be in combat during the player's turn.
 | `ignoreCooldown` | bool | No | true | Whether to ignore cooldown |
 | `setCooldown` | int | No | — | Set cooldown after use (game default if omitted) |
 
-Note: Some skills trigger a card selection modal (e.g. "choose a card from draw pile"). After calling `use_skill`, check `get_fight_state` for `inSelectionMode`, then use `get_deck_selection` + `select_deck_cards` to handle the modal.
+> **⚠️ 技能可能触发选牌模态！** 某些技能（如"从抽牌堆选择一张卡"）会弹出 `DeckUI` 选牌界面。
+>
+> **释放技能后必须立即检查 `get_fight_state` 的 `inSelectionMode` 字段：**
+> - `true` → 使用 `get_deck_selection` 查看可选牌 → `select_deck_cards` 选择
+> - 如果不处理直接 `end_turn`，游戏可能跳过选牌导致技能效果异常
+>
+> ```python
+> # 正确用法：
+> r = g.call("use_skill", {"index": 1})
+> fight = g.call("get_fight_state")
+> if fight.get('inSelectionMode'):
+>     selection = g.call("get_deck_selection")
+>     g.call("select_deck_cards", {"indices": [0]})
+> ```
 
 **Python:**
 ```python

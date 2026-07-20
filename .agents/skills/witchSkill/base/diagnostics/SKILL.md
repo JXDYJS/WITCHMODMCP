@@ -351,7 +351,7 @@ Scan all active UI elements (Button + ButtonManager) in the current scene and re
 **Response fields (per element):**
 | Field | Type | Description |
 |-------|------|-------------|
-| `index` | int | Stable index for use with `click_ui` (0-based, sorted by hierarchy) |
+| `index` | int | **全局索引**（按 hierarchy 排序），始终和 `click_ui` 的索引一致。即使加了 `panel` 过滤，index 也是全局的 |
 | `text` | string | Button display text (or GameObject name if no text) |
 | `type` | string | `"Button"` or `"ButtonManager"` |
 | `interactable` | bool | Whether the element is currently interactable |
@@ -362,6 +362,7 @@ Scan all active UI elements (Button + ButtonManager) in the current scene and re
 - The same GameObject may have both a `Button` and a `ButtonManager` — each gets its own index.
 - Hierarchy paths are the primary way to distinguish elements with identical texts (e.g. two `ExitButton` entries in different panels).
 - Index is ephemeral — re-scan if the scene changes.
+- ⚠️ **index 始终是全局的**。如果加 `panel` 过滤，返回的元素 index 值仍然是全局索引，不是局部 0-N。例如 `scan_ui({"panel": "ShopUI"})` 返回的 ExitButton 可能是 index 25，而不是 17。`click_ui` 必须用这个全局 index。
 
 **Python:**
 ```python

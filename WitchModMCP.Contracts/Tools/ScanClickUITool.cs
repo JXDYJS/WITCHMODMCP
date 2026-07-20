@@ -16,7 +16,7 @@ namespace WitchModMCP.Tools
     public class ScanUITool : IMcpTool
     {
         public string Name => "scan_ui";
-        public string Description => "扫描当前场景中所有可交互的 UI 组件（Button + ButtonManager），返回带层级路径和面板归属的结构化列表。AI 可用此工具发现页面上所有可点击元素。";
+        public string Description => "扫描当前场景中所有可交互的 UI 组件（Button + ButtonManager），返回带层级路径和面板归属的结构化列表。AI 可用此工具发现页面上所有可点击元素。注意：index 始终是全局索引（按 hierarchy 排序），和 click_ui 的索引一致。panel 过滤只影响返回列表，不影响 index 值。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -38,7 +38,8 @@ namespace WitchModMCP.Tools
 
             return await GameDispatcher.RunOnMainThread(() =>
             {
-                var elements = new List<JObject>();
+                // === 1. 收集所有元素（不筛选）===
+                var allElements = new List<JObject>();
                 var processed = new HashSet<GameObject>();
 
                 var rootObjects = GameObject.FindObjectsOfType<GameObject>()
@@ -47,30 +48,50 @@ namespace WitchModMCP.Tools
 
                 foreach (var root in rootObjects)
                 {
-                    ScanTransform(root.transform, "", elements, processed,
-                        includeInactive, interactableOnly, filterPanel);
+                    CollectAllElements(root.transform, "", allElements, processed,
+                        includeInactive, interactableOnly);
                 }
 
-                var sorted = elements.OrderBy(e => (string)e["hierarchy"]).ToList();
+                // === 2. 按 hierarchy 排序并分配全局索引 ===
+                var sorted = allElements.OrderBy(e => (string)e["hierarchy"]).ToList();
                 for (int i = 0; i < sorted.Count; i++)
                     sorted[i]["index"] = i;
+
+                // === 3. 如果指定了 panel 过滤，对索引做后筛 ===
+                // 保留全局 index 不变，只筛选 panel 匹配的元素
+                var filtered = sorted;
+                if (!string.IsNullOrEmpty(filterPanel))
+                {
+                    filtered = sorted
+                        .Where(e =>
+                        {
+                            var panel = e["panel"]?.Value<string>() ?? "";
+                            return panel.IndexOf(filterPanel, StringComparison.OrdinalIgnoreCase) >= 0;
+                        })
+                        .ToList();
+                }
 
                 var result = new JObject
                 {
                     ["result"] = "success",
-                    ["totalElements"] = sorted.Count,
-                    ["elements"] = JArray.FromObject(sorted),
-                    ["message"] = $"找到 {sorted.Count} 个 UI 元素"
+                    ["totalElements"] = filtered.Count,
+                    ["elements"] = JArray.FromObject(filtered),
+                    ["message"] = $"找到 {filtered.Count} 个 UI 元素" +
+                        (string.IsNullOrEmpty(filterPanel) ? "" : $"（面板: {filterPanel}）")
                 };
 
                 return (JToken)result;
             });
         }
 
-        private static void ScanTransform(
+        /// <summary>
+        /// 收集所有按钮元素，不做 panel 筛选（panel 筛选在 index 分配之后进行）。
+        /// 这样 scan_ui 带 panel 过滤时返回的 index 和 click_ui 的全局索引一致。
+        /// </summary>
+        private static void CollectAllElements(
             Transform t, string parentPath,
             List<JObject> results, HashSet<GameObject> processed,
-            bool includeInactive, bool interactableOnly, string filterPanel)
+            bool includeInactive, bool interactableOnly)
         {
             if (t == null) return;
             if (!processed.Add(t.gameObject)) return;
@@ -79,10 +100,7 @@ namespace WitchModMCP.Tools
             string myPanel = ResolvePanel(t);
             bool active = t.gameObject.activeInHierarchy;
 
-            bool panelMatch = string.IsNullOrEmpty(filterPanel) ||
-                myPanel.IndexOf(filterPanel, StringComparison.OrdinalIgnoreCase) >= 0;
-
-            if (panelMatch && (active || includeInactive))
+            if (active || includeInactive)
             {
                 bool added = false;
 
@@ -134,8 +152,8 @@ namespace WitchModMCP.Tools
             }
 
             foreach (Transform child in t)
-                ScanTransform(child, myPath, results, processed,
-                    includeInactive, interactableOnly, filterPanel);
+                CollectAllElements(child, myPath, results, processed,
+                    includeInactive, interactableOnly);
         }
 
         private static string ResolvePanel(Transform t)
