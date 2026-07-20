@@ -42,51 +42,45 @@ namespace WitchModMCP.Tools
                 result["modals"] = hasModal;
                 result["transitioning"] = isTransitioning;
 
-                // --- 活跃 UI 弹窗检测（直接告诉 AI 应该用什么工具） ---
+                // --- 活跃 UI 弹窗检测（枚举 canvasTf 所有 active 子节点，排除常驻 HUD） ---
                 var activeUIs = new JArray();
                 string activeUI = null;
 
-                void CheckUI(string uiName, Func<bool> check)
+                var canvasTf = UIManager.Instance?.canvasTf;
+                if (canvasTf != null)
                 {
-                    if (check())
+                    // 常驻 UI（无论页面状态始终存在，排除以免干扰 activeUI 判断）
+                    var persistentUIs = new HashSet<string>
                     {
-                        activeUIs.Add(uiName);
-                        if (activeUI == null) activeUI = uiName;
+                        "PopUpTextUI(Clone)", "TopBarUI", "CaptionUI", "ChatUI"
+                    };
+
+                    foreach (Transform child in canvasTf)
+                    {
+                        if (!child.gameObject.activeInHierarchy) continue;
+
+                        string name = child.name;
+                        activeUIs.Add(name);
+
+                        if (!persistentUIs.Contains(name))
+                            activeUI = name; // 最后出现的 = 渲染在最上层
                     }
                 }
-
-                CheckUI("BattleRewardsUI", () => IsUIActive<BattleRewardsUI>("BattleRewardsUI"));
-                CheckUI("CardChoiceUI", () => IsUIActive<CardChoiceUI>("CardChoiceUI"));
-                CheckUI("DeckUI", () => IsUIActive<DeckUI>("DeckUI"));
-                CheckUI("BreaksUI", () =>
-                {
-                    var b = UnityEngine.Object.FindAnyObjectByType<BreaksUI>();
-                    return b != null && b.gameObject.activeInHierarchy;
-                });
-                CheckUI("EventUI", () => IsUIActive<EventUI>("EventUI"));
-                CheckUI("ShopUI", () => IsUIActive<ShopUI>("ShopUI"));
-                CheckUI("SafeBoxUI", () => IsUIActive<SafeBoxUI>("SafeBoxUI"));
-                CheckUI("OutsiderShopUI", () =>
-                {
-                    var o = UIManager.Instance?.GetUI<OutsiderShopUI>("OutsiderShopUI");
-                    return o != null && o.gameObject.activeInHierarchy;
-                });
-                CheckUI("CardEnchUI", () =>
-                {
-                    var c = UIManager.Instance?.GetUI<CardEnchUI>("CardEnchUI");
-                    return c != null && c.gameObject.activeInHierarchy;
-                });
-                CheckUI("MapSelectUI", () => IsUIActive<MapSelectUI>("MapSelectUI"));
-                CheckUI("SettingUI", () => IsUIActive<SettingUI>("SettingUI"));
-                CheckUI("BackpackUI", () => IsUIActive<BackpackUI>("BackpackUI"));
 
                 result["activeUI"] = activeUI;
                 result["activeUIs"] = activeUIs;
 
-                // --- 叠加层检测（可以与其他页面共存） ---
+                // --- 叠加层检测（上层 Canvas 子节点） ---
                 var overlays = new JArray();
-                if (IsUIActive<SettingUI>("SettingUI")) overlays.Add("SettingUI");
-                if (IsUIActive<BackpackUI>("BackpackUI")) overlays.Add("BackpackUI");
+                var upperCanvasTf = UIManager.Instance?.upperCanvasTf;
+                if (upperCanvasTf != null)
+                {
+                    foreach (Transform child in upperCanvasTf)
+                    {
+                        if (child.gameObject.activeInHierarchy)
+                            overlays.Add(child.name);
+                    }
+                }
                 result["overlays"] = overlays;
 
                 // --- 页面检测（优先级从高到低） ---
