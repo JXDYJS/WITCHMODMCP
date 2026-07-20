@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.UI;
+using Witch.UI;
 using WitchModMCP.Dispatcher;
 using WitchModMCP.MCP;
 
@@ -46,7 +47,7 @@ namespace WitchModMCP.Tools
 
                 foreach (var root in rootObjects)
                 {
-                    ScanTransform(root.transform, root.name, "", elements, processed,
+                    ScanTransform(root.transform, "", elements, processed,
                         includeInactive, interactableOnly, filterPanel);
                 }
 
@@ -67,7 +68,7 @@ namespace WitchModMCP.Tools
         }
 
         private static void ScanTransform(
-            Transform t, string panelName, string parentPath,
+            Transform t, string parentPath,
             List<JObject> results, HashSet<GameObject> processed,
             bool includeInactive, bool interactableOnly, string filterPanel)
         {
@@ -75,15 +76,11 @@ namespace WitchModMCP.Tools
             if (!processed.Add(t.gameObject)) return;
 
             string myPath = string.IsNullOrEmpty(parentPath) ? t.name : parentPath + "/" + t.name;
-
-            string myPanel = panelName;
-            if (string.IsNullOrEmpty(parentPath))
-                myPanel = t.name == "Canvas" && t.childCount > 0 ? t.GetChild(0).name : t.name;
+            string myPanel = ResolvePanel(t);
+            bool active = t.gameObject.activeInHierarchy;
 
             bool panelMatch = string.IsNullOrEmpty(filterPanel) ||
                 myPanel.IndexOf(filterPanel, StringComparison.OrdinalIgnoreCase) >= 0;
-
-            bool active = t.gameObject.activeInHierarchy;
 
             if (panelMatch && (active || includeInactive))
             {
@@ -137,8 +134,28 @@ namespace WitchModMCP.Tools
             }
 
             foreach (Transform child in t)
-                ScanTransform(child, myPanel, myPath, results, processed,
+                ScanTransform(child, myPath, results, processed,
                     includeInactive, interactableOnly, filterPanel);
+        }
+
+        private static string ResolvePanel(Transform t)
+        {
+            var canvasTf = UIManager.Instance?.canvasTf;
+            var upperCanvasTf = UIManager.Instance?.upperCanvasTf;
+
+            Transform current = t;
+            while (current != null)
+            {
+                if ((canvasTf != null && current.parent == canvasTf) ||
+                    (upperCanvasTf != null && current.parent == upperCanvasTf))
+                {
+                    return current.name;
+                }
+                current = current.parent;
+            }
+
+            var root = t.root;
+            return root != null ? root.name : "Unknown";
         }
 
         private static string GetButtonText(GameObject go)
