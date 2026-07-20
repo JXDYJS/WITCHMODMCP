@@ -587,6 +587,32 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
+                // 前置校验：检查所有 6 个槽位是否都已填充
+                var mapData = MapManager.Instance?.mapData;
+                if (mapData == null || mapData.Length < 6)
+                {
+                    result["result"] = "error";
+                    result["message"] = "地图数据异常，无法确认";
+                    return (JToken)result;
+                }
+
+                var emptySlots = new List<int>();
+                for (int i = 0; i < 6; i++)
+                {
+                    if (string.IsNullOrEmpty(mapData[i]))
+                        emptySlots.Add(i);
+                }
+
+                if (emptySlots.Count > 0)
+                {
+                    result["result"] = "error";
+                    result["message"] = $"还有 {emptySlots.Count} 个槽位未填充（索引: {string.Join(", ", emptySlots)}），请先用 map_select_assign 放置节点";
+                    result["emptySlots"] = JArray.FromObject(emptySlots);
+                    result["requiredSlots"] = 6;
+                    result["filledSlots"] = 6 - emptySlots.Count;
+                    return (JToken)result;
+                }
+
                 try
                 {
                     var tryContinueMethod = typeof(MapSelectUI).GetMethod("TryContinue",
