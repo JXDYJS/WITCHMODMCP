@@ -91,7 +91,7 @@ namespace WitchModMCP.Tools
                         var entry = new JObject();
                         entry["name"] = child.name;
                         entry["rewardType"] = pointUse.RewardType ?? "Unknown";
-                        entry["hierarchy"] = $"BattleRewardsUI/Window Manager/Windows/奖励选择/Content/List View Custom/Scroll Area/List/{child.name}";
+                        entry["hierarchy"] = $"BattleRewardsUI/Window Manager/Windows/奖励选择/Content/List View Custom/Scroll Area/List/{child.name}";//todo硬编码路径？是否可以变为动态获取？
 
                         // 读取 title 和 description 文本（通过 TextMeshPro 组件反射读取）
                         try
