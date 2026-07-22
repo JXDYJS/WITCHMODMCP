@@ -98,7 +98,10 @@ namespace WitchModMCP.Tools
                 bool inFight = FightManager.Instance != null
                     && FightManager.Instance.fightType != FightType.None;
 
-                // 5. 地图
+                // 5. 商店
+                bool isShop = IsUIActive<ShopUI>("ShopUI");
+
+                // 6. 地图
                 bool isMap = IsUIActive<MapSelectUI>("MapSelectUI");
 
                 // 6. 小屋内（中枢）
@@ -118,6 +121,7 @@ namespace WitchModMCP.Tools
                 else if (isModeSelect) page = "MODE_SELECT";
                 else if (isLobby) page = "LOBBY";
                 else if (inFight) page = "FIGHT";
+                else if (isShop) page = "SHOP";
                 else if (isMap) page = "MAP";
                 else if (isHub) page = "HUB";
                 else if (inRun) page = "MAP";
