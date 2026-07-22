@@ -8,12 +8,17 @@
 
 ```python
 result = g.call("deploy_mod", {
-    "source": "path/to/YourMod",
-    "dry_run": True,
+    "mod_path": "E:/path/to/YourMod",
 })
 ```
 
-`deploy_mod` 会根据自身规则决定怎么部署，不需要 AI 操心底层路径。
+`deploy_mod` 会自动复制 mod 到游戏目录 → 重启游戏 → 等重连 → 检查加载状态和日志错误。
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| `mod_path` | 是 | Mod 文件夹路径（如 `E:/WitchModPlayer/Nightwatcher`） |
+| `game_path` | 否 | 游戏安装路径，不传自动检测 Steam 位置 |
+| `restart_delay` | 否 | 重启前等待秒数（默认 5） |
 
 ---
 
