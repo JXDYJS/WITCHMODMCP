@@ -13,13 +13,7 @@ Usage:
 
 import os
 from pathlib import Path
-from mcp.server.fastmcp import FastMCP
-
-try:
-    from mcp.types import Resource
-    _HAS_MCP_TYPES = True
-except ImportError:
-    _HAS_MCP_TYPES = False
+from mcp_gateway.mcp_transport import SimpleMCP
 
 
 # ── File reader ──────────────────────────────────────────────────────
@@ -54,7 +48,7 @@ def _resolve(domain: str, *parts: str) -> str:
 
 # ── Registration ─────────────────────────────────────────────────────
 
-def register_resources(mcp: FastMCP) -> int:
+def register_resources(mcp: SimpleMCP) -> int:
     """Register all skill documentation resources on the MCP server.
 
     Each resource handler reads its file from disk on every invocation,

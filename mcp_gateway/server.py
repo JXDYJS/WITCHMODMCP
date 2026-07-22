@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-WitchModMCP Gateway — MCP stdio server (FastMCP-based).
+WitchModMCP Gateway — MCP stdio server (zero external deps).
 
 This is the entry point AI tools connect to via stdio.
 It proxies tool calls to the game mod's HTTP server and exposes
@@ -32,7 +32,7 @@ import os
 import sys
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
+from mcp_gateway.mcp_transport import SimpleMCP, run_stdio_async
 
 from mcp_gateway.heartbeat import HeartbeatManager
 from mcp_gateway.mod_client import ModConnection, read_mod_config
@@ -64,8 +64,8 @@ _active_write_stream = None  # type: ignore[var-annotated]
 _last_tool_count: int = 0
 _last_reload_count: int = 0
 
-# ── FastMCP app ─────────────────────────────────────────────────────
-mcp = FastMCP(
+# ── MCP app (SimpleMCP — no external deps) ──────────────────────────
+mcp = SimpleMCP(
     name="witch-mod-mcp-gateway",
     instructions=(
         "WitchModMCP gateway server v3.0.0 — proxies MCP tools to the game mod. "
@@ -118,32 +118,14 @@ def _trigger_decompile():
 # ── list_changed notification ───────────────────────────────────────
 
 async def _send_tool_list_changed():
-    """Construct an MCP notifications/tools/list_changed message and push it
-    through the captured write_stream so the client learns the tool registry
-    has changed.
-
-    We build the message by hand instead of using ServerSession.send_tool_list_changed
-    because the Session object isn't directly accessible from here — only the
-    raw write_stream is, and constructing the notification JSON-RPC envelope
-    is trivial (see mcp.server.session.ServerSession.send_notification).
-    """
     if _active_write_stream is None:
         log("  cannot send tools/list_changed — write_stream not captured")
         return
 
-    # Local imports keep module import side-effects minimal.
-    from mcp.shared.message import SessionMessage
-    from mcp.types import JSONRPCMessage, JSONRPCNotification
-
-    notification = JSONRPCNotification(
-        jsonrpc="2.0",
-        method="notifications/tools/list_changed",
-    )
-    session_message = SessionMessage(
-        message=JSONRPCMessage(notification),
-        metadata=None,
-    )
-    await _active_write_stream.send(session_message)
+    await _active_write_stream.send({
+        "jsonrpc": "2.0",
+        "method": "notifications/tools/list_changed",
+    })
 
 
 async def _after_first_heartbeat_async():
@@ -266,46 +248,6 @@ def _on_heartbeat(resp: dict):
     fut.add_done_callback(_log_failure)
 
 
-# ── Patched run_stdio_async ──────────────────────────────────────────
-#
-# The stock FastMCP.run_stdio_async creates the stdio transport and the
-# lowlevel Server.run() session internally — neither the event loop nor
-# the write_stream are exposed for callers. We replace it with a wrapper
-# that captures both, so the heartbeat background thread can schedule
-# async work (tool registration + the list_changed notification).
-
-async def _capturing_run_stdio(self: FastMCP):
-    """Replacement for FastMCP.run_stdio_async.
-
-    Captures the asyncio event loop and the stdio write_stream into module
-    globals so that the heartbeat thread can:
-      - run async code with asyncio.run_coroutine_threadsafe
-      - send notifications directly via the write_stream
-    """
-    global _active_loop, _active_write_stream
-
-    # Import lazily — stdio_server may not be loaded on other transports.
-    from mcp.server.stdio import stdio_server
-
-    _active_loop = asyncio.get_running_loop()
-    log("Event loop captured for dynamic tool registration")
-
-    async with stdio_server() as (read_stream, write_stream):
-        _active_write_stream = write_stream
-        import mcp_gateway.tools as _tools_mod
-        _tools_mod._write_stream = write_stream
-        await self._mcp_server.run(
-            read_stream,
-            write_stream,
-            self._mcp_server.create_initialization_options(),
-        )
-
-
-# Bind the patched method to the FastMCP class. There is only one FastMCP
-# instance in this process, so a class-level patch is safe.
-FastMCP.run_stdio_async = _capturing_run_stdio  # type: ignore[assignment]
-
-
 # ── Entry point ─────────────────────────────────────────────────────
 
 def main():
@@ -373,10 +315,11 @@ def main():
     log(f"Registered {resource_count} skill doc resources")
 
     # 7. Run MCP stdio server (blocks until stdin closes).
-    #    FastMCP.run_stdio_async was patched above to capture the event loop
-    #    and write_stream so the heartbeat thread can schedule async work.
+    #    run_stdio_async handles Content-Length framing and JSON-RPC dispatch.
+    #    It also captures the asyncio event loop and write_stream so the
+    #    heartbeat thread can schedule async work (tool registration + notifications).
     try:
-        mcp.run(transport="stdio")
+        asyncio.run(run_stdio_async(mcp))
     finally:
         log("Shutting down...")
         _heartbeat.stop()

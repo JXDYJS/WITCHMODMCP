@@ -21,7 +21,7 @@ import json
 import logging
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp_gateway.mcp_transport import SimpleMCP
 from mcp_gateway.mod_client import ModConnection
 from mcp_gateway.heartbeat import HeartbeatManager
 
@@ -40,14 +40,14 @@ _SCHEMA_TYPE_MAP: dict[str, type] = {
 # ── Shared state set by init() ─────────────────────────────────────────
 _mod: ModConnection | None = None
 _heartbeat: HeartbeatManager | None = None
-_mcp: FastMCP | None = None
+_mcp: SimpleMCP | None = None
 _write_stream = None  # Captured write stream for list_changed notification
 
 # Names of tools that survive unregister_dynamic_tools (always-available core)
 _CORE_TOOL_NAMES: set[str] = {"ping", "reload_tools", "deploy_mod"}
 
 
-def init(mcp_instance: FastMCP, mod: ModConnection,
+def init(mcp_instance: SimpleMCP, mod: ModConnection,
          heartbeat: HeartbeatManager,
          write_stream=None) -> None:
     global _mod, _heartbeat, _mcp, _write_stream
@@ -117,28 +117,19 @@ def cache_game_path(path: str):
 # ── Send list_changed notification ───────────────────────────────────
 
 async def send_tool_list_changed():
-    """Send notifications/tools/list_changed so the MCP client re-fetches tools."""
     global _write_stream
     if _write_stream is None:
         return
 
-    from mcp.shared.message import SessionMessage
-    from mcp.types import JSONRPCMessage, JSONRPCNotification
-
-    notification = JSONRPCNotification(
-        jsonrpc="2.0",
-        method="notifications/tools/list_changed",
-    )
-    session_message = SessionMessage(
-        message=JSONRPCMessage(notification),
-        metadata=None,
-    )
-    await _write_stream.send(session_message)
+    await _write_stream.send({
+        "jsonrpc": "2.0",
+        "method": "notifications/tools/list_changed",
+    })
 
 
 # ── Core (always-available) tools ──────────────────────────────────────
 
-def register_core_tools(mcp: FastMCP) -> int:
+def register_core_tools(mcp: SimpleMCP) -> int:
     """Register Python-native tools that don't depend on C# mod.
 
     These are available even before heartbeat connects.
@@ -452,7 +443,7 @@ def register_dynamic_tools() -> int:
     return _register_tool_list(csharp_tools)
 
 
-def register_dynamic_sync(mcp: FastMCP, tools_list: list) -> int:
+def register_dynamic_sync(mcp: SimpleMCP, tools_list: list) -> int:
     """Register C# tools from a pre-fetched tool list (e.g. fetched at startup).
 
     Unlike register_dynamic_tools(), this doesn't call the mod — it uses the

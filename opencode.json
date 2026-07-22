@@ -3,7 +3,7 @@
   "mcp": {
     "witchmod": {
       "type": "local",
-      "command": ["E:/miniconda/python.exe", "-m", "mcp_gateway.server"],
+      "command": ["python", "-m", "mcp_gateway.server"],
       "cwd": ".",
       "environment": {
         "MCP_MOD_PORT": "3100",
