@@ -134,35 +134,77 @@ ModConfig.ConfigEnabled   // Override from Configuration.json?
 
 Mod 有两种 hook 机制，**底层完全不同**，理解这一点对选择模板至关重要：
 
-### 5.1 ModHookRegistry（Lua + C# 共用，受限于钩点）
+### 5.1 ModHookRegistry（Lua + C# 共用，可 hook 任意方法但只能监听）
 
-游戏使用 Rougamo（编译时 IL 织入）在部分方法上预埋了钩点。只有这些预埋了钩点的方法才能被 `ModHookRegistry` hook。
+> ⚠️ **重要更新：Rougamo 织入的是 ALL 方法，不是部分方法。** 以下描述已根据反编译源码修正。
 
-```csharp
-ModHookRegistry.AddBefore("FightManager.StartPlayerTurn", callback);
-ModHookRegistry.AddAfter("FightManager.EndPlayerTurn", callback);
+Rougamo 的 `Modifiable` attribute 配置为 `[Pointcut(AccessFlags.All | AccessFlags.Property | AccessFlags.Method)]`，因此 **Witch.dll 和 Witch.Core.dll 中每个方法、属性 getter/setter 都被 IL 织入**（协程、TargetRpc 等少数例外）。
+
+织入后的每个公开方法都变成一个 Rougamo 生成的包装器，调用链如下：
+
+```
+OnEntry (Modifiable)
+  → ModHookRegistry.GetBefore("ClassName.MethodName") → 触发所有 Before 回调
+  → $Rougamo_原方法名() ← 原方法体被重命名至此
+  → OnSuccess (Modifiable)
+    → ModHookRegistry.GetAfter("ClassName.MethodName") → 触发所有 After 回调
 ```
 
-从 Lua 或 C# 注册都可以，但**能力完全一样**——都只能 hook 到 Rougamo 埋了钩点的方法。
+```csharp
+// 反编译确认的包装器结构
+public bool TryMarkFirstDeadPlayer(string instanceId)
+{
+    Modifiable m = new Modifiable();
+    MethodContext ctx = RougamoPool<MethodContext>.Get();
+    ctx.Target = this;
+    ctx.Arguments = new object[1] { instanceId };
+    try {
+        m.OnEntry(ctx);
+        bool result = $Rougamo_TryMarkFirstDeadPlayer(instanceId); // 传的是原始参数
+        m.OnSuccess(ctx);
+        return result;
+    } finally { RougamoPool<MethodContext>.Return(ctx); }
+}
+
+private bool $Rougamo_TryMarkFirstDeadPlayer(string instanceId) { /* 真正的逻辑 */ }
+```
+
+从 Lua 或 C# 注册 hook 都可以：
 
 ```csharp
-// C# DLL — 效果等价于 Lua 的 AddMethodHookBefore
+// C# DLL
 [HookBefore(typeof(FightManager), "StartPlayerTurn")]
 public static void MyHook(ModHookContext ctx) { }
 ```
 
 ```lua
--- Lua Entry.lua — 效果等价于 C# 的 [HookBefore]
+-- Lua Entry.lua
 self:AddMethodHookBefore("FightManager.StartPlayerTurn", function(ctx)
     -- ctx.Target, ctx.Arguments
 end)
 ```
 
-⚠️ **不是所有方法都有钩点。** 核心逻辑（费用校验、出牌合法性、能量消耗等）的类通常**没有**实现 `Modifiable` 接口或被 Rougamo 标注，`AddMethodHookBefore/After` 和 `[HookBefore/After]` 对它们无效。
+#### ⚠️ 关键限制：只能监听，不能修改
 
-### 5.2 Harmony（仅 C#，任意方法）
+虽然 Lua 可以 hook **任意方法**（实际上 Rougamo 覆盖了所有非特殊方法），但能力仅限于**观察**：
 
-若需要 hook 游戏未主动暴露钩点的方法，必须用 **Harmony**。Harmony 通过 IL 运行时重写，**不依赖游戏预埋钩点**。
+| 想做的事 | Lua AddMethodHookBefore/After | Harmony（下面讲） |
+|----------|-------------------------------|-------------------|
+| 读参数、读 `this` | ✅ `ctx.Arguments[i]` + `ctx.Target` | ✅ |
+| **修改参数让原方法看到** | ❌ 包装器把原始变量传给 `$Rougamo_*`，改 `ctx.Arguments` 无效 | ✅ |
+| **跳过原方法** | ❌ | ✅ `return false` |
+| **修改返回值** | ❌ `result` 在 `OnSuccess` 前已锁定 | ✅ `ref __result` |
+| **添加额外逻辑** | ✅ 可以在原方法前后执行任意代码 | ✅ |
+
+核心原因是 Rougamo 包装器（见上面的反编译代码）：
+1. 传**原始局部变量**给 `$Rougamo_*`，不是 `ctx.Arguments`
+2. 返回值在 `OnSuccess` 之前已经赋值给局部变量，`OnSuccess` 无法干预
+
+所以：**需要拦截/修改核心逻辑的行为（改费用、改伤害、跳过出牌校验等）仍需 Harmony。如果想要在方法前后加日志、触发事件、追踪状态，Lua hook 就够了。**
+
+### 5.2 Harmony（仅 C#，可修改任意方法的行为）
+
+Harmony 通过 IL 运行时重写方法体，**不依赖游戏预埋的 Rougamo 钩点**。当需要修改而非仅仅观察方法行为时使用。
 
 ```csharp
 [HarmonyPatch(typeof(FightManager), nameof(FightManager.PlayerCanPlayCard))]
@@ -177,16 +219,23 @@ class Patch_PlayerCanPlayCard
 }
 ```
 
-Harmony 只能写在 C# Entry.dll 中。
+**Harmony 能做的事（Lua hook 做不到的）：**
+- **Prefix**：在方法前执行，可跳过原方法（`return false`），可修改参数和返回值
+- **Postfix**：在方法后执行，可读取或修改返回值
+- **Transpiler**：直接改写方法的 IL 指令序列
+- 可以 hook **任何方法**，包括 Rougamo 无法织入的少数例外（协程、TargetRpc）
+
+Harmony 只能写在 C# Entry.dll 中，不能从 Lua 调用。
 
 ### 5.3 总结判断
 
-| 需求 | 用什么 |
-|------|--------|
-| Hook 回合开始/结束、受伤、烧牌等高层事件 | Lua `AddMethodHookBefore/After`（直接用 Entry.lua） |
-| Hook 游戏已暴露钩点的其他方法 | Lua 或 C# `[HookBefore/After]` 均可 |
-| Hook 费用校验、出牌合法性、能量消耗等核心逻辑 | **必须 C# + Harmony**（Lua 够不到） |
-| 修改游戏管线、新增 UI 组件 | **必须 C#** |
+| 需求 | 用什么 | 原因 |
+|------|--------|------|
+| 在方法前后加日志、触发事件、追踪状态 | Lua `AddMethodHookBefore/After`（直接用 Entry.lua） | Lua 观察任意方法足够 |
+| **修改**费用校验、伤害数值、出牌合法性、能量消耗等 | **必须 C# + Harmony Prefix/Postfix** | Lua 只能监听不能改 |
+| **跳过**原方法逻辑（如让某张牌永远可出） | **必须 C# + Harmony Prefix + `return false`** | Lua 没有跳过能力 |
+| Hook 协程或 TargetRpc 等 Rougamo 未覆盖的方法 | **必须 C# + Harmony** | Rougamo 织入不了这些 |
+| 新增 UI、修改游戏管线 | **必须 C#** | UI 操作需要 Unity API |
 
 ## 6. Console Commands System
 
@@ -704,12 +753,17 @@ When asked to create a mod that adds content (cards, buffs, card packs, etc.):
 
 ### Step 0: Choose your approach — Lua/CSV vs C# DLL
 
+> 先阅读第 5 节 Hook System，理解 Lua hook（Rougamo 监听）和 C# Harmony（IL 改写）的真实能力边界再决定。
+
 官方教程仓库包含两个模板：
 
-- **`ModTemplate/`** — Lua Mod 模板。适合：新增卡牌、Buff、卡包、职业（SkillScript Lua 被动）、文本、资源重定向、Hook 高层事件（`AddMethodHookBefore/After`）。
-- **`DllTemplate/`** — C# DLL Hook 模板。适合：需要使用 **Harmony** hook 游戏未暴露钩点的方法（费用校验、出牌合法性、能量消耗等），或需要 C# 语言特性实现复杂逻辑。
+- **`ModTemplate/`** — Lua Mod 模板。适合：纯 CSV 配表内容（卡牌、Buff、卡包等）、Entry.lua 注册 `AddMethodHookBefore/After` 监听事件、SkillScript Lua 写被动。
+- **`DllTemplate/`** — C# DLL Hook 模板。适合：需要 **Harmony** 修改/跳过核心方法（费用校验、伤害计算、出牌合法性），或需要 C# 语言特性实现复杂逻辑。
 
-**判定规则：** 如果需求可以用游戏已提供的事件（回合开始/结束、受伤、烧牌、选牌结束等）或 CSV 配表实现，用 `ModTemplate`。如果需要拦截/修改**核心战斗管线**（出牌前校验、能量扣除逻辑、新增 UI），使用 `DllTemplate` + Harmony。
+**判定规则：**
+- 如果只需要**在方法前后加点逻辑**（日志、追踪、加 Buff）→ Lua `AddMethodHookBefore/After` 就够了，Rougamo 覆盖了所有方法
+- 如果需要**修改方法的行为**（让牌免费、跳过冷却校验、改变伤害数值）→ **必须 C# + Harmony**，Lua 监听模式改不了
+- 如果需要新增 UI、文件 I/O、外部库 → **C#**
 
 ### Step 1: Load this skill
 This skill documents all CSV schemas. Do NOT probe the game runtime to discover them.

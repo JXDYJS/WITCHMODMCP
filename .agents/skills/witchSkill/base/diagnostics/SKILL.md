@@ -7,13 +7,16 @@ description: "WitchModMCP diagnostics and developer backdoor tools: C# runtime r
 
 Developer backdoor tools for deep inspection and debugging. These tools break the normal game flow — use them deliberately for mod development and testing.
 
-> **⚠️ Debugging Priority: Logs First**
+> **⚠️ Debugging Priority: Logs → Modal → Scene State**
 >
 > **`get_recent_logs` is your primary debugging tool.** When a mod doesn't load, a card doesn't appear, or something breaks:
 > 1. Call `get_recent_logs({"count": 100})`
 > 2. Search for `[Mod]`, `[Error]`, `CSV`, `Lua`, or your mod name in the output
 > 3. The game prints specific error messages for: CSV parse failures, Lua compilation errors, missing `BaseScript`, invalid `PackBelong`, ModConfig JSON errors
-> 4. Only escalate to `inspect` / `query_config` if logs are clean and you need deeper runtime state
+> 4. Then: **check `get_scene_state()` for `modals` / `activeUI`** — the game often shows mod loading errors as pop-up dialogs (ModalWindow). If logs are clean but something is broken, a modal is likely blocking the UI.
+> 5. If a modal is detected → **`get_modal_state()`** reads the modal's title/description/buttons (error details are often in the description); **`get_screenshot()`** shows you visually what's on screen.
+> 6. Use `scan_ui` + `click_ui` to dismiss the modal (confirm/cancel button), then fix the root cause.
+> 7. Only escalate to `inspect` / `query_config` if logs and modals are both clean and you need deeper runtime state.
 >
 > **Do NOT use `inspect` or `query_config` to debug CSV loading issues** — the game already logs them. Reading private fields is almost never the right approach.
 
@@ -38,6 +41,7 @@ Game config data lives in two separate storage systems. Which tool to use depend
 | `query_config` | `{tableName?, id?, limit=5}` | Game config table listing or item query |
 | `search_config` | `{pattern, limit=20, includeFields=false}` | Fuzzy keyword search across DataConfigCache (all runtime IDs) |
 | `dump_mod_state` | — | `{modCount, mods: [{assemblyName, assemblyLocation, assemblyVersion, initTypes}], relatedAssemblies}` |
+| `get_modal_state` | — | `{hasModal, title?, description?, buttons?}` 检查弹窗。当 `get_scene_state().modals == true` 时调用 |
 | `get_scene_tree` | `{rootName?, maxDepth=10, maxChildren=50, includeComponents=true, includeInactive=false}` | `{sceneName, hierarchy: [node…]}` |
 | `get_recent_logs` | `{count=50, level="All"}` | JSON array of recent log entries |
 | `raycast_mouse` | `{screenX?, screenY?, maxResults=30}` | `{hitCount, hits: [{gameObjectName, hierarchyPath, components, ...}]}` |
