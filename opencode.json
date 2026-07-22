@@ -3,7 +3,7 @@
   "mcp": {
     "witchmod": {
       "type": "local",
-      "command": "py run_gateway.py",
+      "command": ["py", "run_gateway.py"],
       "cwd": ".",
       "environment": {
         "MCP_MOD_PORT": "3100",
