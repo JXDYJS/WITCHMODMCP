@@ -73,9 +73,13 @@ class SimpleMCP:
 
 def _write_stdout(payload: str):
     """Write Content-Length framed message to stdout (binary mode, avoids
-    Windows newline translation that would mangle \\r\\n into \\r\\r\\n)."""
-    data = f"Content-Length: {len(payload)}\r\n\r\n{payload}".encode("utf-8")
-    sys.stdout.buffer.write(data)
+    Windows newline translation that would mangle \\r\\n into \\r\\r\\n).
+
+    Content-Length MUST be the byte count (UTF-8), not character count,
+    because non-ASCII characters encode to multi-byte sequences."""
+    body = payload.encode("utf-8")
+    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
+    sys.stdout.buffer.write(header + body)
     sys.stdout.buffer.flush()
 
 

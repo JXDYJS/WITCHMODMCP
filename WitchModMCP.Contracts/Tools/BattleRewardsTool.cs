@@ -25,6 +25,12 @@ namespace WitchModMCP.Tools
 
         private static readonly BindingFlags _nonPublicInstance = BindingFlags.NonPublic | BindingFlags.Instance;
 
+        private static string GetTransformPath(Transform t)
+        {
+            if (t.parent == null) return t.name;
+            return GetTransformPath(t.parent) + "/" + t.name;
+        }
+
         public async Task<JToken> Execute(JToken args)
         {
             return await GameDispatcher.RunOnMainThread(() =>
@@ -91,7 +97,7 @@ namespace WitchModMCP.Tools
                         var entry = new JObject();
                         entry["name"] = child.name;
                         entry["rewardType"] = pointUse.RewardType ?? "Unknown";
-                        entry["hierarchy"] = $"BattleRewardsUI/Window Manager/Windows/奖励选择/Content/List View Custom/Scroll Area/List/{child.name}";//todo硬编码路径？是否可以变为动态获取？
+                        entry["hierarchy"] = GetTransformPath(child);
 
                         // 读取 title 和 description 文本（通过 TextMeshPro 组件反射读取）
                         try
