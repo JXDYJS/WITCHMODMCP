@@ -272,8 +272,12 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 ### ═══ SOURCE ACCESS GATE ═══
 
 ```
-1. Call decompile_source with {"outputDir": "<workspace_path>/game_src"}
+1. Call decompile_source with {"outputDir": "<repo_root>/game_src"}
    Returns {status, manifestPath, dlls: {"Witch.dll": {hash, dir}, "Witch.Core.dll": {hash, dir}}}
+   ⚠️  outputDir 建议设置在项目仓库根目录下（而非临时目录），
+       方便后续查阅和 git 管理。
+   ✅  decompile_source 自动校验 DLL hash，缓存有效时不重复反编译，
+       无需手动检查源码是否过期。
 2. Resolve paths from dlls field
 3. grep/read under those directories
 ```
