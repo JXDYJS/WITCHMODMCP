@@ -15,6 +15,7 @@ Thread-safety:
   is no race with tools/list being served concurrently.
 """
 
+import asyncio
 import inspect
 import json
 import logging
@@ -40,17 +41,20 @@ _SCHEMA_TYPE_MAP: dict[str, type] = {
 _mod: ModConnection | None = None
 _heartbeat: HeartbeatManager | None = None
 _mcp: FastMCP | None = None
+_write_stream = None  # Captured write stream for list_changed notification
 
 # Names of tools that survive unregister_dynamic_tools (always-available core)
 _CORE_TOOL_NAMES: set[str] = {"ping", "reload_tools", "deploy_mod"}
 
 
 def init(mcp_instance: FastMCP, mod: ModConnection,
-         heartbeat: HeartbeatManager) -> None:
-    global _mod, _heartbeat, _mcp
+         heartbeat: HeartbeatManager,
+         write_stream=None) -> None:
+    global _mod, _heartbeat, _mcp, _write_stream
     _mod = mod
     _heartbeat = heartbeat
     _mcp = mcp_instance
+    _write_stream = write_stream
 
 
 # ── Forwarding helpers ─────────────────────────────────────────────────
@@ -110,6 +114,28 @@ def cache_game_path(path: str):
     global _LAST_GAME_PATH
     _LAST_GAME_PATH = path
 
+# ── Send list_changed notification ───────────────────────────────────
+
+async def send_tool_list_changed():
+    """Send notifications/tools/list_changed so the MCP client re-fetches tools."""
+    global _write_stream
+    if _write_stream is None:
+        return
+
+    from mcp.shared.message import SessionMessage
+    from mcp.types import JSONRPCMessage, JSONRPCNotification
+
+    notification = JSONRPCNotification(
+        jsonrpc="2.0",
+        method="notifications/tools/list_changed",
+    )
+    session_message = SessionMessage(
+        message=JSONRPCMessage(notification),
+        metadata=None,
+    )
+    await _write_stream.send(session_message)
+
+
 # ── Core (always-available) tools ──────────────────────────────────────
 
 def register_core_tools(mcp: FastMCP) -> int:
@@ -151,6 +177,11 @@ def register_core_tools(mcp: FastMCP) -> int:
                     unregister_dynamic_tools()
                     count = _register_tool_list(tools_info)
                     log.info(f"reload_tools: schema re-sync registered {count} tools")
+                    try:
+                        await send_tool_list_changed()
+                        log.info("reload_tools: sent tools/list_changed")
+                    except Exception as n:
+                        log.warning(f"reload_tools: list_changed failed: {n}")
         except Exception as e:
             log.warning(f"reload_tools: schema re-sync failed: {e}")
         

@@ -113,8 +113,11 @@ g.call("claim_rewards")
 # 查看事件选项
 scene = g.call("get_scene_state")
 if scene.get('activeUI') == 'EventUI':
-    # 扫描可选按钮
-    buttons = g.call("scan_ui", {"panel": "EventUI"})
+    # 读取事件详情和所有选项
+    event = g.call("get_event_state")
+    print(f"事件: {event['title']}")
+    for opt in event['options']:
+        print(f"  {opt['index']}. {opt['text']} (可用: {opt['interactable']})")
     # 选第一个选项
     g.call("event_choose_option", {"index": 1})
     # ⚠️ 部分事件有多阶段，检查 EventUI 是否还在

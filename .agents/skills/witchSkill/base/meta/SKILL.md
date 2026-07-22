@@ -54,12 +54,12 @@ Detects the current game UI page. Returns which page is active and whether there
 **activeUI quick reference:**
 | Value | What to do next |
 |-------|----------------|
-| `BattleRewardsUI` | See what rewards are available (scan_ui / inspect), then handle sub-dialogs. ⚠️ `claim_rewards` 会跳过所有奖励并转化为金钱 |
+| `BattleRewardsUI` | `get_rewards_state` 查看奖励列表 → `click_ui` 按全局 index 领取单项奖励（金钱直接到账、卡牌打开 CardChoiceUI、祝福打开 BlessingChoiceGenerator）→ 最后 `claim_rewards` 关闭 |
 | `CardChoiceUI` | Call `pick_card_reward` or `skip_card_reward` |
 | `BlessingChoiceGenerator` | Call `pick_blessing_reward` or `skip_blessing_reward` |
 | `DeckUI` | Call `get_deck_selection` → `select_deck_cards` |
 | `BreaksUI` | Use `scan_ui` to find the continue/leave button, then `click_ui` |
-| `EventUI` | Call `event_choose_option` or `event_advance_dialogue` ⚠️ 部分事件有多阶段选项，选完一次后重新检查 `activeUI`，如果 EventUI 还在则继续选，没有了才 `event_advance_dialogue` |
+| `EventUI` | `get_event_state` 查看选项详情 → `event_choose_option` 或 `event_advance_dialogue` ⚠️ 部分事件有多阶段选项，选完一次后重新检查 `activeUI`，如果 EventUI 还在则继续选，没有了才 `event_advance_dialogue` |
 | `ShopUI` | Use `get_shop_state`, `shop_buy`, `shop_sell`, `shop_refresh` |
 | `SafeBoxUI` | Use `safebox_*` tools |
 | `MapSelectUI` | Use `map_select_state` → `map_select_assign` → `map_select_confirm` |

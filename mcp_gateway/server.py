@@ -292,6 +292,8 @@ async def _capturing_run_stdio(self: FastMCP):
 
     async with stdio_server() as (read_stream, write_stream):
         _active_write_stream = write_stream
+        import mcp_gateway.tools as _tools_mod
+        _tools_mod._write_stream = write_stream
         await self._mcp_server.run(
             read_stream,
             write_stream,
