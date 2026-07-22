@@ -156,7 +156,8 @@ g.call("set_card_pile", {"pile": "exhaust", "action": "clear"})
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `target` | string | 是 | `"player"` 或敌人索引（如 `"0"`） |
+| `instanceId` | int | 否* | **（推荐）** 运行时 instance ID，从 `get_fight_state` 的 player/enemies[].instanceId 获取 |
+| `target` | string | 否* | `"player"` 或敌人索引（如 `"0"`）— 旧方式，推荐用 `instanceId` |
 | `hp` | int | 否 | 设置 HP |
 | `maxHp` | int | 否 | 设置最大 HP |
 | `shield` | int | 否 | 设置护盾值 |
@@ -166,24 +167,38 @@ g.call("set_card_pile", {"pile": "exhaust", "action": "clear"})
 | `removeBuffs` | string[] | 否 | 要移除的 Buff ID 列表 |
 | `clearBuffs` | bool | 否 | 清空所有 Buff |
 
+*\*必须提供 `instanceId` 或 `target` 之一。*
+
 **Python：**
 ```python
-# 玩家满血 + 加再生 Buff
+# 先读取战斗状态获取 instanceId
+fight = g.call("get_fight_state")
+
+# 玩家满血 + 加再生 Buff（用 instanceId）
 g.call("set_fight_entity", {
-    "target": "player",
+    "instanceId": fight["player"]["instanceId"],
     "hp": 80,
     "maxHp": 80,
     "addBuffs": [{"id": "buff_regenerate", "level": 2}]
 })
 
-# 敌人 0 变 1 血
-g.call("set_fight_entity", {"target": "0", "hp": 1})
+# 敌人 0 变 1 血（用 instanceId）
+g.call("set_fight_entity", {
+    "instanceId": fight["enemies"][0]["instanceId"],
+    "hp": 1
+})
 
 # 移除敌人的护盾
-g.call("set_fight_entity", {"target": "0", "shield": 0})
+g.call("set_fight_entity", {
+    "instanceId": fight["enemies"][0]["instanceId"],
+    "shield": 0
+})
 
 # 清空敌人所有 Buff
-g.call("set_fight_entity", {"target": "0", "clearBuffs": True})
+g.call("set_fight_entity", {
+    "instanceId": fight["enemies"][0]["instanceId"],
+    "clearBuffs": True
+})
 ```
 
 ### claim_rewards

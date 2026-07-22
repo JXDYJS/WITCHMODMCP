@@ -45,6 +45,7 @@ namespace WitchModMCP.Tools
                     var p = new JObject();
                     try
                     {
+                        try { p["instanceId"] = FightPlayer.Instance.gameObject.GetInstanceID(); } catch { }
                         var st = FightPlayer.Instance.Status;
                         p["hp"] = st.CurHp;
                         p["maxHp"] = st.MaxHp;
@@ -83,6 +84,7 @@ namespace WitchModMCP.Tools
                         var ej = new JObject();
                         try
                         {
+                            try { ej["instanceId"] = e.gameObject.GetInstanceID(); } catch { }
                             ej["index"] = EnemyManager.Instance.enemyList.IndexOf(e);
                             ej["id"] = e.dataConfig?.data?.GetValueOrDefault("Id", "");
                             ej["name"] = e.gameObject?.name ?? "";

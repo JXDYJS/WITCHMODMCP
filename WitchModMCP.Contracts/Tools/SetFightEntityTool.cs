@@ -9,13 +9,14 @@ namespace WitchModMCP.Tools
     public class SetFightEntityTool : IMcpTool
     {
         public string Name => "set_fight_entity";
-        public string Description => "修改战斗中实体（玩家/敌人）的属性：HP、盾、能量、Buff。target为 \"player\" 或敌人索引(0开始)。";
+        public string Description => "修改战斗中实体（玩家/敌人）的属性：HP、盾、能量、Buff。支持 instanceId（推荐，从 get_fight_state 获取）或 target（\"player\" 或敌人索引，不推荐）。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
             ["properties"] = new JObject
             {
-                ["target"] = new JObject { ["type"] = "string", ["description"] = "\"player\" 或敌人索引(0开始)" },
+                ["instanceId"] = new JObject { ["type"] = "integer", ["description"] = "（推荐）实体的运行时 instanceId，从 get_fight_state 的 player/enemies[].instanceId 获取（Unity Object.GetInstanceID）" },
+                ["target"] = new JObject { ["type"] = "string", ["description"] = "（不推荐）\"player\" 或敌人索引(0开始)" },
                 ["hp"] = new JObject { ["type"] = "integer", ["description"] = "设置当前 HP" },
                 ["maxHp"] = new JObject { ["type"] = "integer", ["description"] = "设置最大 HP" },
                 ["shield"] = new JObject { ["type"] = "integer", ["description"] = "设置护盾值" },
@@ -41,15 +42,16 @@ namespace WitchModMCP.Tools
                     ["description"] = "要移除的 Buff ID 列表，如 [\"buff_vulnerability\", \"buff_burn\"]"
                 },
                 ["clearBuffs"] = new JObject { ["type"] = "boolean", ["description"] = "是否清除所有 Buff" }
-            },
-            ["required"] = new JArray { "target" }
+            }
         };
 
         public async Task<JToken> Execute(JToken args)
         {
+            int? instanceId = args?["instanceId"]?.Value<int>();
             string target = args?["target"]?.Value<string>();
-            if (string.IsNullOrEmpty(target))
-                throw new ArgumentException("target 参数不能为空");
+
+            if (!instanceId.HasValue && string.IsNullOrEmpty(target))
+                throw new ArgumentException("需要提供 instanceId 或 target 参数之一");
 
             return await GameDispatcher.RunOnMainThread(() =>
             {
@@ -65,15 +67,26 @@ namespace WitchModMCP.Tools
                     return (JToken)result;
                 }
 
-                var status = ResolveStatus(target);
-                if (status == null)
+                bool isPlayer = false;
+                IStatusManager status;
+
+                if (instanceId.HasValue)
                 {
-                    result["result"] = "error";
-                    result["message"] = $"目标 '{target}' 不存在";
-                    return (JToken)result;
+                    (status, isPlayer) = ResolveByInstanceId(instanceId.Value);
+                }
+                else
+                {
+                    status = ResolveStatus(target);
+                    isPlayer = target == "player";
                 }
 
-                bool isPlayer = target == "player";
+                if (status == null)
+                {
+                    string hint = instanceId.HasValue ? $"instanceId={instanceId}" : $"target='{target}'";
+                    result["result"] = "error";
+                    result["message"] = $"目标 ({hint}) 不存在";
+                    return (JToken)result;
+                }
 
                 // HP
                 if (args["hp"] != null)
@@ -182,8 +195,6 @@ namespace WitchModMCP.Tools
             {
                 if (FightPlayer.Instance?.Status != null)
                     return FightPlayer.Instance.Status;
-
-                // Fallback not available in debug fights; return null
                 return null;
             }
 
@@ -194,6 +205,29 @@ namespace WitchModMCP.Tools
             }
 
             return null;
+        }
+
+        private static (IStatusManager status, bool isPlayer) ResolveByInstanceId(int instanceId)
+        {
+            if (FightPlayer.Instance?.gameObject?.GetInstanceID() == instanceId)
+            {
+                if (FightPlayer.Instance.Status != null)
+                    return (FightPlayer.Instance.Status, true);
+            }
+
+            if (EnemyManager.Instance?.enemyList != null)
+            {
+                foreach (var e in EnemyManager.Instance.enemyList)
+                {
+                    if (e?.gameObject?.GetInstanceID() == instanceId)
+                    {
+                        if (e.Status != null)
+                            return (e.Status, false);
+                    }
+                }
+            }
+
+            return (null, false);
         }
     }
 }

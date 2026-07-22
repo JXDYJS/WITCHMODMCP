@@ -221,7 +221,8 @@ Modify a player or enemy entity's attributes during combat.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `target` | string | Yes | `"player"` or enemy index as string (e.g. `"0"`) |
+| `instanceId` | int | No* | **(recommended)** Runtime instance ID from `get_fight_state` player/enemies[].instanceId |
+| `target` | string | No* | `"player"` or enemy index as string (e.g. `"0"`) — legacy, prefer `instanceId` |
 | `hp` | int | No | Set current HP |
 | `maxHp` | int | No | Set maximum HP |
 | `shield` | int | No | Set defend/shield value |
@@ -231,17 +232,22 @@ Modify a player or enemy entity's attributes during combat.
 | `removeBuffs` | string[] | No | Buff IDs to remove |
 | `clearBuffs` | bool | No | Clear all buffs |
 
+*\*Must provide either `instanceId` or `target`.*
+
 **Python:**
 ```python
-# Heal player to full and add a buff
+# Heal player to full and add a buff (using instanceId)
+fight = g.call("get_fight_state")
+player_id = fight["player"]["instanceId"]
 g.call("set_fight_entity", {
-    "target": "player",
+    "instanceId": player_id,
     "hp": 80,
     "addBuffs": [{"id": "buff_regenerate", "level": 2}]
 })
 
-# Set enemy 0 HP to 1
-g.call("set_fight_entity", {"target": "0", "hp": 1})
+# Set enemy 0 HP to 1 (using instanceId)
+enemy_id = fight["enemies"][0]["instanceId"]
+g.call("set_fight_entity", {"instanceId": enemy_id, "hp": 1})
 ```
 
 ## Best practices
