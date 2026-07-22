@@ -130,32 +130,63 @@ ModConfig.Dependencies    // List<string> of ModId
 ModConfig.ConfigEnabled   // Override from Configuration.json?
 ```
 
-## 5. Hook System
+## 5. Hook System — 关键概念
 
-Mods can hook C# methods via `ModHookRegistry`:
+Mod 有两种 hook 机制，**底层完全不同**，理解这一点对选择模板至关重要：
+
+### 5.1 ModHookRegistry（Lua + C# 共用，受限于钩点）
+
+游戏使用 Rougamo（编译时 IL 织入）在部分方法上预埋了钩点。只有这些预埋了钩点的方法才能被 `ModHookRegistry` hook。
 
 ```csharp
-// Registration:
 ModHookRegistry.AddBefore("FightManager.StartPlayerTurn", callback);
 ModHookRegistry.AddAfter("FightManager.EndPlayerTurn", callback);
-
-// HookContext:
-ModHookContext.Target      // 'this' of the hooked method
-ModHookContext.Arguments   // Parameters of the hooked method
 ```
 
-From C# DLL:
+从 Lua 或 C# 注册都可以，但**能力完全一样**——都只能 hook 到 Rougamo 埋了钩点的方法。
+
 ```csharp
+// C# DLL — 效果等价于 Lua 的 AddMethodHookBefore
 [HookBefore(typeof(FightManager), "StartPlayerTurn")]
 public static void MyHook(ModHookContext ctx) { }
 ```
 
-From Lua:
 ```lua
+-- Lua Entry.lua — 效果等价于 C# 的 [HookBefore]
 self:AddMethodHookBefore("FightManager.StartPlayerTurn", function(ctx)
     -- ctx.Target, ctx.Arguments
 end)
 ```
+
+⚠️ **不是所有方法都有钩点。** 核心逻辑（费用校验、出牌合法性、能量消耗等）的类通常**没有**实现 `Modifiable` 接口或被 Rougamo 标注，`AddMethodHookBefore/After` 和 `[HookBefore/After]` 对它们无效。
+
+### 5.2 Harmony（仅 C#，任意方法）
+
+若需要 hook 游戏未主动暴露钩点的方法，必须用 **Harmony**。Harmony 通过 IL 运行时重写，**不依赖游戏预埋钩点**。
+
+```csharp
+[HarmonyPatch(typeof(FightManager), nameof(FightManager.PlayerCanPlayCard))]
+class Patch_PlayerCanPlayCard
+{
+    static bool Prefix(ref bool __result)
+    {
+        // 修改出牌合法性判定
+        __result = true;
+        return false; // 跳过原方法
+    }
+}
+```
+
+Harmony 只能写在 C# Entry.dll 中。
+
+### 5.3 总结判断
+
+| 需求 | 用什么 |
+|------|--------|
+| Hook 回合开始/结束、受伤、烧牌等高层事件 | Lua `AddMethodHookBefore/After`（直接用 Entry.lua） |
+| Hook 游戏已暴露钩点的其他方法 | Lua 或 C# `[HookBefore/After]` 均可 |
+| Hook 费用校验、出牌合法性、能量消耗等核心逻辑 | **必须 C# + Harmony**（Lua 够不到） |
+| 修改游戏管线、新增 UI 组件 | **必须 C#** |
 
 ## 6. Console Commands System
 
@@ -671,6 +702,15 @@ Blessings can also be added. Set `PackBelong` to a card pack runtime ID to assoc
 
 When asked to create a mod that adds content (cards, buffs, card packs, etc.):
 
+### Step 0: Choose your approach — Lua/CSV vs C# DLL
+
+官方教程仓库包含两个模板：
+
+- **`ModTemplate/`** — Lua Mod 模板。适合：新增卡牌、Buff、卡包、职业（SkillScript Lua 被动）、文本、资源重定向、Hook 高层事件（`AddMethodHookBefore/After`）。
+- **`DllTemplate/`** — C# DLL Hook 模板。适合：需要使用 **Harmony** hook 游戏未暴露钩点的方法（费用校验、出牌合法性、能量消耗等），或需要 C# 语言特性实现复杂逻辑。
+
+**判定规则：** 如果需求可以用游戏已提供的事件（回合开始/结束、受伤、烧牌、选牌结束等）或 CSV 配表实现，用 `ModTemplate`。如果需要拦截/修改**核心战斗管线**（出牌前校验、能量扣除逻辑、新增 UI），使用 `DllTemplate` + Harmony。
+
 ### Step 1: Load this skill
 This skill documents all CSV schemas. Do NOT probe the game runtime to discover them.
 
@@ -678,7 +718,16 @@ This skill documents all CSV schemas. Do NOT probe the game runtime to discover 
 
 ```
 git clone https://github.com/meowalive/apocalyptic-journey-mod-tutorial.git
+```
+
+根据 Step 0 的选择，复制对应的模板：
+
+```
+# Lua/CSV 模组
 Copy-Item -Path "apocalyptic-journey-mod-tutorial/ModTemplate" -Destination "YourMod" -Recurse
+
+# C# DLL 模组
+Copy-Item -Path "apocalyptic-journey-mod-tutorial/DllTemplate" -Destination "YourMod" -Recurse
 ```
 
 **Do NOT `mkdir`/`New-Item` manually.** The template includes `Scripts/Lib/DataConfigs/` (160+ CSV schemas), `Scripts/ScriptSample.lua`, and `Icon.png` that are all required. Directories created from scratch will miss these and cause hard-to-debug failures.
