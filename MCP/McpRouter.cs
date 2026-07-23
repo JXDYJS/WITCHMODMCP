@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -167,74 +166,9 @@ namespace WitchModMCP.MCP
                 ["workspacePath"] = ctx["workspacePath"],
                 ["pid"] = ctx["pid"],
                 ["reloadCount"] = _reloadCount,
-                ["activeModules"] = BuildActiveModules(),
             };
 
             return Task.FromResult(JsonConvert.SerializeObject(result));
-        }
-
-        private static JArray BuildActiveModules()
-        {
-            var activeModules = new JArray();
-            var seen = new HashSet<string>();
-
-            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                try
-                {
-                    string skillRel = null;
-                    string pluginRel = null;
-
-                    // Use CustomAttributeData to read attributes without instantiating types
-                    // This works for assemblies loaded via Assembly.Load(byte[]) where
-                    // GetCustomAttributes(false) can silently fail.
-                    var attrs = asm.GetCustomAttributesData();
-                    foreach (var cad in attrs)
-                    {
-                        var typeName = cad.Constructor?.DeclaringType?.Name;
-                        if (typeName == null) continue;
-
-                        if (typeName == "MCPSkillNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
-                            skillRel = cad.ConstructorArguments[0].Value as string;
-
-                        if (typeName == "MCPPluginNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
-                            pluginRel = cad.ConstructorArguments[0].Value as string;
-                    }
-
-                    if (skillRel == null && pluginRel == null) continue;
-
-                    var asmName = asm.GetName().Name;
-                    if (string.IsNullOrEmpty(asmName) || asm.IsDynamic) continue;
-                    if (!seen.Add(asmName)) continue;
-
-                    var dir = McpToolPlugin.GetAssemblyDirectory(asmName);
-                    if (dir == null && !string.IsNullOrEmpty(asm.Location))
-                        dir = Path.GetDirectoryName(asm.Location);
-                    if (dir == null) continue;
-
-                    var modRoot = dir.EndsWith("Scripts", StringComparison.OrdinalIgnoreCase)
-                        ? Path.GetDirectoryName(dir)
-                        : dir;
-
-                    var mod = new JObject
-                    {
-                        ["assemblyName"] = asmName,
-                        ["skillPath"] = skillRel != null
-                            ? Path.GetFullPath(Path.Combine(modRoot, skillRel))
-                            : null,
-                        ["pluginPath"] = pluginRel != null
-                            ? Path.GetFullPath(Path.Combine(modRoot, pluginRel))
-                            : null
-                    };
-                    activeModules.Add(mod);
-                }
-                catch (Exception ex)
-                {
-                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpRouter] BuildActiveModules failed for mod: {ex.Message}");
-                }
-            }
-
-            return activeModules;
         }
 
         private static IMcpTool ResolveTool(string method)

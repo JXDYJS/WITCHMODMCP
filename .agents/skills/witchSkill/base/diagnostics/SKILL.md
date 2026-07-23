@@ -50,6 +50,7 @@ Game config data lives in two separate storage systems. Which tool to use depend
 | `give_item` | `{type, value}` | `{type, value, result}` |
 | `scan_ui` | `{panel?, includeInactive=false, interactableOnly=true}` | `{totalElements, elements: [{index, text, type, interactable, hierarchy, panel}]}` |
 | `click_ui` | `{index, allowInactive=false}` | `{result, message, text?, hierarchy?, type?}` |
+| `get_env_info` | — | `{activeModules: [{assemblyName, skillPath}]}` |
 
 ---
 

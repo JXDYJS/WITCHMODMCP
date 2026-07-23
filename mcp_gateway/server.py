@@ -179,13 +179,9 @@ def _on_first_heartbeat(resp: dict):
     """
     global _last_tool_count, _last_reload_count
     sid = resp.get("sessionId", "?")
-    tool_count = resp.get("toolCount", 0)
-    reload_count = resp.get("reloadCount", 0)
-    modules = resp.get("activeModules", [])
-    _last_tool_count = tool_count
-    _last_reload_count = reload_count
-    log(f"First heartbeat — sessionId={sid}, toolCount={tool_count}, "
-        f"activeModules={len(modules)}")
+    _last_tool_count = resp.get("toolCount", 0)
+    _last_reload_count = resp.get("reloadCount", 0)
+    log(f"First heartbeat — sessionId={sid}, toolCount={_last_tool_count}")
 
     if _mod is None:
         log("  first-heartbeat: no mod connection, skipping")

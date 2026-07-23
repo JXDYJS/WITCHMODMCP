@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using WitchModMCP.MCP;
@@ -11,7 +9,7 @@ namespace WitchModMCP.Tools
     public class GetEnvInfoTool : IMcpTool
     {
         public string Name => "get_env_info";
-        public string Description => "扫描所有已加载程序集上的 MCPSkillNamespace/MCPPluginNamespace 特性，返回各 Mod 的文档和插件物理路径。用于外部脚本发现 Mod 资源。";
+        public string Description => "扫描所有已加载程序集上的 MCPSkillNamespace 特性，返回各 Mod 的 skill 文档物理路径。用于外部脚本发现 Mod 资源。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -29,7 +27,6 @@ namespace WitchModMCP.Tools
                 try
                 {
                     string skillRel = null;
-                    string pluginRel = null;
 
                     var attrs = asm.GetCustomAttributesData();
                     foreach (var cad in attrs)
@@ -39,12 +36,9 @@ namespace WitchModMCP.Tools
 
                         if (typeName == "MCPSkillNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
                             skillRel = cad.ConstructorArguments[0].Value as string;
-
-                        if (typeName == "MCPPluginNamespaceAttribute" && cad.ConstructorArguments.Count > 0)
-                            pluginRel = cad.ConstructorArguments[0].Value as string;
                     }
 
-                    if (skillRel == null && pluginRel == null) continue;
+                    if (skillRel == null) continue;
 
                     var asmName = asm.GetName().Name;
                     if (string.IsNullOrEmpty(asmName) || asm.IsDynamic) continue;
@@ -62,12 +56,7 @@ namespace WitchModMCP.Tools
                     var mod = new JObject
                     {
                         ["assemblyName"] = asmName,
-                        ["skillPath"] = skillRel != null
-                            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, skillRel))
-                            : null,
-                        ["pluginPath"] = pluginRel != null
-                            ? System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, pluginRel))
-                            : null
+                        ["skillPath"] = System.IO.Path.GetFullPath(System.IO.Path.Combine(modRoot, skillRel))
                     };
                     activeModules.Add(mod);
                 }
