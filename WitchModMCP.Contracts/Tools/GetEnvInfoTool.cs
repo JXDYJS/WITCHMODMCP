@@ -71,8 +71,9 @@ namespace WitchModMCP.Tools
                     };
                     activeModules.Add(mod);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetEnvInfoTool] assembly scan: {ex.Message}");
                 }
             }
 

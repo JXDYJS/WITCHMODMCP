@@ -56,6 +56,7 @@
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
     <Compile Remove="【MOD文件夹】\mcp_plugins\**\*.cs" />
     <Compile Remove="decompiled_game\**\*.cs" />
+    <Compile Remove="DecompiledSource\**\*.cs" />
     <!-- DeveloperTools merged into WitchModMCP.Contracts -->
   </ItemGroup>
 
@@ -110,6 +111,9 @@
     <Exec Command="robocopy &quot;$(ProjectDir)【MOD文件夹】&quot; &quot;$(ModTargetDir)&quot; /XF changelog.txt /XD 排除的文件夹名字 /E /IS /NDL /NFL /NJH /NJS > nul &amp; exit 0" Condition="Exists('$(ProjectDir)【MOD文件夹】')" />
     <Message Condition="Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁📦 已复制 MOD 资源: $(ModTargetDir)" />
     <Message Condition="!Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁⚠️ 未找到 MOD 资源文件夹: $(ProjectDir)【MOD文件夹】" />
+    <MSBuild Projects="$(ProjectDir)【MOD文件夹】\mcp_plugins\decompile\Decompile.csproj"
+             Targets="Restore;Publish"
+             Properties="PublishDir=$(ModTargetDir)\mcp_plugins\decompile\publish\;Configuration=Release" />
     <Copy SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
     <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已复制: $(TargetName).dll → $(DllPathTarget)" />
     <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 复制失败: $(DllPathCompiled)" />

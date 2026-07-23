@@ -49,7 +49,7 @@ namespace WitchModMCP.Tools
 
                 // 读取公开字段
                 int cardCount = 0;
-                try { cardCount = brUI.CardCount; } catch { }
+                try { cardCount = brUI.CardCount; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetRewardsStateTool] CardCount: {ex.Message}"); }
                 result["cardRewardCount"] = cardCount;
 
                 // 读取遗物奖励列表
@@ -67,7 +67,7 @@ namespace WitchModMCP.Tools
                         relicList.Add(entry);
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetRewardsStateTool] RelicRewardList: {ex.Message}"); }
                 result["relicRewards"] = relicList;
 
                 // 反射读取私有字段 Money
@@ -78,7 +78,7 @@ namespace WitchModMCP.Tools
                     if (moneyField != null)
                         moneyAmount = (int)moneyField.GetValue(brUI);
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetRewardsStateTool] Money: {ex.Message}"); }
                 result["unclaimedMoney"] = moneyAmount;
 
                 // 读取 itemList 中的 PointUse 条目
@@ -125,7 +125,7 @@ namespace WitchModMCP.Tools
                                 }
                             }
                         }
-                        catch { }
+                        catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetRewardsStateTool] title/desc: {ex.Message}"); }
 
                         // 如果有 DataConfig，读取卡牌 ID
                         if (pointUse.dataConfig?.data != null)

@@ -70,7 +70,7 @@ namespace WitchModMCP.MCP
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpToolPlugin] ResolveAssemblyPath: {ex.Message}"); }
             }
 
             return null;

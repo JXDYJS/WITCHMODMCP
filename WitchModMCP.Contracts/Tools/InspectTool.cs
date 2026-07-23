@@ -184,8 +184,9 @@ namespace WitchModMCP.Tools
                     if (match != null)
                         return match;
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[InspectTool] {ex.Message}");
                 }
             }
 

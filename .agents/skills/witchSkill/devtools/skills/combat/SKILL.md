@@ -7,6 +7,14 @@ description: "DeveloperTools combat tools: fight state snapshot, card play, turn
 
 完整的战斗读写流程。所有工具需要游戏处于战斗页面（`get_scene_state` 返回 `page=FIGHT`）。
 
+> **⚠️ 重要：不要在战斗中再调用 `load_scene` 加载战斗！**
+> 如果在战斗场景内（`page=FIGHT`）再次调用 `load_scene` 加载另一个战斗/假战斗，
+> 会导致新战斗的 `FightPlayer.Init()` 不被调用，`FightPlayer.Instance` 为 null，
+> 后续 `end_turn`、`set_card_pile`（抽牌到手上）等工具将失效。
+> 
+> **正确做法：** 先通过 `claim_rewards` 结束当前战斗并回到地图，再 `map_choose_node` 进入下一场战斗。
+> 测试脚本如需连续测试多场战斗，应在每场战斗之间退出到地图页面。
+
 ## 工具总览
 
 | 工具 | 参数 | 返回 | 说明 |

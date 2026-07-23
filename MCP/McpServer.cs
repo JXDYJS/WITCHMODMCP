@@ -59,7 +59,7 @@ namespace WitchModMCP.MCP
                     var context = await _listener.GetContextAsync();
                     if (_shuttingDown || _cts.IsCancellationRequested)
                     {
-                        try { context.Response?.Close(); } catch { }
+                        try { context.Response?.Close(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] context.Close: {ex.Message}"); }
                         break;
                     }
                     _ = ProcessRequest(context);
@@ -94,10 +94,10 @@ namespace WitchModMCP.MCP
                     context.Response.ContentLength64 = err.Length;
                     context.Response.OutputStream.Write(err, 0, err.Length);
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ProcessRequest shutdown 503: {ex.Message}"); }
                 finally
                 {
-                    try { context.Response?.Close(); } catch { }
+                    try { context.Response?.Close(); } catch (Exception ex2) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ProcessRequest close: {ex2.Message}"); }
                 }
                 return;
             }
@@ -187,8 +187,9 @@ namespace WitchModMCP.MCP
                     context.Response.ContentLength64 = errorBytes.Length;
                     context.Response.OutputStream.Write(errorBytes, 0, errorBytes.Length);
                 }
-                catch
+                catch (Exception ex2)
                 {
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ProcessRequest error json: {ex2.Message}");
                 }
             }
             finally
@@ -197,8 +198,9 @@ namespace WitchModMCP.MCP
                 {
                     context.Response?.Close();
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ProcessRequest finally close: {ex.Message}");
                 }
             }
         }
@@ -228,13 +230,13 @@ namespace WitchModMCP.MCP
             _shuttingDown = true;
 
             // Cancel the listen token first — this signals the ListenLoop
-            try { _cts?.Cancel(); } catch { }
+            try { _cts?.Cancel(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] Dispose Cancel: {ex.Message}"); }
 
             // Close forcefully aborts pending GetContextAsync() calls
-            try { _listener?.Close(); } catch { }
+            try { _listener?.Close(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] Dispose Close: {ex.Message}"); }
 
             _listener = null;
-            try { _cts?.Dispose(); } catch { }
+            try { _cts?.Dispose(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] Dispose: {ex.Message}"); }
             _cts = null;
         }
     }

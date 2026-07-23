@@ -101,8 +101,9 @@ namespace WitchModMCP.Tools
                             modList.Add(modInfo);
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
+                        Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ModStateTool] asm scan: {ex.Message}");
                     }
                 }
 
@@ -127,7 +128,7 @@ namespace WitchModMCP.Tools
                             });
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ModStateTool] owned asm: {ex.Message}"); }
                 }
 
                 result["modCount"] = modList.Count;
@@ -140,7 +141,7 @@ namespace WitchModMCP.Tools
                     if (modCfgType != null)
                         result["hasModConfigType"] = modCfgType.FullName;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ModStateTool] hasModConfigType: {ex.Message}"); }
 
                 return (JToken)result;
             });
@@ -164,7 +165,7 @@ namespace WitchModMCP.Tools
                     var match = types.FirstOrDefault(t => t.Name == name || (t.FullName != null && t.FullName.EndsWith("." + name)));
                     if (match != null) return match;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ModStateTool] FindType: {ex.Message}"); }
             }
             return null;
         }

@@ -156,22 +156,22 @@ namespace WitchModMCP.Tools
                     {
                         result["level"] = MapManager.Instance.Level;
                     }
-                    catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSceneStateTool] level: {ex.Message}"); }
                 }
 
                 // --- 玩家基础属性 ---
                 if (RoleTable.Instance != null)
                 {
                     var player = new JObject();
-                    try { player["hp"] = FightPlayer.Instance?.Status?.CurHp ?? 0; } catch { }
-                    try { player["maxHp"] = FightPlayer.Instance?.Status?.MaxHp ?? 0; } catch { }
+                    try { player["hp"] = FightPlayer.Instance?.Status?.CurHp ?? 0; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSceneStateTool] hp: {ex.Message}"); }
+                    try { player["maxHp"] = FightPlayer.Instance?.Status?.MaxHp ?? 0; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSceneStateTool] maxHp: {ex.Message}"); }
                     try
                     {
                         player["san"] = RoleTable.Instance.San;
                         player["maxSan"] = RoleTable.Instance.MaxSan;
                     }
-                    catch { }
-                    try { player["money"] = (int)RoleTable.Instance.Money; } catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSceneStateTool] san: {ex.Message}"); }
+                    try { player["money"] = (int)RoleTable.Instance.Money; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSceneStateTool] money: {ex.Message}"); }
                     result["player"] = player;
                 }
 

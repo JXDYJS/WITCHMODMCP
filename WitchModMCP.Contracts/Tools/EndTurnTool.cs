@@ -45,8 +45,10 @@ namespace WitchModMCP.Tools
 
                 try
                 {
-                    // Recover FightPlayer.Instance if it was lost between scene transitions
-                    EnsureFightPlayerInstance();
+                    // NOTE: EnsureFightPlayerInstance is DISABLED because it can pick up
+                    // an uninitialized FightPlayer (e.g. after load_scene inside a fight),
+                    // causing unpredictable behaviour with CmdAnnounceDone.
+                    // EnsureFightPlayerInstance();
                     if (FightPlayer.Instance == null)
                     {
                         result["result"] = "error";
@@ -88,7 +90,7 @@ namespace WitchModMCP.Tools
                 var backing = typeof(FightPlayer).GetField("<Instance>k__BackingField",
                     BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
                 if (backing != null) backing.SetValue(null, fp);
-                Debug.Log($"[WitchModMCP] FightPlayer.Instance recovered from EndTurnTool");
+                Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[EndTurnTool] FightPlayer.Instance recovered from EndTurnTool");
             }
         }
     }

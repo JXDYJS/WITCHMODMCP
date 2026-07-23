@@ -106,20 +106,20 @@ You only need to go through this gate when you **actually need** to read decompi
 ┌─ GATE ────────────────────────────────────────────────────┐
 │                                                            │
 │  1. ⚠️  ALWAYS call decompile_source first                 │
-│     → g.call("decompile_source",                           │
+│     → r = g.call("decompile_source",                       │
 │         {"outputDir": "<workspace_path>/game_src"})        │
-│     Returns {status, manifestPath, dlls: {                 │
-│       "Witch.dll":      {hash, dir},                       │
-│       "Witch.Core.dll": {hash, dir} }}                     │
-│     If status=="fresh" → skip, already cached              │
-│     If status=="decompiled" → it was just rebuilt          │
 │                                                            │
-│  2. Resolve paths from dlls field                          │
-│     → witchSrc = outputDir + "/" + dlls["Witch.dll"].dir   │
-│     → coreSrc  = outputDir + "/" + dlls["Witch.Core"].dir │
-│     These are the directories containing .cs files         │
+│  2. If r.status == "started" (async subprocess):           │
+│     → Get process PIDs from r.processIds                   │
+│     → Wait until ALL PIDs exit (poll every 5s)             │
+│     → Call decompile_source again with same outputDir      │
+│     → Now r.status should be "fresh"                       │
 │                                                            │
-│  3. NOW you may grep/read files under witchSrc / coreSrc   │
+│  3. Resolve paths from r.dlls                              │
+│     → witchSrc = outputDir + "/" + r.dlls["Witch.dll"].dir │
+│     → coreSrc  = outputDir + "/" + r.dlls["Witch.Core"].dir│
+│                                                            │
+│  4. NOW you may grep/read files under witchSrc / coreSrc   │
 │                                                            │
 └────────────────────────────────────────────────────────────┘
 ```
@@ -134,6 +134,8 @@ Call decompile_source MCP tool → resolve paths from response
 ### Cache directory layout
 
 Each DLL is cached under `{outputDir}/{sha256_hash}/`. The hash only changes when the DLL changes, so re-running `decompile_source` with the same `outputDir` on an unchanged game is instant (`status: "fresh"`).
+
+**Async note:** On first run the tool spawns a separate `dotnet` process and returns immediately with `status: "started"` + `processIds`. Wait for those PIDs to exit, then call `decompile_source` again to get `status: "fresh"` and the cached paths.
 
 ```
 {outputDir}/

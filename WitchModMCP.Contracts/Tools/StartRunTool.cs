@@ -176,7 +176,7 @@ namespace WitchModMCP.Tools
                     {
                         result["level"] = MapManager.Instance?.Level ?? 0;
                     }
-                    catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[StartRunTool] level: {ex.Message}"); }
                 }
                 else
                 {

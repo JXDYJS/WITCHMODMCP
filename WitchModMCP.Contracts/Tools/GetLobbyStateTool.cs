@@ -133,7 +133,7 @@ namespace WitchModMCP.Tools
                             if (items.TryGetValue(DataType.Bless, out var blesses))
                                 entry["blessCount"] = blesses.Count;
                         }
-                        catch { }
+                        catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetLobbyStateTool] pack items: {ex.Message}"); }
 
                         avail.Add(entry);
                     }

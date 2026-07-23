@@ -128,7 +128,7 @@ namespace WitchModMCP.Tools
                                         }
                                     }
                                 }
-                                catch { }
+                                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SearchConfigTool] serialize value: {ex.Message}"); }
 
                                 matchedKeys.Add(entry);
                             }
@@ -225,7 +225,7 @@ namespace WitchModMCP.Tools
                             return t;
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SearchConfigTool] FindType: {ex.Message}"); }
             }
             return null;
         }

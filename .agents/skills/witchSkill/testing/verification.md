@@ -41,6 +41,9 @@
 4. `start_run` → `load_scene fakefight` → `give_item card <id>` 注入测试
 5. `get_fight_state` → `play_card` 验证卡牌效果
 
+> **⚠️ 调试 `load_scene` 注意事项：`load_scene` 必须从 MAP 页面调用（`start_run` 后自动进入 MAP）。
+> 不要在 FIGHT 页面内再次调用 `load_scene`，否则会破坏战斗状态（`FightPlayer.Instance` 变 null）。**
+
 ### 方式二：编写 Python 测试脚本
 复制 `[skill]/testing/witch_mcp.py` 到工作区根目录，然后：
 
@@ -128,8 +131,8 @@ print("可用卡包:", [p['id'] for p in lobby['cardPacks']['available']])
 
 # 7. 启程进战斗注入卡牌测试
 g.call("set_lobby_state", {"careerId": "career_1"})
-g.call("start_run")
-g.call("load_scene", {"type": "fakefight"})
+g.call("start_run")  # 进入 MAP 页面
+g.call("load_scene", {"type": "fakefight"})  # ⚠️ 确保从 MAP 调用，不要在 FIGHT 中再调
 g.call("give_item", {"type": "card", "value": "YourMod_CsvFile_CardId"})
 fight = g.call("get_fight_state")
 print(f"手牌: {len(fight['hand'])}")

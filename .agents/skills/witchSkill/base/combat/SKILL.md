@@ -7,6 +7,16 @@ description: "WitchModMCP combat tools: fight state snapshot, card play, turn en
 
 Complete battle read-write loop. All tools require the game to be in a fight (`get_scene_state` returns `page=FIGHT`).
 
+> **⚠️ IMPORTANT: Do NOT call `load_scene` to load a fight while already in a fight!**
+> If you call `load_scene` (fight/fakefight) while already on `page=FIGHT`,
+> the new fight will have a broken `FightPlayer` (its `Init()` won't run, leaving
+> `FightPlayer.Instance` null), causing `end_turn`, `set_card_pile` (draw into hand),
+> and other tools to fail.
+>
+> **Correct approach:** End the current fight via `claim_rewards`, return to the map,
+> then use `map_choose_node` to enter the next fight. For test scripts that need to
+> chain multiple fights, always exit to the map page between fights.
+
 ## Tools
 
 | Tool | Params | Returns | Notes |

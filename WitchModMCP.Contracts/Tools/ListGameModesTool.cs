@@ -59,8 +59,8 @@ namespace WitchModMCP.Tools
                     {
                         var best = modeSaves.OrderByDescending(s => s.Level).First();
                         var saveInfo = new JObject();
-                        try { saveInfo["name"] = best.Name; } catch { }
-                        try { saveInfo["level"] = best.Level; } catch { }
+                        try { saveInfo["name"] = best.Name; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ListGameModesTool] name: {ex.Message}"); }
+                        try { saveInfo["level"] = best.Level; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ListGameModesTool] level: {ex.Message}"); }
                         try
                         {
                             var rt = best.roleTable?.FirstOrDefault().Value;
@@ -71,8 +71,8 @@ namespace WitchModMCP.Tools
                                 saveInfo["cardCount"] = rt.cardList?.Count ?? 0;
                                 saveInfo["relicCount"] = rt.relicList?.Count ?? 0;
                             }
-                        }
-                        catch { }
+                }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[ListGameModesTool] save info: {ex.Message}"); }
                         entry["save"] = saveInfo;
                         entry["saveCount"] = modeSaves.Count;
                     }

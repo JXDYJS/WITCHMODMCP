@@ -310,6 +310,7 @@ g.call("load_scene", {"type": "fakefight"})             # 假战斗
 2. **处理返回状态** — 导航工具有 success / timeout / already_xx 等状态。timeout 后调用 get_scene_state 诊断
 3. **start_run 的回退机制** — 如果 `GameEntryUI.StartGame()` 失败，工具自动尝试 `PlayerManager.StartGame()`。变更细节在 `changes` 字段中
 4. **假战斗 vs 真战斗** — `load_scene type=fakefight` 快速进入测试战斗；`type=fight` 消耗地图进度。优先用 fakefight 做卡牌测试
-5. **存档管理** — 测试前用 `check_mode_saves` 确认已有存档，避免意外覆盖
-6. **地图节点编排一定要用 `nodeId` 而非 `index`** — `index` 是动态遍历序号，每次放置后变化。`nodeId`（如 "shop"、"Breaks"、"level_10006"）是配置表稳定 ID，不变不重复
-7. **推荐用批量 `mappings` 一次填完** — 一次性传递所有 `{slotIndex, nodeId}`，工具内部按顺序处理，只同步一次。比逐次调用 `map_select_assign` 更高效可靠
+5. **⚠️ 不要在战斗中调用 `load_scene`！** 如果当前页面已经是 `FIGHT`，再次 `load_scene` 会导致新战斗的 `FightPlayer.Init()` 不被调用，`FightPlayer.Instance` 为 null，后续战斗工具全部失效。**始终从 MAP 页面调用 `load_scene` 进入战斗。**
+6. **存档管理** — 测试前用 `check_mode_saves` 确认已有存档，避免意外覆盖
+7. **地图节点编排一定要用 `nodeId` 而非 `index`** — `index` 是动态遍历序号，每次放置后变化。`nodeId`（如 "shop"、"Breaks"、"level_10006"）是配置表稳定 ID，不变不重复
+8. **推荐用批量 `mappings` 一次填完** — 一次性传递所有 `{slotIndex, nodeId}`，工具内部按顺序处理，只同步一次。比逐次调用 `map_select_assign` 更高效可靠

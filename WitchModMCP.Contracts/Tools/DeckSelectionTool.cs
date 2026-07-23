@@ -79,14 +79,17 @@ namespace WitchModMCP.Tools
 
         private static Transform FindCardList(Transform deckUI)
         {
-            var list = deckUI.Find("Window Manager/Windows/新牌堆/Content/List View Custom/Scroll Area/List");
-            if (list != null) return list;
+            var windows = deckUI.Find("Window Manager/Windows");
+            if (windows == null) return null;
 
-            list = deckUI.Find("Window Manager/Windows/抽牌堆/Content/List View Custom/Scroll Area/List");
-            if (list != null) return list;
-
-            list = deckUI.Find("Window Manager/Windows/弃牌堆/Content/List View Custom/Scroll Area/List");
-            return list;
+            for (int i = 0; i < windows.childCount; i++)
+            {
+                var tab = windows.GetChild(i);
+                var list = tab.Find("Content/List View Custom/Scroll Area/List");
+                if (list != null && list.gameObject.activeInHierarchy)
+                    return list;
+            }
+            return null;
         }
 
         private static JObject ReadCardInfo(Transform cardItem, int index)
@@ -128,7 +131,7 @@ namespace WitchModMCP.Tools
     public class SelectDeckCardsTool : IMcpTool
     {
         public string Name => "select_deck_cards";
-        public string Description => "在 DeckUI 选牌界面中选择一张或多张卡牌（点击切换选中状态）。index 从 0 开始。当选中数量达到要求后界面会自动关闭。";
+        public string Description => "在 DeckUI 选牌界面中选择一张或多张卡牌（点击切换选中状态）。indices 为 0-based 索引数组，如 [0] 或 [0, 2]。当选中数量达到要求后界面会自动关闭。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -257,14 +260,17 @@ namespace WitchModMCP.Tools
 
         private static Transform FindCardList(Transform deckUI)
         {
-            var list = deckUI.Find("Window Manager/Windows/新牌堆/Content/List View Custom/Scroll Area/List");
-            if (list != null) return list;
+            var windows = deckUI.Find("Window Manager/Windows");
+            if (windows == null) return null;
 
-            list = deckUI.Find("Window Manager/Windows/抽牌堆/Content/List View Custom/Scroll Area/List");
-            if (list != null) return list;
-
-            list = deckUI.Find("Window Manager/Windows/弃牌堆/Content/List View Custom/Scroll Area/List");
-            return list;
+            for (int i = 0; i < windows.childCount; i++)
+            {
+                var tab = windows.GetChild(i);
+                var list = tab.Find("Content/List View Custom/Scroll Area/List");
+                if (list != null && list.gameObject.activeInHierarchy)
+                    return list;
+            }
+            return null;
         }
 
         private static bool TryInvokeButtonManagerClick(UnityEngine.Component comp)

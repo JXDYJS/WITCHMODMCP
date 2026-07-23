@@ -420,12 +420,12 @@ namespace WitchModMCP.Tools
                     if (sortingGroup != null) sortingGroup.sortingOrder = -20;
 
                     // Game calls SetNodes() AFTER placement
-                    try { mapUI.SetNodes(); } catch { }
+                    try { mapUI.SetNodes(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[MapSelectTool] SetNodes: {ex.Message}"); }
 
                     // Game defers UpdateCardItemPos to next frame via UniTask
                     UniTask.WaitForEndOfFrame().ContinueWith(() =>
                     {
-                        try { mapUI.UpdateCardItemPos(); } catch { }
+                        try { mapUI.UpdateCardItemPos(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[MapSelectTool] UpdateCardItemPos: {ex.Message}"); }
                     }).Forget();
 
                     result["movedCount"] = 1;
@@ -547,7 +547,7 @@ namespace WitchModMCP.Tools
                 // Defer UpdateCardItemPos to next frame (matching game)
                 UniTask.WaitForEndOfFrame().ContinueWith(() =>
                 {
-                    try { mapUI.UpdateCardItemPos(); } catch { }
+                    try { mapUI.UpdateCardItemPos(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[MapSelectTool] UpdateCardItemPos2: {ex.Message}"); }
                 }).Forget();
 
                 result["result"] = "success";

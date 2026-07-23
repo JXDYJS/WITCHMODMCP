@@ -124,7 +124,7 @@ namespace WitchModMCP.Tools
                 var p = type.GetProperty(name, BindingFlags.Public | BindingFlags.Instance);
                 return p?.GetValue(obj, null)?.ToString();
             }
-            catch { return null; }
+            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetGameInfoTool] GetStringProperty({name}): {ex.Message}"); return null; }
         }
 
         private static string GetStringField(object obj, Type type, string name)
@@ -134,7 +134,7 @@ namespace WitchModMCP.Tools
                 var f = type.GetField(name, BindingFlags.Public | BindingFlags.Instance);
                 return f?.GetValue(obj)?.ToString();
             }
-            catch { return null; }
+            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetGameInfoTool] GetStringField({name}): {ex.Message}"); return null; }
         }
 
         private static object GetMemberValueByName(object instance, Type type, string name)
@@ -175,7 +175,7 @@ namespace WitchModMCP.Tools
                             return t;
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetGameInfoTool] FindType: {ex.Message}"); }
             }
             return null;
         }

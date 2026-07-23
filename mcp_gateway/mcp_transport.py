@@ -71,15 +71,22 @@ class SimpleMCP:
 
 # ── Write stream ──
 
-def _write_stdout(payload: str):
-    """Write Content-Length framed message to stdout (binary mode, avoids
-    Windows newline translation that would mangle \\r\\n into \\r\\r\\n).
+_client_uses_content_length: bool | None = None  # detected from first incoming frame
 
-    Content-Length MUST be the byte count (UTF-8), not character count,
-    because non-ASCII characters encode to multi-byte sequences."""
+def _set_output_format(content_length: bool):
+    global _client_uses_content_length
+    if _client_uses_content_length is None:
+        _client_uses_content_length = content_length
+
+def _write_stdout(payload: str):
+    """Write a message to stdout. Adapts output format to match what the
+    client sent (Content-Length framed or newline-delimited JSON)."""
     body = payload.encode("utf-8")
-    header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
-    sys.stdout.buffer.write(header + body)
+    if _client_uses_content_length:
+        header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
+        sys.stdout.buffer.write(header + body)
+    else:
+        sys.stdout.buffer.write(body + b"\n")
     sys.stdout.buffer.flush()
 
 
@@ -159,29 +166,41 @@ def _read_frame() -> str | None:
     """Read one MCP frame from stdin (blocking, thread-safe).
 
     Returns the JSON body string, or None on EOF.
+
+    Supports both Content-Length framed and newline-delimited JSON.
+    Some MCP clients (e.g. OpenCode) send raw JSON terminated by \\n
+    instead of the Content-Length prefix. We detect the format by
+    inspecting the first byte.
     """
     buf = sys.stdin.buffer
     while True:
         line = buf.readline()
         if not line:
             return None
-        if not line.startswith(b"Content-Length:"):
-            continue
-        try:
-            length = int(line.split(b":", 1)[1].strip())
-        except ValueError:
+
+        stripped = line.strip()
+        if not stripped:
             continue
 
-        blank = buf.readline()
-        if blank is None or blank.strip():
-            continue
+        # ── Content-Length framed ──
+        if stripped.startswith(b"Content-Length:"):
+            _set_output_format(True)
+            try:
+                length = int(stripped.split(b":", 1)[1].strip())
+            except ValueError:
+                continue
+            buf.readline()          # consume blank separator line
+            body = buf.read(length)
+            return body.decode("utf-8", errors="replace")
 
-        body = buf.read(length)
-        return body.decode("utf-8", errors="replace")
+        # ── Newline-delimited JSON (OpenCode, etc.) ──
+        if stripped.startswith(b"{"):
+            _set_output_format(False)
+            return stripped.decode("utf-8", errors="replace")
 
 
 async def run_stdio_async(mcp: SimpleMCP):
-    """Run MCP server over stdin/stdout with Content-Length framing.
+    """Run MCP server over stdin/stdout with auto-detected framing.
 
     Uses a background thread to read stdin (works cross-platform).
     Sets module-level globals so the heartbeat thread can schedule tools

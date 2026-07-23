@@ -106,35 +106,59 @@ g.call("set_rng_seed", {"forceRng": 0.5})
 | `outputDir` | string | 是 | — | 反编译缓存根目录 |
 | `force` | bool | 否 | false | 强制重新反编译 |
 
+**异步模式（重要）：** 反编译在独立的 .NET 8 子进程中运行，工具会**立即返回**并告知进程 ID。AI 应按以下流程操作：
+
+**调用流程（三次调用模式）：**
+
+| 步骤 | 操作 | 典型耗时 |
+|------|------|---------|
+| 1️⃣ | 调用 `decompile_source` → 返回 `status: "started"` + `processIds` | < 1 秒 |
+| 2️⃣ | **轮询进程是否存活**（用 `Get-Process -Id $pid` 或 `kill -0 $pid`），直到进程退出 | ~30 秒 |
+| 3️⃣ | 再次调用 `decompile_source`（同 `outputDir`） → 返回 `status: "fresh"` + `dlls` | < 1 秒 |
+
 **返回：**
 | 字段 | 说明 |
 |------|------|
-| `status` | `fresh`（缓存有效） / `decompiled`（刚反编译） |
-| `manifestPath` | 清单文件路径 |
-| `dlls.Witch.dll` | `{hash, dir}` — Witch.dll 的反编译目录 |
-| `dlls.Witch.Core.dll` | `{hash, dir}` — Witch.Core.dll 的反编译目录 |
+| `status` | `started`（子进程已启动）/ `running`（已有进程在跑）/ `fresh`（缓存有效） |
+| `processIds` | dotnet 子进程的 PID 数组（仅 `started` / `running` 时） |
+| `outputDir` | 输出目录（仅 `started` / `running` 时） |
+| `manifestPath` | 清单文件路径（仅 `fresh` 时） |
+| `dlls.Witch.dll` | `{hash, dir}` — Witch.dll 的反编译目录（仅 `fresh` 时） |
+| `dlls.Witch.Core.dll` | `{hash, dir}` — Witch.Core.dll 的反编译目录（仅 `fresh` 时） |
 
 **缓存目录结构：**
 ```
 {outputDir}/
 ├── .decompile_manifest.json   ← 跟踪哈希
+├── .decompile_{hash}.lock     ← 运行中进程的 PID 锁（自动清理）
 ├── 8d876.../                  ← Witch.dll 当前哈希
 │   └── Witch.*.cs ...
 └── ca6e9.../                  ← Witch.Core.dll 当前哈希
     └── Witch.Core.*.cs ...
 ```
 
-**Python：**
+**Python（异步流程）：**
 ```python
-# 反编译游戏源码
-r = g.call("decompile_source", {"outputDir": "./game_src"})
-print(f"状态: {r['status']}")
+import time, os, signal
 
-# 获取反编译后的目录路径
+# 1. 启动反编译
+r = g.call("decompile_source", {"outputDir": "./game_src"})
+if r['status'] == 'started':
+    pids = r['processIds']
+    # 2. 等待所有子进程退出
+    for pid in pids:
+        while True:
+            try:
+                os.kill(pid, 0)  # 信号 0 只检查存在性
+                time.sleep(3)
+            except OSError:
+                break  # 进程已退出
+    # 3. 获取缓存结果
+    r = g.call("decompile_source", {"outputDir": "./game_src"})
+
+# 此时 r['status'] 应为 'fresh'
 witch_dir = "./game_src/" + r['dlls']['Witch.dll']['dir']
 core_dir = "./game_src/" + r['dlls']['Witch.Core.dll']['dir']
-print(f"Witch.dll 源码: {witch_dir}")
-print(f"Witch.Core.dll 源码: {core_dir}")
 
 # 强制重新反编译
 r = g.call("decompile_source", {"outputDir": "./game_src", "force": True})
@@ -163,4 +187,4 @@ DeveloperTools 的扩展诊断工具 + 基座 WitchModMCP 的诊断工具（insp
 1. **截图 vs 结构化数据** — `get_screenshot` 用于视觉确认；结构化数据用 `get_fight_state` / `get_game_data`
 2. **射线检测诊断 UI** — 当需要知道鼠标悬停在哪个 UI 元素上时，用 `raycast_mouse`
 3. **RNG 种子用于 Bug 复现** — 设置种子后相同操作序列产生相同随机结果，便于复现和调试 Bug
-4. **反编译注意事项** — 首次反编译约 30 秒；需要 `dotnet` 运行时；仅反编译 witch.dll 和 witch.core.dll
+4. **反编译注意事项** — 反编译在独立 .NET 8 子进程中运行，首次约 30 秒。工具立即返回 PID，轮询进程退出后再次调用获取缓存结果。仅反编译 Witch.dll 和 Witch.Core.dll。

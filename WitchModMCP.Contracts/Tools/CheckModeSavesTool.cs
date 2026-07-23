@@ -58,12 +58,12 @@ namespace WitchModMCP.Tools
                 foreach (var s in valid)
                 {
                     var entry = new JObject();
-                    try { entry["name"] = s.Name; } catch { }
-                    try { entry["mode"] = s.modeType; } catch { }
-                    try { entry["level"] = s.Level; } catch { }
-                    try { entry["createdTime"] = s.CreatedTime; } catch { }
-                    try { entry["seed"] = s.Seed; } catch { }
-                    try { entry["hardLevel"] = s.HardLevel; } catch { }
+                    try { entry["name"] = s.Name; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] name: {ex.Message}"); }
+                    try { entry["mode"] = s.modeType; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] mode: {ex.Message}"); }
+                    try { entry["level"] = s.Level; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] level: {ex.Message}"); }
+                    try { entry["createdTime"] = s.CreatedTime; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] createdTime: {ex.Message}"); }
+                    try { entry["seed"] = s.Seed; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] seed: {ex.Message}"); }
+                    try { entry["hardLevel"] = s.HardLevel; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] hardLevel: {ex.Message}"); }
                     try
                     {
                         var rt = s.roleTable?.FirstOrDefault().Value;
@@ -75,7 +75,7 @@ namespace WitchModMCP.Tools
                             entry["relicCount"] = rt.relicList?.Count ?? 0;
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[CheckModeSavesTool] roleTable: {ex.Message}"); }
                     savesArr.Add(entry);
                 }
 

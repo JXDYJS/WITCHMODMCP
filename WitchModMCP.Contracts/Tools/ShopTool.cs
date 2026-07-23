@@ -45,7 +45,7 @@ namespace WitchModMCP.Tools
                     result["flushedCount"] = shop.flushedCount;
                     result["maxFlushedCount"] = shop.maxFlushedCount;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetShopStateTool] flushCount: {ex.Message}"); }
 
                 var itemsForSale = new JArray();
                 var shopItems = shop.GetComponentsInChildren<ShopItem>(false)
@@ -114,7 +114,7 @@ namespace WitchModMCP.Tools
                         result["unCardListCount"] = rt.UnCardList?.Count ?? 0;
                         result["totalCards"] = (rt.cardList?.Count ?? 0) + (rt.UnCardList?.Count ?? 0);
                     }
-                    catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetShopStateTool] card list: {ex.Message}"); }
 
                     var playerRelics = new JArray();
                     if (rt.relicList != null)

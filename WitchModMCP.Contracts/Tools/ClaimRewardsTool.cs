@@ -16,7 +16,7 @@ namespace WitchModMCP.Tools
     public class ClaimRewardsTool : IMcpTool
     {
         public string Name => "claim_rewards";
-        public string Description => "领取当前战斗奖励。如果有 BattleRewardsUI 则点确定关闭（未领取的奖励会自动转化为金钱）；如果有 CardChoiceUI / BlessingChoiceGenerator 等子选择界面则尝试透传关闭。之后再调用 load_scene 可进入下一场。";
+        public string Description => "关闭 BattleRewardsUI（未领取奖励自动转金钱），同时尝试关闭 CardChoiceUI 等子选择界面。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -58,20 +58,6 @@ namespace WitchModMCP.Tools
                         TryClickStandardButton(exitBtn.gameObject);
                     }
                     ((JArray)result["actions"]).Add("CardChoiceUI closed");
-                }
-
-                // 3. BlessingChoiceGenerator — 第一个可交互按钮
-                var blessGen = UIManager.Instance?.Find("BlessingChoiceGenerator");
-                if (blessGen != null && blessGen.gameObject.activeInHierarchy)
-                {
-                    var buttons = blessGen.GetComponentsInChildren<Button>(false)
-                        .Where(b => b.interactable && b.gameObject.activeInHierarchy)
-                        .ToList();
-                    if (buttons.Count > 0)
-                    {
-                        buttons[0].onClick.Invoke();
-                    }
-                    ((JArray)result["actions"]).Add("BlessingChoiceGenerator closed");
                 }
 
                 return (JToken)result;

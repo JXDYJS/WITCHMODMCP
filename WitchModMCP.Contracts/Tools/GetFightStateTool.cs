@@ -45,7 +45,7 @@ namespace WitchModMCP.Tools
                     var p = new JObject();
                     try
                     {
-                        try { p["instanceId"] = FightPlayer.Instance.gameObject.GetInstanceID(); } catch { }
+                        try { p["instanceId"] = FightPlayer.Instance.gameObject.GetInstanceID(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] player instanceId: {ex.Message}"); }
                         var st = FightPlayer.Instance.Status;
                         p["hp"] = st.CurHp;
                         p["maxHp"] = st.MaxHp;
@@ -62,9 +62,9 @@ namespace WitchModMCP.Tools
                             foreach (var b in allBuffs)
                             {
                                 var bj = new JObject();
-                                try { bj["id"] = b.buffConfig.BuffId; } catch { }
-                                try { bj["level"] = b.buffConfig.Level; } catch { }
-                                try { bj["type"] = b.buffConfig.Type; } catch { }
+                                try { bj["id"] = b.buffConfig.BuffId; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] player buff id: {ex.Message}"); }
+                                try { bj["level"] = b.buffConfig.Level; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] player buff level: {ex.Message}"); }
+                                try { bj["type"] = b.buffConfig.Type; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] player buff type: {ex.Message}"); }
                                 buffs.Add(bj);
                             }
                         }
@@ -84,7 +84,7 @@ namespace WitchModMCP.Tools
                         var ej = new JObject();
                         try
                         {
-                            try { ej["instanceId"] = e.gameObject.GetInstanceID(); } catch { }
+                            try { ej["instanceId"] = e.gameObject.GetInstanceID(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] enemy instanceId: {ex.Message}"); }
                             ej["index"] = EnemyManager.Instance.enemyList.IndexOf(e);
                             ej["id"] = e.dataConfig?.data?.GetValueOrDefault("Id", "");
                             ej["name"] = e.gameObject?.name ?? "";
@@ -104,9 +104,9 @@ namespace WitchModMCP.Tools
                                 foreach (var b in allBuffs)
                                 {
                                     var bj = new JObject();
-                                    try { bj["id"] = b.buffConfig.BuffId; } catch { }
-                                    try { bj["level"] = b.buffConfig.Level; } catch { }
-                                    try { bj["type"] = b.buffConfig.Type; } catch { }
+                                    try { bj["id"] = b.buffConfig.BuffId; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] enemy buff id: {ex.Message}"); }
+                                    try { bj["level"] = b.buffConfig.Level; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] enemy buff level: {ex.Message}"); }
+                                    try { bj["type"] = b.buffConfig.Type; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] enemy buff type: {ex.Message}"); }
                                     buffs.Add(bj);
                                 }
                             }
@@ -131,7 +131,7 @@ namespace WitchModMCP.Tools
                                     ej["intents"] = intents;
                                 }
                             }
-                            catch { }
+                            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] intents: {ex.Message}"); }
                         }
                         catch (Exception ex) { ej["error"] = ex.Message; }
                         enemies.Add(ej);
@@ -149,14 +149,14 @@ namespace WitchModMCP.Tools
                         if (c == null || c.dataConfig?.data == null) continue;
                         var cj = new JObject();
                         cj["index"] = i;
-                        try { cj["cardId"] = c.dataConfig.data["Id"]; } catch { }
-                        try { cj["instanceId"] = c.dataConfig.InstanceID; } catch { }
+                        try { cj["cardId"] = c.dataConfig.data["Id"]; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] hand cardId: {ex.Message}"); }
+                        try { cj["instanceId"] = c.dataConfig.InstanceID; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] hand instanceId: {ex.Message}"); }
                         try
                         {
                             if (c.dataConfig.data.TryGetValue("Expend", out var cost))
                                 cj["cost"] = cost;
                         }
-                        catch { }
+                        catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] hand cost: {ex.Message}"); }
                         hand.Add(cj);
                     }
                     result["hand"] = hand;
@@ -175,8 +175,8 @@ namespace WitchModMCP.Tools
                         if (c?.data != null)
                         {
                             var cj = new JObject();
-                            try { cj["cardId"] = c.data["Id"]; } catch { }
-                            try { cj["instanceId"] = c.InstanceID; } catch { }
+                            try { cj["cardId"] = c.data["Id"]; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] draw cardId: {ex.Message}"); }
+                            try { cj["instanceId"] = c.InstanceID; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] draw instanceId: {ex.Message}"); }
                             top5.Add(cj);
                         }
                     }
@@ -197,8 +197,8 @@ namespace WitchModMCP.Tools
                         if (c?.data != null)
                         {
                             var cj = new JObject();
-                            try { cj["cardId"] = c.data["Id"]; } catch { }
-                            try { cj["instanceId"] = c.InstanceID; } catch { }
+                            try { cj["cardId"] = c.data["Id"]; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] discard cardId: {ex.Message}"); }
+                            try { cj["instanceId"] = c.InstanceID; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] discard instanceId: {ex.Message}"); }
                             last5.Add(cj);
                         }
                     }
@@ -228,8 +228,8 @@ namespace WitchModMCP.Tools
                             if (c?.data != null && !allLive.Contains(c.InstanceID))
                             {
                                 var cj = new JObject();
-                                try { cj["cardId"] = c.data["Id"]; } catch { }
-                                try { cj["instanceId"] = c.InstanceID; } catch { }
+                                try { cj["cardId"] = c.data["Id"]; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] exhaust cardId: {ex.Message}"); }
+                                try { cj["instanceId"] = c.InstanceID; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] exhaust instanceId: {ex.Message}"); }
                                 exhausted.Add(cj);
                             }
                         }
@@ -240,7 +240,7 @@ namespace WitchModMCP.Tools
                         };
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] exhaust: {ex.Message}"); }
 
                 // --- Master deck count ---
                 try
@@ -248,7 +248,7 @@ namespace WitchModMCP.Tools
                     if (FightCardManager.Instance?.FightcardList != null)
                         result["masterDeckCount"] = FightCardManager.Instance.FightcardList.Count;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetFightStateTool] masterDeckCount: {ex.Message}"); }
 
                 // --- Selection mode ---
                 result["inSelectionMode"] = FightUI.InIEn;

@@ -145,7 +145,8 @@ namespace WitchModMCP.Tools
                                 // First try the normal draw path
                                 foreach (var cid in cards)
                                     fm.cardList.Add(new DataConfig(cid, DataType.Card));
-                                EnsureFightPlayerInstance();
+                                // NOTE: EnsureFightPlayerInstance is DISABLED — see EndTurnTool
+                                // EnsureFightPlayerInstance();
                                 if (fightUI != null)
                                     DrawIntoHand(fightUI, cards.Count);
                                 // Fallback: if hand still empty, create CardItems directly
@@ -169,7 +170,8 @@ namespace WitchModMCP.Tools
                                 // First try normal draw path
                                 for (int i = cards.Count - 1; i >= 0; i--)
                                     fm.cardList.Add(new DataConfig(cards[i], DataType.Card));
-                                EnsureFightPlayerInstance();
+                                // NOTE: EnsureFightPlayerInstance is DISABLED — see EndTurnTool
+                                // EnsureFightPlayerInstance();
                                 if (fightUI != null)
                                     DrawIntoHand(fightUI, cards.Count);
                                 // Fallback: create CardItems directly
@@ -388,7 +390,7 @@ namespace WitchModMCP.Tools
                 var backing = typeof(FightPlayer).GetField("<Instance>k__BackingField",
                     BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
                 if (backing != null) backing.SetValue(null, fp);
-                Debug.Log($"[WitchModMCP] FightPlayer.Instance recovered: {fp.name}");
+                Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SetCardPileTool] FightPlayer.Instance recovered: {fp.name}");
             }
         }
 
@@ -430,7 +432,7 @@ namespace WitchModMCP.Tools
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogError($"[WitchModMCP] DirectAddToHand failed for {cid}: {ex.Message}");
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SetCardPileTool] DirectAddToHand failed for {cid}: {ex.Message}");
                 }
             }
         }
@@ -453,7 +455,7 @@ namespace WitchModMCP.Tools
                     if (fightUI != null) return (int)fi.GetValue(fightUI);
                 }
             }
-            catch { }
+            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SetCardPileTool] GetCardTopCount: {ex.Message}"); }
             return 10;
         }
 
@@ -473,7 +475,7 @@ namespace WitchModMCP.Tools
                 fm.cardList.Clear();
                 foreach (var c in list) fm.cardList.Add(c);
             }
-            catch { }
+            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SetCardPileTool] DoShuffle: {ex.Message}"); }
         }
     }
 }

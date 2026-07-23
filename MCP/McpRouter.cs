@@ -228,8 +228,9 @@ namespace WitchModMCP.MCP
                     };
                     activeModules.Add(mod);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpRouter] BuildActiveModules failed for mod: {ex.Message}");
                 }
             }
 

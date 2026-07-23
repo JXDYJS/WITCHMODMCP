@@ -33,8 +33,9 @@ namespace WitchModMCP.Tools
             {
                 var result = new JObject();
 
-                var blessObj = GameObject.Find("BlessChoice(Clone)");
-                if (blessObj == null || !blessObj.activeInHierarchy)
+                var brUI = UIManager.Instance?.GetUI<BattleRewardsUI>("BattleRewardsUI");
+                var blessObj = brUI?.transform.Find("BlessChoice(Clone)");
+                if (blessObj == null || !blessObj.gameObject.activeInHierarchy)
                 {
                     result["isOpen"] = false;
                     result["message"] = "当前没有 BlessChoice 界面";
@@ -43,9 +44,9 @@ namespace WitchModMCP.Tools
 
                 result["isOpen"] = true;
                 result["isHighTide"] = false;
-                try { result["isHighTide"] = RoleTable.Instance?.InHighTide ?? false; } catch { }
+                try { result["isHighTide"] = RoleTable.Instance?.InHighTide ?? false; } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetBlessingStateTool] isHighTide: {ex.Message}"); }
 
-                var listRoot = blessObj.transform.Find("Window Manager/Windows/牌堆/Content/List View Custom/List");
+                var listRoot = blessObj.Find("Window Manager/Windows/牌堆/Content/List View Custom/List");
                 if (listRoot == null)
                 {
                     result["message"] = "找不到祝福列表容器";
@@ -73,7 +74,7 @@ namespace WitchModMCP.Tools
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetBlessingStateTool] blessLookup: {ex.Message}"); }
 
                 var choices = new JArray();
                 for (int i = 1; i <= 3; i++)
@@ -103,7 +104,7 @@ namespace WitchModMCP.Tools
                             if (titleProp != null)
                                 choiceInfo["title"] = (string)titleProp.GetValue(kwDisplay, null) ?? "";
                         }
-                        catch { }
+                        catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetBlessingStateTool] kwDisplay.title: {ex.Message}"); }
                     }
 
                     // Scan children of BlessingList for skill and var blessing items
@@ -138,7 +139,7 @@ namespace WitchModMCP.Tools
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetBlessingStateTool] text: {ex.Message}"); }
 
                             // Read icon path from Icon/Icon Image sprite
                             try
@@ -151,7 +152,7 @@ namespace WitchModMCP.Tools
                                         itemInfo["icon"] = img.sprite.name;
                                 }
                             }
-                            catch { }
+                            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetBlessingStateTool] icon: {ex.Message}"); }
 
                             // Try to match text to a blessing from game config table
                             var itemText = itemInfo["text"]?.Value<string>() ?? "";
@@ -247,15 +248,16 @@ namespace WitchModMCP.Tools
             {
                 var result = new JObject();
 
-                var blessObj = GameObject.Find("BlessChoice(Clone)");
-                if (blessObj == null || !blessObj.activeInHierarchy)
+                var brUI = UIManager.Instance?.GetUI<BattleRewardsUI>("BattleRewardsUI");
+                var blessObj = brUI?.transform.Find("BlessChoice(Clone)");
+                if (blessObj == null || !blessObj.gameObject.activeInHierarchy)
                 {
                     result["result"] = "error";
                     result["message"] = "当前没有 BlessChoice 界面";
                     return (JToken)result;
                 }
 
-                var listRoot = blessObj.transform.Find("Window Manager/Windows/牌堆/Content/List View Custom/List");
+                var listRoot = blessObj.Find("Window Manager/Windows/牌堆/Content/List View Custom/List");
                 if (listRoot == null)
                 {
                     result["result"] = "error";
@@ -332,22 +334,19 @@ namespace WitchModMCP.Tools
             {
                 var result = new JObject();
 
-                var blessObj = GameObject.Find("BlessChoice(Clone)");
-                if (blessObj != null && blessObj.activeInHierarchy)
+                var brUI = UIManager.Instance?.GetUI<BattleRewardsUI>("BattleRewardsUI");
+                var blessObj = brUI?.transform.Find("BlessChoice(Clone)");
+                if (blessObj != null && blessObj.gameObject.activeInHierarchy)
                 {
-                    UnityEngine.Object.Destroy(blessObj);
+                    UnityEngine.Object.Destroy(blessObj.gameObject);
 
-                    // Also try to re-show the BattleRewardsUI window manager
+                    // Re-show the BattleRewardsUI window manager
                     try
                     {
-                        var rewardsUI = UIManager.Instance?.GetUI<BattleRewardsUI>("BattleRewardsUI");
-                        if (rewardsUI != null)
-                        {
-                            var wm = rewardsUI.transform.Find("Window Manager");
-                            if (wm != null) wm.gameObject.SetActive(true);
-                        }
+                        var wm = brUI.transform.Find("Window Manager");
+                        if (wm != null) wm.gameObject.SetActive(true);
                     }
-                    catch { }
+                    catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[SkipBlessingRewardTool] wm.SetActive: {ex.Message}"); }
 
                     result["result"] = "success";
                     result["message"] = "已跳过祝福奖励";

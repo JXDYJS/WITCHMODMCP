@@ -127,7 +127,7 @@ namespace WitchModMCP.Tools
                             names.Add(go.name);
                         result["fallbackObjects"] = names;
                     }
-                    catch { }
+                    catch (Exception ex2) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSceneTreeTool] fallback: {ex2.Message}"); }
                 }
 
                 return (JToken)result;

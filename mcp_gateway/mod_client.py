@@ -104,6 +104,10 @@ class ModConnection:
         Returns:
             Normalised JSON-RPC response dict with lowercase keys
             (result / error / jsonrpc / id).
+
+        Note:
+            Tool calls use a 120s timeout because some C# tools (decompile_source,
+            get_fight_state during complex fights, etc.) may take many seconds.
         """
         self._id_counter += 1
         req_body = json.dumps({
@@ -113,7 +117,7 @@ class ModConnection:
             "params": params or {},
         })
         try:
-            status, body = self._request("POST", "/", req_body)
+            status, body = self._request("POST", "/", req_body, timeout=120)
             data = json.loads(body)
             return self._lower_keys(data)
         except json.JSONDecodeError:

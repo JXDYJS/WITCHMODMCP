@@ -47,7 +47,7 @@ namespace WitchModMCP.Tools
                     if (thisidField?.GetValue(eventUI) is string eventId)
                         result["eventId"] = eventId;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetEventStateTool] thisid: {ex.Message}"); }
 
                 try
                 {
@@ -95,7 +95,7 @@ namespace WitchModMCP.Tools
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetEventStateTool] dataConfig: {ex.Message}"); }
 
                 // Read options from UI buttons
                 try
@@ -128,7 +128,7 @@ namespace WitchModMCP.Tools
                                     }
                                 }
                             }
-                            catch { }
+                            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetEventStateTool] normalDesc: {ex.Message}"); }
 
                             // Disabled text (alternative if Normal is empty)
                             if (!optionInfo.ContainsKey("text") || string.IsNullOrEmpty(optionInfo["text"]?.Value<string>()))
@@ -147,7 +147,7 @@ namespace WitchModMCP.Tools
                                         }
                                     }
                                 }
-                                catch { }
+                                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetEventStateTool] disabledDesc: {ex.Message}"); }
                             }
 
                             // Interactable
@@ -168,7 +168,7 @@ namespace WitchModMCP.Tools
                     }
                     result["options"] = options;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetEventStateTool] options: {ex.Message}"); }
 
                 return (JToken)result;
             });

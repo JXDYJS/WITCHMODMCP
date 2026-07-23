@@ -3,8 +3,9 @@
   "mcp": {
     "witchmod": {
       "type": "local",
-      "command": ["run_gateway.cmd"],
+      "command": ["python", "run_gateway.py"],
       "cwd": ".",
+      "timeout": 30000,
       "environment": {
         "MCP_MOD_PORT": "3100",
         "MCP_HEARTBEAT_INTERVAL": "5",

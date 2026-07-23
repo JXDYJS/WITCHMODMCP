@@ -37,4 +37,5 @@ foreach (var type in types)
     }
 }
 
+File.WriteAllText(Path.Combine(outDir, ".SUCCESS"), DateTime.UtcNow.ToString("O"));
 Console.WriteLine($"DONE {outDir}");

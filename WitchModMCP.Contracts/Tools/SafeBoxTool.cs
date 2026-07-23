@@ -98,7 +98,7 @@ namespace WitchModMCP.Tools
                     result["unCardListCount"] = rt?.UnCardList?.Count ?? 0;
                     result["relicListCount"] = rt?.relicList?.Count ?? 0;
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[GetSafeboxStateTool] roleTable: {ex.Message}"); }
 
                 return (JToken)result;
             });

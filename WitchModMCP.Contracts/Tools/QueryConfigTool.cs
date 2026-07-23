@@ -66,7 +66,7 @@ namespace WitchModMCP.Tools
                     if (findMethod != null)
                     {
                         try { mgrInstance = findMethod.Invoke(null, new object[] { mgrType }); }
-                        catch { }
+                        catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] FindObjectOfType: {ex.Message}"); }
                     }
                 }
                 if (mgrInstance == null)
@@ -204,7 +204,7 @@ namespace WitchModMCP.Tools
 
                 output.Add(info);
             }
-            catch { }
+            catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] table info: {ex.Message}"); }
         }
 
         private static object GetMemberValueByName(object instance, Type type, string name)
@@ -245,7 +245,7 @@ namespace WitchModMCP.Tools
             if (getIdMethod != null)
             {
                 try { return getIdMethod.Invoke(table, new object[] { getIdMethod.GetParameters()[0].ParameterType == typeof(int) ? (object)id : id.ToString() }); }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] GetIdMethod: {ex.Message}"); }
             }
 
             var indexerProp = tableType.GetProperties()
@@ -259,7 +259,7 @@ namespace WitchModMCP.Tools
                     object key = indexerProp.GetIndexParameters()[0].ParameterType == typeof(int) ? (object)id : id.ToString();
                     return indexerProp.GetValue(table, new[] { key });
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] indexer: {ex.Message}"); }
             }
 
             var enumerator = GetEnumerator(table);
@@ -323,7 +323,7 @@ namespace WitchModMCP.Tools
             if (countProp != null)
             {
                 try { return (int)countProp.GetValue(obj, null); }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] Count: {ex.Message}"); }
             }
             return -1;
         }
@@ -335,7 +335,7 @@ namespace WitchModMCP.Tools
             if (value is ValueType && value is not Enum)
             {
                 try { return JToken.FromObject(value); }
-                catch { return new JValue(value.ToString()); }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] FromObject: {ex.Message}"); return new JValue(value.ToString()); }
             }
             if (value is Enum) return new JValue(value.ToString());
 
@@ -356,7 +356,7 @@ namespace WitchModMCP.Tools
                     else if (depth > 1)
                         obj[fi.Name] = SerializeObject(v, depth - 1);
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] SerializeObject: {ex.Message}"); }
             }
 
             return obj;
@@ -374,7 +374,7 @@ namespace WitchModMCP.Tools
                             return t;
                     }
                 }
-                catch { }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[QueryConfigTool] FindType: {ex.Message}"); }
             }
             return null;
         }
