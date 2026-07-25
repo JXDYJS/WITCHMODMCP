@@ -129,7 +129,3 @@ WitchModMCP (Unity Mod)         ← 游戏内 HTTP 服务器
 | `load_scene(type, id?)` | 调试 | 跳转到任意事件、战斗或假战斗场景 |
 | `set_card_pile(pile, action, cards?, indices?, shuffle?)` | 调试 | 控制手牌、抽牌堆、弃牌堆、消耗堆 |
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | 调试 | 修改任意战斗实体的属性和 Buff |
-
-<div align="center">
-MIT 许可证 — 详见 [LICENSE](./LICENSE)
-</div>

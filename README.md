@@ -129,7 +129,3 @@ Tools for mod developers to inspect runtime state, debug mod behavior, and test 
 | `load_scene(type, id?)` | Debug | Jump to any event, fight, or fake-fight scene |
 | `set_card_pile(pile, action, cards?, indices?, shuffle?)` | Debug | Manipulate hand, draw pile, discard pile, or exhaust pile |
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | Debug | Modify any combat entity's attributes and buffs |
-
-<div align="center">
-MIT License — see [LICENSE](./LICENSE)
-</div>
