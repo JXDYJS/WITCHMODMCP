@@ -1,7 +1,7 @@
 # Build outputs
 bin/
 obj/
-WitchModMCP/Scripts/
+#WitchModMCP/Scripts/
 
 # NuGet cache
 *.nupkg
