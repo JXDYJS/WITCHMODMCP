@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -13,16 +14,26 @@ namespace WitchModMCP.MCP
     public static class McpRouter
     {
         private static readonly ConcurrentDictionary<string, IMcpTool> _tools = new();
+        private static int _reloadCount = 0;
+        public static int ReloadCount => _reloadCount;
 
         public static void RegisterTool(IMcpTool tool)
         {
             _tools[tool.Name] = tool;
+
+            var sourceMod = tool.GetType().Assembly.GetName().Name;
+            if (!string.IsNullOrEmpty(sourceMod))
+                _tools.TryAdd($"{sourceMod}/{tool.Name}", tool);
         }
 
         public static void RegisterTools(IEnumerable<IMcpTool> tools)
         {
             foreach (var t in tools) RegisterTool(t);
         }
+
+        public static int ToolCount => _tools.Count;
+
+        public static string[] GetToolNames() => _tools.Keys.OrderBy(n => n).ToArray();
 
         public static void ClearTools()
         {
@@ -32,6 +43,7 @@ namespace WitchModMCP.MCP
         public static void ReloadAllTools()
         {
             ClearTools();
+            _reloadCount++;
             foreach (var type in McpToolPlugin.DiscoverToolTypes())
             {
                 try
@@ -79,7 +91,11 @@ namespace WitchModMCP.MCP
             if (request.Method == "list_tools")
                 return await HandleListTools(request.Id);
 
-            if (_tools.TryGetValue(request.Method, out var tool))
+            if (request.Method == "ping")
+                return HandlePing(request.Id);
+
+            var tool = ResolveTool(request.Method.Trim());
+            if (tool != null)
                 return await HandleToolCall(request.Id, tool, request.Params);
 
             return JsonConvert.SerializeObject(new JsonRpcResponse
@@ -91,11 +107,17 @@ namespace WitchModMCP.MCP
 
         private static Task<string> HandleListTools(int id)
         {
-            var tools = _tools.Values.Select(t => new JObject
+            var seen = new HashSet<string>();
+            var tools = _tools
+                .Where(kvp => !kvp.Key.Contains('/'))
+                .Select(kvp => kvp.Value)
+                .Distinct()
+                .Select(t => new JObject
             {
                 ["name"] = t.Name,
                 ["description"] = t.Description,
-                ["inputSchema"] = t.InputSchema ?? new JObject()
+                ["inputSchema"] = t.InputSchema ?? new JObject(),
+                ["sourceMod"] = t.GetType().Assembly.GetName().Name
             });
 
             var result = new JObject
@@ -109,6 +131,58 @@ namespace WitchModMCP.MCP
                 Result = result
             };
             return Task.FromResult(JsonConvert.SerializeObject(response));
+        }
+
+        private static string HandlePing(int id)
+        {
+            var response = new JsonRpcResponse
+            {
+                Id = id,
+                Result = new JObject
+                {
+                    ["status"] = "ok",
+                    ["toolCount"] = _tools.Count
+                }
+            };
+            return JsonConvert.SerializeObject(response);
+        }
+
+        public static Task<string> HandleHeartbeat(int port, string body)
+        {
+            JToken bodyToken;
+            try { bodyToken = JToken.Parse(body); }
+            catch { bodyToken = new JObject(); }
+
+            var ctx = HeartbeatHub.ProcessHeartbeat(bodyToken);
+
+            var result = new JObject
+            {
+                ["status"] = "ok",
+                ["port"] = port,
+                ["toolCount"] = _tools.Count,
+                ["sessionId"] = ctx["sessionId"],
+                ["isFirstHeartbeat"] = ctx["isFirstHeartbeat"],
+                ["timestamp"] = ctx["timestamp"],
+                ["workspacePath"] = ctx["workspacePath"],
+                ["pid"] = ctx["pid"],
+                ["reloadCount"] = _reloadCount,
+            };
+
+            return Task.FromResult(JsonConvert.SerializeObject(result));
+        }
+
+        private static IMcpTool ResolveTool(string method)
+        {
+            if (string.IsNullOrEmpty(method)) return null;
+
+            if (method.Contains('/'))
+            {
+                _tools.TryGetValue(method, out var nsTool);
+                return nsTool;
+            }
+
+            _tools.TryGetValue(method, out var plainTool);
+            return plainTool;
         }
 
         private static async Task<string> HandleToolCall(int id, IMcpTool tool, JToken args)

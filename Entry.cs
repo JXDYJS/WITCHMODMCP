@@ -7,6 +7,10 @@ using Witch.Mod;
 using WitchModMCP.Dispatcher;
 using WitchModMCP.Harmony;
 using WitchModMCP.MCP;
+using WitchModMCP.Utils;
+
+// ReSharper disable CheckNamespace — must be at global scope for assembly-level attribute
+[assembly: MCPSkillNamespace("mcp_skills")]
 
 namespace WitchModMCP
 {
@@ -22,6 +26,7 @@ namespace WitchModMCP
 
             GameDispatcher.Initialize();
             UnityLogCapture.Subscribe();
+            PlayerLogReader.ReadAndEnqueue();
 
             var go = new GameObject("WitchModMCP_Dispatcher");
             UnityEngine.Object.DontDestroyOnLoad(go);
@@ -36,9 +41,10 @@ namespace WitchModMCP
             McpToolPlugin.RegisterPluginDll(contractsDllPath);
             McpRouter.ReloadAllTools();
 
+            Commands.Log(MOD_TAG, $"Contracts DLL: {contractsDllPath}");
+
             Server = new McpServer();
             Server.Start(port);
-            Commands.Log(MOD_TAG, $"[MCP] Server started on http://localhost:{port}/");
         }
     }
 }

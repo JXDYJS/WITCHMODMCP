@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using Data.Save;
-using Loxodon.Framework.Obfuscation;
 using Newtonsoft.Json.Linq;
 using WitchModMCP.Dispatcher;
 using WitchModMCP.MCP;

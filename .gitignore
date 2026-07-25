@@ -32,6 +32,9 @@ test_log.txt
 *.ilk
 *.pdb
 
+# Test screenshots (regenerated each run)
+screenshot_test.*
+
 # OS files
 Thumbs.db
 .DS_Store
@@ -39,3 +42,19 @@ Thumbs.db
 # User-specific files
 *.csproj.user
 *.dbmdl
+.cache
+cache
+
+# Decompiled game source (large, regenerated on demand)
+decompiled_game/
+
+# Session/chat artifacts
+session-*.md
+
+# Decompiler intermediate
+plugins_il.res
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/

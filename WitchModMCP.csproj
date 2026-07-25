@@ -40,6 +40,12 @@
     <OutputPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\$(AssemblyName)\Scripts</OutputPath>
   </PropertyGroup>
 
+  <!--
+    MOD_SOURCE_DIR: 源码文件夹名，默认【MOD文件夹】。
+    如果你重命名了该文件夹（例如改为 "MyModSource"），
+    同步修改下方所有 【MOD文件夹】 引用，
+    以及 Python 侧的 MCP_MOD_SOURCE_DIR 环境变量。
+  -->
   <ItemGroup>
     <Folder Include="【MOD文件夹】\Data\" />
     <Folder Include="【MOD文件夹】\Text\" />
@@ -48,6 +54,10 @@
 
   <ItemGroup>
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
+    <Compile Remove="【MOD文件夹】\mcp_plugins\**\*.cs" />
+    <Compile Remove="decompiled_game\**\*.cs" />
+    <Compile Remove="DecompiledSource\**\*.cs" />
+    <!-- DeveloperTools merged into WitchModMCP.Contracts -->
   </ItemGroup>
 
   <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">
@@ -101,9 +111,12 @@
     <Exec Command="robocopy &quot;$(ProjectDir)【MOD文件夹】&quot; &quot;$(ModTargetDir)&quot; /XF changelog.txt /XD 排除的文件夹名字 /E /IS /NDL /NFL /NJH /NJS > nul &amp; exit 0" Condition="Exists('$(ProjectDir)【MOD文件夹】')" />
     <Message Condition="Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁📦 已复制 MOD 资源: $(ModTargetDir)" />
     <Message Condition="!Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁⚠️ 未找到 MOD 资源文件夹: $(ProjectDir)【MOD文件夹】" />
-    <Move SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
-    <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已移动: $(TargetName).dll → $(DllPathTarget)" />
-    <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 移动失败: $(DllPathCompiled)" />
+    <MSBuild Projects="$(ProjectDir)【MOD文件夹】\mcp_plugins\decompile\Decompile.csproj"
+             Targets="Restore;Publish"
+             Properties="PublishDir=$(ModTargetDir)\mcp_plugins\decompile\publish\;Configuration=Release" />
+    <Copy SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
+    <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已复制: $(TargetName).dll → $(DllPathTarget)" />
+    <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 复制失败: $(DllPathCompiled)" />
     <Copy SourceFiles="$(ContractsDllSource)" DestinationFiles="$(ContractsDllTarget)" Condition="Exists('$(ContractsDllSource)')" />
     <Message Importance="high" Condition="Exists('$(ContractsDllTarget)')" Text="✅ 已复制: WitchModMCP.Contracts.dll → Scripts/" />
     <Delete Files="@(DeleteCatFiles)" ContinueOnError="true" />

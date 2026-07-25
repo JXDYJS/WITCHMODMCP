@@ -8,6 +8,7 @@ namespace WitchModMCP.MCP
     public static class McpToolPlugin
     {
         private static readonly List<string> _pluginDlls = new();
+        private static readonly Dictionary<string, string> _assemblyPaths = new(StringComparer.OrdinalIgnoreCase);
 
         public static void RegisterPluginDll(string absoluteDllPath)
         {
@@ -27,7 +28,12 @@ namespace WitchModMCP.MCP
                 }
                 try
                 {
-                    var asm = Assembly.Load(File.ReadAllBytes(path));
+                    var absPath = Path.GetFullPath(path);
+                    var asm = Assembly.Load(File.ReadAllBytes(absPath));
+                    var asmName = asm.GetName().Name;
+                    if (asmName != null)
+                        _assemblyPaths[asmName] = Path.GetDirectoryName(absPath);
+
                     foreach (var type in asm.GetExportedTypes())
                     {
                         if (typeof(IMcpTool).IsAssignableFrom(type) && !type.IsAbstract && !type.IsInterface)
@@ -40,6 +46,39 @@ namespace WitchModMCP.MCP
                 }
             }
             return types;
+        }
+
+        public static string GetAssemblyDirectory(string assemblyName)
+        {
+            if (assemblyName == null) return null;
+
+            if (_assemblyPaths.TryGetValue(assemblyName, out var tracked))
+                return tracked;
+
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    if (string.Equals(asm.GetName().Name, assemblyName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var loc = asm.Location;
+                        if (!string.IsNullOrEmpty(loc) && File.Exists(loc))
+                        {
+                            var dir = Path.GetDirectoryName(loc);
+                            _assemblyPaths[assemblyName] = dir;
+                            return dir;
+                        }
+                    }
+                }
+                catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpToolPlugin] ResolveAssemblyPath: {ex.Message}"); }
+            }
+
+            return null;
+        }
+
+        public static IReadOnlyDictionary<string, string> GetTrackedAssemblyPaths()
+        {
+            return _assemblyPaths;
         }
 
         public static void ClearPlugins()
