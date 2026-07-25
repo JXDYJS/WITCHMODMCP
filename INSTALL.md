@@ -10,7 +10,7 @@ This repository contains four parts. Verify they are all present before installi
 |---|---|---|
 | **Game Mod (DLL source)** | C# Unity mod, injects HTTP API into game process | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
 | **Pre-built DLLs** | Ready-to-copy binaries for the game Mods folder | `bin/Release/` or release package |
-| **MCP Gateway (Python)** | MCP stdio ↔ HTTP proxy, connects AI tools to the game | `mcp_gateway/`, `run_gateway.py`, `witch_mcp.py` |
+| **MCP Gateway (Python)** | MCP stdio ↔ HTTP proxy, connects AI tools to the game | `mcp_gateway/`, `run_gateway.py` |
 | **Skill (AI docs)** | Knowledge base for game mechanics, tool usage, combat strategy | `.agents/skills/witchSkill/` |
 
 ### Missing files?
