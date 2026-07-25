@@ -38,7 +38,7 @@ The root of the cloned repo is `<project_root>`. All subsequent paths are relati
 
 ### Option A: Use pre-built DLLs (recommended)
 
-Pre-built DLLs are in `bin/Release/` or the release package:
+Pre-built DLLs are in `WitchModMCP\Scripts`:
 - `WitchModMCP.dll`
 - `WitchModMCP.Contracts.dll`
 
