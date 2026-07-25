@@ -33,9 +33,7 @@ def _read_file(path: str) -> str:
         return f"# Read Error\n\nFailed to read `{path}`: {e}"
 
 
-# Skill 文档根目录：相对于 mcp_gateway/ 的位置。
-# 这是 MCP 项目自身的部署目录名，不是用户 mod 源码目录。
-_SKILL_ROOT = Path(__file__).resolve().parent.parent / "【MOD文件夹】" / "mcp_skills"
+_SKILL_ROOT = Path(__file__).resolve().parent.parent / "WitchModMCP" / "mcp_skills"
 
 
 def _resolve(domain: str, *parts: str) -> str:

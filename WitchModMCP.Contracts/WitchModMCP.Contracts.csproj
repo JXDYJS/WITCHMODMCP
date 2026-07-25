@@ -101,14 +101,6 @@
     </Reference>
   </ItemGroup>
 
-  <Target Name="CopyToModFolder" AfterTargets="Build"
-          Condition="$(Configuration.Contains('魔女'))">
-    <PropertyGroup>
-      <_ModScriptsDir>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\WitchModMCP\Scripts</_ModScriptsDir>
-    </PropertyGroup>
-    <Copy SourceFiles="$(TargetDir)$(AssemblyName).dll"
-          DestinationFiles="$(_ModScriptsDir)\$(AssemblyName).dll"
-          Condition="Exists('$(TargetDir)$(AssemblyName).dll')" />
-  </Target>
+
 
 </Project>

@@ -13,7 +13,7 @@ namespace WitchModMCP.Tools
     public class QueryConfigTool : IMcpTool
     {
         public string Name => "query_config";
-        public string Description => "查询游戏配置表数据。可列出所有可用表名、查看表结构，或按 ID 查询具体条目。对做内容型 Mod 的开发者非常有用。";
+        public string Description => "查询游戏配置表数据。可列出所有可用表名、查看表结构，或按 ID 查询具体条目";
         public JObject InputSchema => new()
         {
             ["type"] = "object",

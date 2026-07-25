@@ -19,16 +19,7 @@ namespace WitchModMCP.Tools
             ["properties"] = new JObject()
         };
 
-        private static readonly string[] GiveSubs =
-        {
-            "maxsan", "card", "time", "relic", "bless", "money", "san",
-            "power", "timecount", "true|truth", "win", "str|strength",
-            "luc|lucky", "per|perceive", "wis|wisdom", "level",
-            "randomcard", "randomcardbydeck", "draw", "randombless",
-            "goodbless", "randomrelic", "randomrelicByRarity",
-            "randomcardByRarity", "def", "live|Live", "AllBuff",
-            "ench", "exp", "randomtest", "slot", "escape", "unlimitsafe"
-        };
+        private static string[] _cachedGiveSubs;
 
         public Task<JToken> Execute(JToken args)
         {
@@ -65,7 +56,7 @@ namespace WitchModMCP.Tools
                         cmd["description"] = desc;
 
                     if (m.Name == "give")
-                        cmd["subCommands"] = new JArray(GiveSubs);
+                        cmd["subCommands"] = new JArray(GetGiveSubCommands());
 
                     commands.Add(cmd);
                 }
@@ -76,6 +67,51 @@ namespace WitchModMCP.Tools
                     ["hint"] = "使用 eval_command 执行命令。例如: eval_command { \"command\": \"give money 100\" }"
                 };
             });
+        }
+
+        private static string[] GetGiveSubCommands()
+        {
+            if (_cachedGiveSubs != null) return _cachedGiveSubs;
+
+            var method = typeof(Commands).GetMethod("$Rougamo_give",
+                BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+            if (method?.GetMethodBody()?.GetILAsByteArray() is not { } il)
+                return _cachedGiveSubs = Array.Empty<string>();
+
+            var result = new HashSet<string>();
+            var blacklist = new HashSet<string>
+            {
+                "Id", "Name", "Tag", "Rarity", "Strength", "Lucky", "Perceive", "Wisdom",
+                "FightUI", "TopBarUI", "CaptionUI", "DeckUI", "SelectCardEnd",
+                "null", "all", "Null"
+            };
+            var module = method.Module;
+
+            for (int i = 0; i < il.Length - 5; i++)
+            {
+                if (il[i] != 0x72) continue;
+
+                int token = il[i + 1] | (il[i + 2] << 8) | (il[i + 3] << 16) | (il[i + 4] << 24);
+                string s;
+                try { s = module.ResolveString(token); }
+                catch { continue; }
+
+                if (s.Length >= 2
+                    && s.All(c => c <= 127)
+                    && !s.Contains(' ')
+                    && !s.Contains('<')
+                    && !s.Contains('>')
+                    && !s.Contains('|')
+                    && !blacklist.Contains(s)
+                    && !s.All(char.IsDigit))
+                {
+                    result.Add(s);
+                }
+                i += 4;
+            }
+
+            _cachedGiveSubs = result.OrderBy(x => x).ToArray();
+            return _cachedGiveSubs;
         }
 
         private static string ReadHelpText(HelpText attr)

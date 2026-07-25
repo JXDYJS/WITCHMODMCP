@@ -1,6 +1,7 @@
 # Build outputs
 bin/
 obj/
+WitchModMCP/Scripts/
 
 # NuGet cache
 *.nupkg
@@ -58,3 +59,6 @@ plugins_il.res
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# Per-user AI tool configs (not to be distributed)
+opencode.json

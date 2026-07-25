@@ -33,7 +33,7 @@ namespace WitchModMCP.Tools
 
                 if (!inLobby)
                 {
-                    result["message"] = "当前不在职业选择大厅中，请先调用 start_new_game";
+                    result["message"] = "当前不在职业选择大厅中，请先检查当前页面（get_scene_state）";
                     return (JToken)result;
                 }
 
