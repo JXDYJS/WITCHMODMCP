@@ -1,19 +1,19 @@
-# WitchModMCP 安装指南
+# WitchModMCP Installation Guide
 
-## 项目构成
+## Project Structure
 
-本仓库包含四部分，安装前先确认它们都在：
+This repository contains four parts. Verify they are all present before installing:
 
-| 组成部分 | 说明 | 位置 |
+| Component | Description | Location |
 |---|---|---|
-| **游戏 Mod（DLL 源码）** | C# Unity Mod，注入游戏进程提供 HTTP API | `WitchModMCP/`、`WitchModMCP.Contracts/`、`Harmony/`、`MCP/`、`Dispatcher/`、`Utils/` |
-| **编译好的 DLL** | 可以直接复制到游戏 Mods 目录的二进制文件 | `bin/Release/` 或发布包中 |
-| **MCP 网关（Python）** | MCP stdio ↔ HTTP 代理层，AI 工具通过它连接游戏 | `mcp_gateway/`、`run_gateway.py`、`witch_mcp.py` |
-| **Skill（AI 指导文档）** | AI 理解游戏机制、工具用法、战斗策略的知识库 | `.agents/skills/witchSkill/` |
+| **Game Mod (DLL source)** | C# Unity mod, injects HTTP API into game process | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
+| **Pre-built DLLs** | Ready-to-copy binaries for the game Mods folder | `bin/Release/` or release package |
+| **MCP Gateway (Python)** | MCP stdio ↔ HTTP proxy, connects AI tools to the game | `mcp_gateway/`, `run_gateway.py`, `witch_mcp.py` |
+| **Skill (AI docs)** | Knowledge base for game mechanics, tool usage, combat strategy | `.agents/skills/witchSkill/` |
 
-### 如果文件不完整
+### Missing files?
 
-如果上述目录或文件缺失（比如只克隆了一部分），重新完整克隆：
+If any of the above directories or files are missing, re-clone:
 
 ```bash
 git clone https://github.com/JXDYJS/WITCHMODMCP.git
@@ -21,80 +21,79 @@ git clone https://github.com/JXDYJS/WITCHMODMCP.git
 
 ---
 
-## 第一步：准备工作
+## Step 1: Prerequisites
 
-### 检查依赖
+Check that the following are installed:
 
-确认系统已安装：
-- **Python**（任意版本 3.x）—— 输 `python --version` 验证，如果没有引导用户安装
-- **.NET SDK**（可选，仅编译时需要）—— 输 `dotnet --version` 验证
+- **Python** (any 3.x) — run `python --version` to verify; install if missing
+- **.NET SDK** (optional, only needed for compilation) — run `dotnet --version` to verify
 
-### 确认项目路径
+### Project path
 
-克隆本仓库后的根目录即为 `<项目根目录>`。后续所有路径操作以此为基础。
+The root of the cloned repo is `<project_root>`. All subsequent paths are relative to this.
 
 ---
 
-## 第二步：部署 Mod DLL
+## Step 2: Deploy the Mod DLL
 
-### 方案 A：使用预编译的 DLL（推荐）
+### Option A: Use pre-built DLLs (recommended)
 
-预编译的 DLL 在项目根目录下的 `bin/` 或发布包中：
+Pre-built DLLs are in `bin/Release/` or the release package:
 - `WitchModMCP.dll`
 - `WitchModMCP.Contracts.dll`
 
-### 方案 B：自行编译
+### Option B: Build from source
 
 ```bash
-cd <项目根目录>
+cd <project_root>
 dotnet build
 ```
 
-产物在 `WitchModMCP/bin/Debug/net472/`（或类似路径）。
+Output goes to `WitchModMCP/bin/Debug/net472/` (or similar).
 
-### 找到游戏安装目录
+### Find the game installation directory
 
-先问用户要游戏路径——最简单的方式是让用户在 Steam 库中右键游戏 → 管理 → 浏览本地文件，然后把路径发给你。
+First, ask the user for the path — the easiest way is to right-click the game in Steam → Manage → Browse local files, then paste the path.
 
-如果用户不知道或不方便，再依次尝试：
+If the user doesn't know or can't provide it, try these in order:
 
-1. **读取仓库根目录的 `.game_path` 文件**（如果存在）
-2. **查询 Steam 注册表**（Windows）：
+1. **Read `.game_path`** in the repo root (if it exists)
+2. **Check Steam registry** (Windows):
    - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 000000`
-   - 或遍历 `HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam`
-3. **扫描常见路径**：
+   - Or scan `HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam`
+3. **Scan common paths**:
    - `C:\Program Files\Steam\steamapps\common\Witch's Apocalyptic Journey`
    - `C:\Program Files (x86)\Steam\steamapps\common\Witch's Apocalyptic Journey`
    - `D:\Steam\steamapps\common\Witch's Apocalyptic Journey`
 
-验证路径下存在 `*_Data/Managed/` 目录，确认是游戏根目录。
+Verify the path by checking for a `*_Data/Managed/` subdirectory.
 
-### 部署 Mod
+### Deploy the mod
 
-游戏 Mod 目录位置：`<游戏根目录>\*_Data\Mods\`
+Game mods directory: `<game_root>\*_Data\Mods\`
 
-把整个 `WitchModMCP/` 文件夹复制过去（里面包含编译好的脚本、反编译插件、配置文件、数据资源等）：
+Copy the entire `WitchModMCP/` folder (includes scripts, decompile plugin, config, data, etc.):
 
 ```bash
 # Windows
-xcopy /E /I "<项目根目录>\WitchModMCP" "<游戏根目录>\*_Data\Mods\WitchModMCP"
+xcopy /E /I "<project_root>\WitchModMCP" "<game_root>\*_Data\Mods\WitchModMCP"
 
 # macOS / Linux
-cp -r "<项目根目录>/WitchModMCP" "<游戏根目录>/*_Data/Mods/"
+cp -r "<project_root>/WitchModMCP" "<game_root>/*_Data/Mods/"
 ```
 
-部署后的目录结构应为：
+Expected structure after deployment:
 ```
 Mods/WitchModMCP/
 ├── Scripts/
-│   ├── Entry.dll                 ← 主 Mod 入口
-│   └── WitchModMCP.Contracts.dll ← 契约程序集
+│   ├── Entry.dll                 ← Main mod entry point
+│   └── WitchModMCP.Contracts.dll ← Contracts assembly
 ├── mcp_plugins/
 │   └── decompile/publish/
 │       ├── Decompile.dll
 │       ├── ICSharpCode.Decompiler.dll
 │       └── ...
-├── ModConfig.json                ← MCP 端口等配置
+├── ModConfig.json                ← MCP port config, etc.
 ├── Data/
 ├── Text/
 ├── ModResource/
@@ -103,62 +102,61 @@ Mods/WitchModMCP/
 
 ---
 
-## 第三步：部署 Skill（AI 指导文档）
+## Step 3: Deploy Skills (AI Documentation)
 
-Skill 文件指导 AI 理解游戏机制、工具用法和战斗策略，需要让 AI 工具能找到它们。
+Skills teach the AI about game mechanics, tool usage, and combat strategy. They need to be placed where the AI tool can find them.
 
-Skill 位于 `<项目根目录>/.agents/skills/witchSkill/`，包含以下内容：
-- `base/` — 基础工具说明（战斗、牌组、大厅、流程等）
-- `devtools/` — 开发者调试工具说明
-- `gameplay/` — 正常游玩指南
-- `insights/` — 游戏机制与数据结构知识
-- `patterns/` — 开发模式参考
-- `deployment/` — 编译与部署指南
+Skills are located at `<project_root>/.agents/skills/witchSkill/`:
 
-**项目级安装**：skill 已在仓库中，无需额外操作。AI 工具通过 `AGENTS.md` 中的引用找到它们。
+- `base/` — Basic tool usage (combat, deck, lobby, gameflow, etc.)
+- `devtools/` — Developer debugging tools
+- `gameplay/` — Normal gameplay guide
+- `insights/` — Game mechanics and data structures
+- `patterns/` — Development pattern reference
+- `deployment/` — Build and deploy guides
 
-**全局安装**：将 skill 复制到 AI 工具的全局 skill 目录，供所有项目使用。
+**Project-level install**: Skills stay in the repo, no extra step needed. The AI finds them via the reference in `AGENTS.md`.
+
+**Global install**: Copy skills to the AI tool's global skill directory so they're available to all projects.
 
 ```bash
-# opencode 全局
-cp -r "<项目根目录>/.agents/skills/witchSkill" "~/.config/opencode/agents/skills/"
+# opencode global
+cp -r "<project_root>/.agents/skills/witchSkill" "~/.config/opencode/agents/skills/"
 
-# Claude Code 全局
-cp -r "<项目根目录>/.agents/skills/witchSkill" "~/.claude/skills/"
+# Claude Code global
+cp -r "<project_root>/.agents/skills/witchSkill" "~/.claude/skills/"
 ```
 
 ---
 
-## 第四步：配置 MCP 服务器
+## Step 4: Configure the MCP Server
 
-MCP 网关通过 AI 工具的配置文件自动启动。你需要确定当前 AI 工具的身份和配置位置。
+The MCP gateway is auto-launched by the AI tool via its config file. You need to determine which AI tool the user is running and where its config lives.
 
-### 识别当前 AI 工具
+### Identify the AI tool
 
-从上下文判断用户正在使用的 AI 工具：
-
-| 工具 | 配置位置类型 | 说明 |
+| Tool | Config scope | Details |
 |---|---|---|
-| opencode | 项目级 或 全局 | 项目级：`<项目根目录>/opencode.json`；全局：`~/.config/opencode/opencode.json` |
-| Claude Desktop | 全局 | Windows: `%APPDATA%\Claude\claude_desktop_config.json`；macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Claude Code | 全局 | `~/.claude/settings.json` |
-| Cursor | 项目级 或 全局 | 项目级：`<项目根目录>/.cursor/mcp.json`；全局：Cursor Settings → MCP |
-| Windsurf | 项目级 | `<项目根目录>/.windsurf/mcp_config.json` |
-| Codex CLI | 全局 | `~/.codex/config.toml` |
-| VS Code (GitHub Copilot) | 项目级 或 全局 | 项目级：`.vscode/mcp.json`；全局：settings.json 的 `github.copilot.chat.mcp.servers` |
+| opencode | Project or global | Project: `<project_root>/opencode.json`; Global: `~/.config/opencode/opencode.json` |
+| Claude Desktop | Global | Windows: `%APPDATA%\Claude\claude_desktop_config.json`; macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Claude Code | Global | `~/.claude/settings.json` |
+| Cursor | Project or global | Project: `<project_root>/.cursor/mcp.json`; Global: Cursor Settings → MCP |
+| Windsurf | Project | `<project_root>/.windsurf/mcp_config.json` |
+| Codex CLI | Global | `~/.codex/config.toml` |
+| VS Code (GitHub Copilot) | Project or global | Project: `.vscode/mcp.json`; Global: `settings.json` → `github.copilot.chat.mcp.servers` |
 
-### 询问用户偏好
+### Ask the user
 
-在写配置前，先问用户：**想安装到项目级别（仅当前项目能用）还是全局（所有项目都能用）？**
+Before writing config, **ask the user: do you want a project-level or global install?**
 
-- 项目级：配置文件写在项目目录内，随仓库分发
-- 全局：配置文件写在用户目录或工具的系统级配置中
+- Project-level: Config file inside the project directory, scoped to this project
+- Global: Config file in the user's home or app data directory, available everywhere
 
-### 写入配置
+### Write the config
 
-不同工具的配置格式不同，遵循以下模板：
+Use the appropriate template below:
 
-**opencode（项目级 `opencode.json`）：**
+**opencode (project-level `opencode.json`):**
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
@@ -166,7 +164,7 @@ MCP 网关通过 AI 工具的配置文件自动启动。你需要确定当前 AI
     "witchmod": {
       "type": "local",
       "command": ["python", "run_gateway.py"],
-      "cwd": "<项目根目录>",
+      "cwd": "<project_root>",
       "timeout": 30000,
       "enabled": true
     }
@@ -174,105 +172,105 @@ MCP 网关通过 AI 工具的配置文件自动启动。你需要确定当前 AI
 }
 ```
 
-**Claude Desktop（全局 `claude_desktop_config.json`）：**
+**Claude Desktop (global `claude_desktop_config.json`):**
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
       "args": ["run_gateway.py"],
-      "cwd": "<项目根目录>"
+      "cwd": "<project_root>"
     }
   }
 }
 ```
 
-**Claude Code（全局 `~/.claude/settings.json`）：**
+**Claude Code (global `~/.claude/settings.json`):**
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
       "args": ["run_gateway.py"],
-      "cwd": "<项目根目录>"
+      "cwd": "<project_root>"
     }
   }
 }
 ```
 
-**Cursor（项目级 `.cursor/mcp.json`）：**
+**Cursor (project-level `.cursor/mcp.json`):**
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
       "args": ["run_gateway.py"],
-      "cwd": "<项目根目录>"
+      "cwd": "<project_root>"
     }
   }
 }
 ```
 
-**Windsurf（项目级 `.windsurf/mcp_config.json`）：**
+**Windsurf (project-level `.windsurf/mcp_config.json`):**
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
       "args": ["run_gateway.py"],
-      "cwd": "<项目根目录>"
+      "cwd": "<project_root>"
     }
   }
 }
 ```
 
-**Codex CLI（全局 `~/.codex/config.toml`）：**
+**Codex CLI (global `~/.codex/config.toml`):**
 ```toml
 [mcp_servers.witchmod]
 command = "python"
 args = ["run_gateway.py"]
-cwd = "<项目根目录>"
+cwd = "<project_root>"
 ```
 
-> 注意：如果用户选择了项目级安装，且对应工具不支持项目级配置，则自动回退到全局配置。
+> If the user chose project-level install but the tool doesn't support it, fall back to global.
 
 ---
 
-## 第五步：验证安装
+## Step 5: Verify
 
-1. **启动游戏**：让用户启动游戏（确保 WitchModMCP Mod 已加载）
-2. **检查连接**：执行 `get_scene_state` 或 `ping` 测试是否连通
-3. **如果网关未启动**：AI 工具会在首次调用 MCP 工具时自动启动 `python run_gateway.py`，等待几秒后重试
-4. **查看日志**：如果连接失败，检查游戏是否已启动、Mod 是否已启用、端口 `3100` 是否被占用
+1. **Launch the game** — ask the user to start the game with the WitchModMCP mod loaded
+2. **Check connectivity** — call `get_scene_state` or `ping` to test
+3. **If gateway isn't running** — the AI tool will auto-launch `python run_gateway.py` on the first MCP tool call; wait a few seconds and retry
+4. **Check logs** — if it fails, verify the game is running, the mod is enabled, and port `3100` isn't in use
 
 ---
 
-## 第六步：项目文件夹清理（可选）
+## Step 6: Clean up the project folder (optional)
 
-克隆下来的项目文件夹不是必须保留的。清理前确认：
+The cloned project folder does not need to be kept. Before deleting, make sure:
 
-- 无人正在使用将被删除的 Python 网关或 DLL
-- 已复制好需要保留的内容
+- No one is actively using the Python gateway or DLLs
+- You've copied anything you want to keep
 
-一般删除源码和编译产物是安全的。如果选择保留项目文件夹，MCP 配置中的 `cwd` 已经指向正确位置，无需额外操作。
+Deleting source code and build artifacts is generally safe. If you keep the project folder, the MCP config's `cwd` already points to it — no extra work needed.
 
-**如果要删除项目文件夹**，推荐先将 MCP 网关复制到外部稳定路径，再更新 MCP 配置：
+**If you want to delete the project folder**, first copy the MCP gateway to a permanent location and update the MCP config:
 
 ```bash
-# 把 MCP 网关复制到稳定位置（如 C:\Tools\WitchModMCP）
-cp -r "<项目根目录>/mcp_gateway" "<目标路径>/"
-cp "<项目根目录>/run_gateway.py" "<目标路径>/"
+# Copy to a stable location (e.g. C:\Tools\WitchModMCP)
+cp -r "<project_root>/mcp_gateway" "<target_path>/"
+cp "<project_root>/run_gateway.py" "<target_path>/"
 ```
 
-MCP 配置中的 `cwd` 需改为新路径，`command` 也须使用绝对路径指向新位置的 `run_gateway.py`。
+Then update `cwd` and `command` in the MCP config to point to the new absolute paths.
 
 ---
 
-## 故障排查
+## Troubleshooting
 
-| 问题 | 解决 |
+| Problem | Solution |
 |---|---|
-| `Game mod is not reachable` | 游戏未启动或 Mod 未加载。先启动游戏 |
-| 网关启动报错 | 检查 Python 是否安装，输 `python --version` |
-| 端口冲突 | 默认端口 3100，可通过环境变量 `MCP_MOD_PORT` 修改 |
-| Mod 未显示在游戏中 | 检查 Mods 目录路径是否正确，DLL 是否在正确位置 |
+| `Game mod is not reachable` | Game not running or mod not loaded. Start the game first. |
+| Gateway fails to start | Check Python is installed (`python --version`). |
+| Port conflict | Default: 3100. Override via `MCP_MOD_PORT` env var. |
+| Mod not showing up | Check the Mods directory path and that the DLLs are in the right place. |
