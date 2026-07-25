@@ -103,7 +103,33 @@ Mods/WitchModMCP/
 
 ---
 
-## 第三步：配置 MCP 服务器
+## 第三步：部署 Skill（AI 指导文档）
+
+Skill 文件指导 AI 理解游戏机制、工具用法和战斗策略，需要让 AI 工具能找到它们。
+
+Skill 位于 `<项目根目录>/.agents/skills/witchSkill/`，包含以下内容：
+- `base/` — 基础工具说明（战斗、牌组、大厅、流程等）
+- `devtools/` — 开发者调试工具说明
+- `gameplay/` — 正常游玩指南
+- `insights/` — 游戏机制与数据结构知识
+- `patterns/` — 开发模式参考
+- `deployment/` — 编译与部署指南
+
+**项目级安装**：skill 已在仓库中，无需额外操作。AI 工具通过 `AGENTS.md` 中的引用找到它们。
+
+**全局安装**：将 skill 复制到 AI 工具的全局 skill 目录，供所有项目使用。
+
+```bash
+# opencode 全局
+cp -r "<项目根目录>/.agents/skills/witchSkill" "~/.config/opencode/agents/skills/"
+
+# Claude Code 全局
+cp -r "<项目根目录>/.agents/skills/witchSkill" "~/.claude/skills/"
+```
+
+---
+
+## 第四步：配置 MCP 服务器
 
 MCP 网关通过 AI 工具的配置文件自动启动。你需要确定当前 AI 工具的身份和配置位置。
 
@@ -212,7 +238,7 @@ cwd = "<项目根目录>"
 
 ---
 
-## 第四步：验证安装
+## 第五步：验证安装
 
 1. **启动游戏**：让用户启动游戏（确保 WitchModMCP Mod 已加载）
 2. **检查连接**：执行 `get_scene_state` 或 `ping` 测试是否连通
@@ -221,19 +247,24 @@ cwd = "<项目根目录>"
 
 ---
 
-## 第五步：清理
+## 第六步：项目文件夹清理（可选）
 
-安装完成后，删除克隆下来的项目文件夹：
+克隆下来的项目文件夹不是必须保留的。清理前确认：
+
+- 无人正在使用将被删除的 Python 网关或 DLL
+- 已复制好需要保留的内容
+
+一般删除源码和编译产物是安全的。如果选择保留项目文件夹，MCP 配置中的 `cwd` 已经指向正确位置，无需额外操作。
+
+**如果要删除项目文件夹**，推荐先将 MCP 网关复制到外部稳定路径，再更新 MCP 配置：
 
 ```bash
-# Windows
-rmdir /s /q "<项目根目录>"
-
-# macOS / Linux
-rm -rf "<项目根目录>"
+# 把 MCP 网关复制到稳定位置（如 C:\Tools\WitchModMCP）
+cp -r "<项目根目录>/mcp_gateway" "<目标路径>/"
+cp "<项目根目录>/run_gateway.py" "<目标路径>/"
 ```
 
-> Mod DLL 已经复制到游戏 Mods 目录、MCP 配置已经写入 AI 工具的配置文件中。克隆仓库不再需要。
+MCP 配置中的 `cwd` 需改为新路径，`command` 也须使用绝对路径指向新位置的 `run_gateway.py`。
 
 ---
 

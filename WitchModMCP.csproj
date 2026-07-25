@@ -99,6 +99,20 @@
              Properties="PublishDir=$(ModDir)\mcp_plugins\decompile\publish\;Configuration=Release" />
   </Target>
 
+  <Target Name="DeployMod" AfterTargets="BuildMod"
+          Condition="$(Configuration.Contains('魔女')) And Exists('$(GameManagedPath)')">
+    <PropertyGroup>
+      <GameModsDir>$([System.IO.Path]::GetDirectoryName($(GameManagedPath)))\Mods\$(AssemblyName)</GameModsDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(GameModsDir)" />
+    <ItemGroup>
+      <ModFiles Include="$(ProjectDir)WitchModMCP\**\*.*"
+                Exclude="$(ProjectDir)WitchModMCP\mcp_plugins\**\bin\**;$(ProjectDir)WitchModMCP\mcp_plugins\**\obj\**" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ModFiles)" DestinationFolder="$(GameModsDir)\%(RecursiveDir)" />
+    <Message Importance="high" Text="✅ 已部署 Mod 到: $(GameModsDir)" />
+  </Target>
+
   <Target Name="CleanModFiles" AfterTargets="Clean">
     <ItemGroup>
       <DllsToDelete Include="$(ProjectDir)WitchModMCP\Scripts\*.dll"/>

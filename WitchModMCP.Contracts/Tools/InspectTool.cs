@@ -91,7 +91,7 @@ namespace WitchModMCP.Tools
                                     foreach (var m in ct.GetMembers(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static)
                                         .Where(m => m is FieldInfo || m is PropertyInfo).Take(30))
                                         avail.Add(m.Name);
-                                    foreach (var m in ct.GetMembers(BindingFlags.Public | BindingFlags.Instance)
+                                    foreach (var m in ct.GetMembers(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance)
                                         .Where(m => m is FieldInfo || m is PropertyInfo).Take(30))
                                     {
                                         if (!avail.Any(a => a.Value<string>() == m.Name))
@@ -197,7 +197,7 @@ namespace WitchModMCP.Tools
         {
             if (context is Type type)
             {
-                var f = type.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+                var f = type.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy);
                 if (f != null) return f;
                 var p = type.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy);
                 if (p != null && p.GetIndexParameters().Length == 0) return p;
@@ -206,7 +206,7 @@ namespace WitchModMCP.Tools
             if (context != null && context is not Type)
             {
                 var objType = context.GetType();
-                var f = objType.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                var f = objType.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
                 if (f != null) return f;
                 var p = objType.GetProperty(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.FlattenHierarchy);
                 if (p != null && p.GetIndexParameters().Length == 0) return p;
@@ -276,7 +276,7 @@ namespace WitchModMCP.Tools
             var obj = new JObject();
             obj["_type"] = vt.FullName ?? vt.Name;
 
-            foreach (var fi in vt.GetFields(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var fi in vt.GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 try
                 {
@@ -286,7 +286,7 @@ namespace WitchModMCP.Tools
                 catch { obj[fi.Name] = "???"; }
             }
 
-            foreach (var pi in vt.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var pi in vt.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
                 if (pi.GetIndexParameters().Length > 0) continue;
                 try

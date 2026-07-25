@@ -14,7 +14,7 @@ namespace WitchModMCP.Tools
     public class PlayCardTool : IMcpTool
     {
         public string Name => "play_card";
-        public string Description => "打出手牌中的一张卡。支持按 index、cardId 识别。攻击卡可指定 targetIndex。如果出牌后触发选牌模态，可用 choices 自动处理。";
+        public string Description => "打出手牌中的一张卡。支持按 index、cardId 识别。攻击卡可指定 targetIndex。如果出牌后触发选牌模态，可用 choices 自动处理。cardId 适合简单链式调用（同 ID 卡多张时打第一张）；同 ID 卡存在差异（如费用不同）时需用 index 精确指定，但出牌后 index 会变，需重新读取手牌。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
