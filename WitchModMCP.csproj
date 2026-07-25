@@ -7,6 +7,7 @@
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <GenerateDocumentationFile>False</GenerateDocumentationFile>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <RootNamespace>Meowalive.Mod.WitchModMCP</RootNamespace>
     <AssemblyName>WitchModMCP</AssemblyName>
@@ -15,6 +16,7 @@
     <GameSteamid>3709430</GameSteamid>
     <GameManagedPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed</GameManagedPath>
     <Configurations>Debug;Release;Debug 魔女 WitchModMCP;Release 魔女 WitchModMCP;</Configurations>
+    <OutputPath>$(ProjectDir)WitchModMCP\Scripts\</OutputPath>
   </PropertyGroup>
 
   <Target Name="DebugPaths" BeforeTargets="Build">
@@ -33,28 +35,20 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug 魔女 WitchModMCP|AnyCPU' ">
     <DebugType>embedded</DebugType>
-    <OutputPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\$(AssemblyName)\Scripts</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release 魔女 WitchModMCP|AnyCPU' ">
     <DebugType>embedded</DebugType>
-    <OutputPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Mods\$(AssemblyName)\Scripts</OutputPath>
   </PropertyGroup>
 
-  <!--
-    MOD_SOURCE_DIR: 源码文件夹名，默认【MOD文件夹】。
-    如果你重命名了该文件夹（例如改为 "MyModSource"），
-    同步修改下方所有 【MOD文件夹】 引用，
-    以及 Python 侧的 MCP_MOD_SOURCE_DIR 环境变量。
-  -->
   <ItemGroup>
-    <Folder Include="【MOD文件夹】\Data\" />
-    <Folder Include="【MOD文件夹】\Text\" />
-    <Folder Include="【MOD文件夹】\ModResource\" />
+    <Folder Include="WitchModMCP\Data\" />
+    <Folder Include="WitchModMCP\Text\" />
+    <Folder Include="WitchModMCP\ModResource\" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
-    <Compile Remove="【MOD文件夹】\mcp_plugins\**\*.cs" />
+    <Compile Remove="WitchModMCP\mcp_plugins\**\*.cs" />
     <Compile Remove="decompiled_game\**\*.cs" />
     <Compile Remove="DecompiledSource\**\*.cs" />
     <!-- DeveloperTools merged into WitchModMCP.Contracts -->
@@ -89,52 +83,27 @@
     </ItemGroup>
   </Target>
 
-  <Target Name="RenameAndCopyModFolder" AfterTargets="Build"
+  <Target Name="BuildMod" AfterTargets="Build"
           Condition="'$(BuildingContracts)' != 'true'">
     <MSBuild Projects="WitchModMCP.Contracts\WitchModMCP.Contracts.csproj" Targets="Build"
              Properties="Configuration=$(Configuration);BuildingContracts=true" />
     <PropertyGroup>
-      <ModTargetDir>$([System.IO.Path]::GetDirectoryName($(TargetDir.TrimEnd('\'))))</ModTargetDir>
-      <DllPathCompiled>$(TargetDir)$(TargetName).dll</DllPathCompiled>
-      <DllPathTarget>$(ModTargetDir)\Scripts\Entry.dll</DllPathTarget>
-      <ContractsDllSource>$(ProjectDir)WitchModMCP.Contracts\bin\$(Configuration)\WitchModMCP.Contracts.dll</ContractsDllSource>
-      <ContractsDllTarget>$(ModTargetDir)\Scripts\WitchModMCP.Contracts.dll</ContractsDllTarget>
+      <ModDir>$(ProjectDir)WitchModMCP</ModDir>
     </PropertyGroup>
-    <ItemGroup>
-      <ModFolder Include="$(ProjectDir)【MOD文件夹】\**\*.*" />
-      <DeleteCatFiles Condition="'$(Configuration)' == 'Release 魔女 WitchModMCP'" Include="$(TargetDir)$(TargetName).pdb" />
-      <DeleteCatFiles Condition="'$(Configuration)' == 'Release 魔女 WitchModMCP'" Include="$(TargetDir)Entry.pdb" />
-    </ItemGroup>
-    <MakeDir Directories="$(ModTargetDir)" Condition="!Exists('$(ModTargetDir)')" />
-    <Message Condition="!Exists('$(ModTargetDir)')" Importance="high" Text="📁✅ 创建目录: $(ModTargetDir)" />
-    <Message Condition="Exists('$(ModTargetDir)')" Importance="high" Text="📁 目录已存在: $(ModTargetDir)" />
-    <Exec Command="robocopy &quot;$(ProjectDir)【MOD文件夹】&quot; &quot;$(ModTargetDir)&quot; /XF changelog.txt /XD 排除的文件夹名字 /E /IS /NDL /NFL /NJH /NJS > nul &amp; exit 0" Condition="Exists('$(ProjectDir)【MOD文件夹】')" />
-    <Message Condition="Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁📦 已复制 MOD 资源: $(ModTargetDir)" />
-    <Message Condition="!Exists('$(ProjectDir)【MOD文件夹】')" Importance="high" Text="📁⚠️ 未找到 MOD 资源文件夹: $(ProjectDir)【MOD文件夹】" />
-    <MSBuild Projects="$(ProjectDir)【MOD文件夹】\mcp_plugins\decompile\Decompile.csproj"
+    <Copy SourceFiles="$(TargetDir)$(TargetName).dll" DestinationFiles="$(ModDir)\Scripts\Entry.dll" Condition="Exists('$(TargetDir)$(TargetName).dll')" />
+    <Message Importance="high" Condition="Exists('$(ModDir)\Scripts\Entry.dll')" Text="✅ WitchModMCP.dll → WitchModMCP/Scripts/Entry.dll" />
+    <Copy SourceFiles="$(ProjectDir)WitchModMCP.Contracts\bin\$(Configuration)\WitchModMCP.Contracts.dll" DestinationFiles="$(ModDir)\Scripts\WitchModMCP.Contracts.dll" Condition="Exists('$(ProjectDir)WitchModMCP.Contracts\bin\$(Configuration)\WitchModMCP.Contracts.dll')" />
+    <Message Importance="high" Condition="Exists('$(ModDir)\Scripts\WitchModMCP.Contracts.dll')" Text="✅ WitchModMCP.Contracts.dll → Scripts/" />
+    <MSBuild Projects="$(ModDir)\mcp_plugins\decompile\Decompile.csproj"
              Targets="Restore;Publish"
-             Properties="PublishDir=$(ModTargetDir)\mcp_plugins\decompile\publish\;Configuration=Release" />
-    <Copy SourceFiles="$(DllPathCompiled)" DestinationFiles="$(DllPathTarget)" Condition="Exists('$(DllPathCompiled)')" />
-    <Message Importance="high" Condition="Exists('$(DllPathTarget)')" Text="✅ 已复制: $(TargetName).dll → $(DllPathTarget)" />
-    <Message Importance="high" Condition="!Exists('$(DllPathTarget)') And Exists('$(DllPathCompiled)')" Text="⚠️ 复制失败: $(DllPathCompiled)" />
-    <Copy SourceFiles="$(ContractsDllSource)" DestinationFiles="$(ContractsDllTarget)" Condition="Exists('$(ContractsDllSource)')" />
-    <Message Importance="high" Condition="Exists('$(ContractsDllTarget)')" Text="✅ 已复制: WitchModMCP.Contracts.dll → Scripts/" />
-    <Delete Files="@(DeleteCatFiles)" ContinueOnError="true" />
-    <RemoveDir Directories="@(DeleteCatFolders)" Condition="Exists('%(FullPath)')" />
-    <Message Importance="high" Text="🗑️ 已清理编译临时文件" />
+             Properties="PublishDir=$(ModDir)\mcp_plugins\decompile\publish\;Configuration=Release" />
   </Target>
 
   <Target Name="CleanModFiles" AfterTargets="Clean">
-    <PropertyGroup>
-      <ModTargetDir>$([System.IO.Path]::GetDirectoryName($(TargetDir.TrimEnd('\'))))</ModTargetDir>
-    </PropertyGroup>
     <ItemGroup>
-      <DllsToDelete Include="$(ModTargetDir)\**\Entry.dll"/>
-      <DllsToDelete Include="$(ModTargetDir)\**\$(TargetName).dll"/>
-      <DllsToDelete Include="$(ModTargetDir)\**\$(TargetName).pdb" />
+      <DllsToDelete Include="$(ProjectDir)WitchModMCP\Scripts\*.dll"/>
+      <DllsToDelete Include="$(ProjectDir)WitchModMCP\Scripts\*.pdb"/>
     </ItemGroup>
-    <Message Importance="high" Text="🗑️ 准备清理:&#x0A;  @(DllsToDelete -> '%(FullPath)', '&#x0A;  ')" />
     <Delete Files="@(DllsToDelete)" Condition="Exists('%(FullPath)')" />
-    <Message Importance="high" Text="🗑️ 已清理 Mod DLL 文件" />
   </Target>
 </Project>
