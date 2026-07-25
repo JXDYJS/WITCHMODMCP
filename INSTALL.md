@@ -30,7 +30,7 @@ Check that the following are installed:
 
 ### Project path
 
-The root of the cloned repo is `<project_root>`. All subsequent paths are relative to this.
+The root of the cloned repo is `<project_root>`. All paths below should use absolute paths to avoid issues across different AI tools.
 
 ---
 
@@ -38,7 +38,7 @@ The root of the cloned repo is `<project_root>`. All subsequent paths are relati
 
 ### Option A: Use pre-built DLLs (recommended)
 
-Pre-built DLLs are in `WitchModMCP\Scripts`:
+Pre-built DLLs are in `bin/Release/` or the release package:
 - `WitchModMCP.dll`
 - `WitchModMCP.Contracts.dll`
 
@@ -72,7 +72,7 @@ Verify the path by checking for a `*_Data/Managed/` subdirectory.
 
 Game mods directory: `<game_root>\*_Data\Mods\`
 
-Copy the entire `WitchModMCP/` folder (includes scripts, decompile plugin, config, data, etc.):
+Copy the entire `WitchModMCP/` folder:
 
 ```bash
 # Windows
@@ -86,14 +86,14 @@ Expected structure after deployment:
 ```
 Mods/WitchModMCP/
 ├── Scripts/
-│   ├── Entry.dll                 ← Main mod entry point
+│   ├── Entry.dll                 ← Main mod entry
 │   └── WitchModMCP.Contracts.dll ← Contracts assembly
 ├── mcp_plugins/
 │   └── decompile/publish/
 │       ├── Decompile.dll
 │       ├── ICSharpCode.Decompiler.dll
 │       └── ...
-├── ModConfig.json                ← MCP port config, etc.
+├── ModConfig.json                ← MCP port config
 ├── Data/
 ├── Text/
 ├── ModResource/
@@ -108,16 +108,16 @@ Skills teach the AI about game mechanics, tool usage, and combat strategy. They 
 
 Skills are located at `<project_root>/.agents/skills/witchSkill/`:
 
-- `base/` — Basic tool usage (combat, deck, lobby, gameflow, etc.)
+- `base/` — Basic tool usage (combat, deck, lobby, gameflow)
 - `devtools/` — Developer debugging tools
 - `gameplay/` — Normal gameplay guide
 - `insights/` — Game mechanics and data structures
 - `patterns/` — Development pattern reference
 - `deployment/` — Build and deploy guides
 
-**Project-level install**: Skills stay in the repo, no extra step needed. The AI finds them via the reference in `AGENTS.md`.
+**Project-level install**: Skills stay in the repo. The AI finds them via `AGENTS.md`.
 
-**Global install**: Copy skills to the AI tool's global skill directory so they're available to all projects.
+**Global install**: Copy skills to the AI tool's global skill directory.
 
 ```bash
 # opencode global
@@ -131,39 +131,28 @@ cp -r "<project_root>/.agents/skills/witchSkill" "~/.claude/skills/"
 
 ## Step 4: Configure the MCP Server
 
-The MCP gateway is auto-launched by the AI tool via its config file. You need to determine which AI tool the user is running and where its config lives.
+The MCP gateway is auto-launched by the AI tool. You need to determine which AI tool the user is running and write the correct config.
 
-### Identify the AI tool
-
-| Tool | Config scope | Details |
-|---|---|---|
-| opencode | Project or global | Project: `<project_root>/opencode.json`; Global: `~/.config/opencode/opencode.json` |
-| Claude Desktop | Global | Windows: `%APPDATA%\Claude\claude_desktop_config.json`; macOS: `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Claude Code | Global | `~/.claude/settings.json` |
-| Cursor | Project or global | Project: `<project_root>/.cursor/mcp.json`; Global: Cursor Settings → MCP |
-| Windsurf | Project | `<project_root>/.windsurf/mcp_config.json` |
-| Codex CLI | Global | `~/.codex/config.toml` |
-| VS Code (GitHub Copilot) | Project or global | Project: `.vscode/mcp.json`; Global: `settings.json` → `github.copilot.chat.mcp.servers` |
+The gateway script resolves its own paths via `__file__`, so **use an absolute path** to `<project_root>/run_gateway.py` in all configs.
 
 ### Ask the user
 
 Before writing config, **ask the user: do you want a project-level or global install?**
 
-- Project-level: Config file inside the project directory, scoped to this project
-- Global: Config file in the user's home or app data directory, available everywhere
+- Project-level: Config file inside the project directory
+- Global: Config file in the user's home or app data directory
 
-### Write the config
+### Config templates by tool
 
-Use the appropriate template below:
-
-**opencode (project-level `opencode.json`):**
+**opencode**
+File: `<project_root>/opencode.json` (project) or `~/.config/opencode/opencode.json` (global)
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "witchmod": {
       "type": "local",
-      "command": ["python", "run_gateway.py"],
+      "command": ["python", "<abs_path>/run_gateway.py"],
       "cwd": "<project_root>",
       "timeout": 30000,
       "enabled": true
@@ -172,67 +161,86 @@ Use the appropriate template below:
 }
 ```
 
-**Claude Desktop (global `claude_desktop_config.json`):**
+**Claude Desktop**
+File: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
-      "args": ["run_gateway.py"],
-      "cwd": "<project_root>"
+      "args": ["<abs_path>/run_gateway.py"]
     }
   }
 }
 ```
 
-**Claude Code (global `~/.claude/settings.json`):**
+**Claude Code**
+
+Three scope options:
+- Local (default, `~/.claude.json`): `claude mcp add --transport stdio witchmod -- python <abs_path>/run_gateway.py`
+- Project (`.mcp.json`): `claude mcp add --transport stdio --scope project witchmod -- python <abs_path>/run_gateway.py`
+- User (`~/.claude.json`, cross-project): `claude mcp add --transport stdio --scope user witchmod -- python <abs_path>/run_gateway.py`
+
+Or manually write `.mcp.json`:
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
-      "args": ["run_gateway.py"],
-      "cwd": "<project_root>"
+      "args": ["<abs_path>/run_gateway.py"],
+      "env": {}
     }
   }
 }
 ```
 
-**Cursor (project-level `.cursor/mcp.json`):**
+**VS Code (GitHub Copilot)**
+File: `.vscode/mcp.json` (project) or global settings
+```json
+{
+  "servers": {
+    "witchmod": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["<abs_path>/run_gateway.py"]
+    }
+  }
+}
+```
+
+**Cursor**
+File: `.cursor/mcp.json` (project) or Cursor Settings → MCP
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
-      "args": ["run_gateway.py"],
-      "cwd": "<project_root>"
+      "args": ["<abs_path>/run_gateway.py"]
     }
   }
 }
 ```
 
-**Windsurf (project-level `.windsurf/mcp_config.json`):**
+**Windsurf**
+File: `~/.codeium/windsurf/mcp_config.json`
 ```json
 {
   "mcpServers": {
     "witchmod": {
       "command": "python",
-      "args": ["run_gateway.py"],
-      "cwd": "<project_root>"
+      "args": ["<abs_path>/run_gateway.py"]
     }
   }
 }
 ```
 
-**Codex CLI (global `~/.codex/config.toml`):**
+**Codex CLI**
+File: `~/.codex/config.toml`
 ```toml
 [mcp_servers.witchmod]
 command = "python"
-args = ["run_gateway.py"]
-cwd = "<project_root>"
+args = ["<abs_path>/run_gateway.py"]
 ```
-
-> If the user chose project-level install but the tool doesn't support it, fall back to global.
 
 ---
 
@@ -240,7 +248,7 @@ cwd = "<project_root>"
 
 1. **Launch the game** — ask the user to start the game with the WitchModMCP mod loaded
 2. **Check connectivity** — call `get_scene_state` or `ping` to test
-3. **If gateway isn't running** — the AI tool will auto-launch `python run_gateway.py` on the first MCP tool call; wait a few seconds and retry
+3. **If gateway isn't running** — the AI tool will auto-launch the gateway on first MCP tool call; wait a few seconds and retry
 4. **Check logs** — if it fails, verify the game is running, the mod is enabled, and port `3100` isn't in use
 
 ---
@@ -252,17 +260,16 @@ The cloned project folder does not need to be kept. Before deleting, make sure:
 - No one is actively using the Python gateway or DLLs
 - You've copied anything you want to keep
 
-Deleting source code and build artifacts is generally safe. If you keep the project folder, the MCP config's `cwd` already points to it — no extra work needed.
+If you keep the project folder, the MCP config's absolute paths already point to it.
 
-**If you want to delete the project folder**, first copy the MCP gateway to a permanent location and update the MCP config:
+**If you want to delete the project folder**, first copy the MCP gateway to a permanent location:
 
 ```bash
-# Copy to a stable location (e.g. C:\Tools\WitchModMCP)
 cp -r "<project_root>/mcp_gateway" "<target_path>/"
 cp "<project_root>/run_gateway.py" "<target_path>/"
 ```
 
-Then update `cwd` and `command` in the MCP config to point to the new absolute paths.
+Then update all MCP config paths to point to the new location.
 
 ---
 
