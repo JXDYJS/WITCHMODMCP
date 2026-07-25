@@ -104,30 +104,37 @@ Mods/WitchModMCP/
 
 ---
 
-## Step 3: Deploy Skills (AI Documentation)
+## Step 3: Deploy Skills & Agent Instructions
 
-Skills teach the AI about game mechanics, tool usage, and combat strategy. They need to be placed where the AI tool can find them.
+Skills and agent instructions need to be in the **user's actual project directory** (where they develop their mod), so the AI tool can find them regardless of whether it supports skill loading natively.
 
-Skills are located at `<project_root>/.agents/skills/witchSkill/`:
+Determine the user's project directory (`<user_project>`). This is the root of the mod they are working on, not the WitchModMCP clone.
 
-- `base/` — Basic tool usage (combat, deck, lobby, gameflow)
-- `devtools/` — Developer debugging tools
-- `gameplay/` — Normal gameplay guide
-- `insights/` — Game mechanics and data structures
-- `patterns/` — Development pattern reference
-- `deployment/` — Build and deploy guides
-
-**Project-level install**: Skills stay in the repo. The AI finds them via `AGENTS.md`.
-
-**Global install**: Copy skills to the AI tool's global skill directory.
+### Copy skills
 
 ```bash
-# opencode global
-cp -r "<project_root>/.agents/skills/witchSkill" "~/.config/opencode/agents/skills/"
+# Create the skills directory in the user's project
+mkdir -p "<user_project>/.agents/skills/"
 
-# Claude Code global
-cp -r "<project_root>/.agents/skills/witchSkill" "~/.claude/skills/"
+# Copy skills from the WitchModMCP clone
+cp -r "<project_root>/.agents/skills/witchSkill" "<user_project>/.agents/skills/"
 ```
+
+### Copy agent instructions
+
+```bash
+# AGENTS.md — supported by most coding agents (opencode, Cursor, Codex, Claude Code, VS Code, etc.)
+cp "<project_root>/AGENTS.md" "<user_project>/AGENTS.md"
+
+# INSTRUCTIONS.md — used by Codex CLI
+cp "<project_root>/INSTRUCTIONS.md" "<user_project>/INSTRUCTIONS.md"
+```
+
+If the user's project already has an `AGENTS.md`, append the WitchModMCP instructions to it instead of overwriting.
+
+> **Note for global install**: If the AI tool supports global skill directories, also copy skills there:
+> - opencode: `~/.config/opencode/agents/skills/`
+> - Claude Code: `~/.claude/skills/`
 
 ---
 
