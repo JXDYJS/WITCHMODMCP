@@ -14,6 +14,22 @@ WitchModMCP 是《魔女:终末旅途》（Witch's Apocalyptic Journey）的一�
 
 它是 AI 辅助 Mod 开发和游戏自动化基础设施的核心组件。
 
+## 安装
+
+**方式一：交给 AI 处理（推荐）**
+
+复制以下提示词发给你的 AI 工具（opencode / Claude Code / Cursor 等）：
+
+> 克隆 https://github.com/JXDYJS/WITCHMODMCP.git，然后读取 INSTALL.md 并按步骤帮我安装。
+
+AI 会自动读取 [INSTALL.md](./INSTALL.md) 并引导你完成安装。
+
+**方式二：自行安装**
+
+阅读 [INSTALL.md](./INSTALL.md) 按步骤手动操作。
+
+---
+
 ### 架构
 
 ```
@@ -113,12 +129,6 @@ WitchModMCP (Unity Mod)         ← 游戏内 HTTP 服务器
 | `load_scene(type, id?)` | 调试 | 跳转到任意事件、战斗或假战斗场景 |
 | `set_card_pile(pile, action, cards?, indices?, shuffle?)` | 调试 | 控制手牌、抽牌堆、弃牌堆、消耗堆 |
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | 调试 | 修改任意战斗实体的属性和 Buff |
-
-### 安装
-
-> 安装说明正在整理中，即将补充。
-
----
 
 <div align="center">
 MIT 许可证 — 详见 [LICENSE](./LICENSE)

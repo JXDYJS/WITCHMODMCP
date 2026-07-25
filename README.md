@@ -14,6 +14,22 @@ WitchModMCP is a mod for *Witch's Apocalyptic Journey* that exposes an MCP inter
 
 It is the foundational component for AI-assisted mod development and gameplay automation.
 
+## Installation
+
+**Option 1: Let your AI do it (recommended)**
+
+Copy this prompt and send it to your AI tool (opencode, Claude Code, Cursor, etc.):
+
+> Clone https://github.com/JXDYJS/WITCHMODMCP.git, read INSTALL.md, and help me install it.
+
+Your AI will read [INSTALL.md](./INSTALL.md) and guide you through the process.
+
+**Option 2: DIY**
+
+Read [INSTALL.md](./INSTALL.md) and follow the steps manually.
+
+---
+
 ### Architecture
 
 ```
@@ -113,12 +129,6 @@ Tools for mod developers to inspect runtime state, debug mod behavior, and test 
 | `load_scene(type, id?)` | Debug | Jump to any event, fight, or fake-fight scene |
 | `set_card_pile(pile, action, cards?, indices?, shuffle?)` | Debug | Manipulate hand, draw pile, discard pile, or exhaust pile |
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | Debug | Modify any combat entity's attributes and buffs |
-
-### Installation
-
-> Coming soon — installation instructions are being finalized.
-
----
 
 <div align="center">
 MIT License — see [LICENSE](./LICENSE)
