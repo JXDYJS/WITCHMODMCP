@@ -1,6 +1,6 @@
 ---
 name: witch-mod-mcp-game-insights
-description: "Knowledge base: game Witch (女巫) architecture, data structures, C# API patterns, decompiled source internals. Use when the AI needs to understand how the game works internally (not tool usage). Triggers: game architecture, 游戏架构, data tables, 数据表, C# API, singleton, decompile, 反编译, game internals."
+description: "Knowledge base: game Witch (魔女:终末旅途) architecture, data structures, C# API patterns, decompiled source internals. Use when the AI needs to understand how the game works internally (not tool usage). Triggers: game architecture, 游戏架构, data tables, 数据表, C# API, singleton, decompile, 反编译, game internals."
 ---
 
 # Game Insights — Architecture & Internals Knowledge Base

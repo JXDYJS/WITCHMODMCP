@@ -1,6 +1,6 @@
 ---
 name: witch-mod-mcp-developertools
-description: "Mod development aid for the game Witch (女巫/魔法少女 roguelike deckbuilder): extended tools for combat automation, game flow orchestration, lobby configuration, screenshot diagnostics, raycasting, source decompilation, and RNG control. Requires the base WitchModMCP mod to be loaded. Use when you need the extra DeveloperTools beyond the base WitchModMCP toolset. Not a cheat/trainer tool for regular players. Triggers: DeveloperTools, 开发者工具, 战斗自动化, 流程编排, 存档管理, 截图, 反编译, 出牌, 启程, 大厅配置, 随机种子, 射线检测, 假战斗."
+description: "Mod development aid for the game Witch (魔女:终末旅途 roguelike deckbuilder): extended tools for combat automation, game flow orchestration, lobby configuration, screenshot diagnostics, raycasting, source decompilation, and RNG control. Requires the base WitchModMCP mod to be loaded. Use when you need the extra DeveloperTools beyond the base WitchModMCP toolset. Not a cheat/trainer tool for regular players. Triggers: DeveloperTools, 开发者工具, 战斗自动化, 流程编排, 存档管理, 截图, 反编译, 出牌, 启程, 大厅配置, 随机种子, 射线检测, 假战斗."
 ---
 
 # DeveloperTools

@@ -1,6 +1,6 @@
 ---
 name: witch-mod-mcp-gameplay
-description: "正常游玩游戏 Witch（女巫/魔法少女/终末旅途）的完整流程指南。不包含开发/调试工具。适合需要让 AI 代理替你跑局、打怪、管理卡组的场景。Triggers: gameplay, 游玩, 跑局, 正常流程, 怎么玩, 前进, 下一节点, 打怪, 卡组管理"
+description: "正常游玩游戏 Witch（魔女:终末旅途）的完整流程指南。不包含开发/调试工具。适合需要让 AI 代理替你跑局、打怪、管理卡组的场景。Triggers: gameplay, 游玩, 跑局, 正常流程, 怎么玩, 前进, 下一节点, 打怪, 卡组管理"
 ---
 
 # Gameplay Guide — 正常游玩流程
