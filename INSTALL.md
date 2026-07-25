@@ -1,5 +1,7 @@
 # WitchModMCP Installation Guide
 
+> **Disclaimer**: The MCP configuration templates below are provided as reference only. AI tools update their config formats over time, and not every tool is listed here. If a template doesn't work or your tool isn't covered, search the official documentation of your AI tool for the correct MCP server configuration format and transport type.
+
 ## Project Structure
 
 This repository contains four parts. Verify they are all present before installing:
