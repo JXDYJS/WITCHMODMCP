@@ -38,7 +38,7 @@ WitchModMCP is a mod development tool for the game **Witch** (女巫/魔法少�
    ```powershell
    Get-Process -Name "Witch*" -ErrorAction SilentlyContinue | Stop-Process -Force
    Start-Sleep -Seconds 3
-   Start-Process -FilePath "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey.exe"
+   Start-Process -FilePath "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey.exe"   # 改为你的实际路径，可用 get_game_info 工具查询
    Start-Sleep -Seconds 25
    ```
    CSV/Lua 变更必须重启游戏才能生效。C# DLL 热重载用 `reload_tools` 工具即可（见规则 24）。

@@ -1,7 +1,7 @@
 {
   "ModName": "WitchModMCP",
   "ModVersion": "1.0.0",
-  "ModAuthor": "YOUR_NAME",
+  "ModAuthor": "YJS",
   "ModDescription": "Unity Mod MCP Server",
   "IconPath": "icon.png",
   "Enabled": true,

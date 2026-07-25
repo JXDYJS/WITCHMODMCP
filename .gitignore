@@ -57,3 +57,4 @@ plugins_il.res
 # Python cache
 __pycache__/
 *.pyc
+.pytest_cache/

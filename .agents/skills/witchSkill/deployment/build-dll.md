@@ -22,7 +22,7 @@ DllTemplate/Dev/Entry.cs            ← 写你的代码
 <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <AssemblyName>YourMod.YourName</AssemblyName>   <!-- 必须：ModName.ModAuthor -->
-    <GamePath>F:\steam\steamapps\common\Witch's Apocalyptic Journey</GamePath>
+    <GamePath>F:\steam\steamapps\common\Witch's Apocalyptic Journey</GamePath>  <!-- 改为你的实际路径，可用 get_game_info 工具查询 -->
     <DllPath>$(GamePath)\Witch's Apocalyptic Journey_Data\Managed</DllPath>
 </PropertyGroup>
 ```
