@@ -19,7 +19,7 @@ Drive the game's state machine across major scenes: main menu → hub → mode s
 | `map_select_clear` | `{slotIndex}` | `{result, message}` | Remove node from a slot. |
 | `map_select_confirm` | — | `{result, message}` | Confirm node arrangement AND advance. Called after every node—used both for starting the passage AND for moving to the next node. |
 | `claim_rewards` | — | `{claimed?, actions: []}` | ⚠️ 将未领取奖励全部转化为金钱的快捷按钮。见下方"正确领取流程" |
-| `load_scene` | `{type, id?}` | `{type, id, result}` | **🔧 开发/调试工具** — 直接跳转到指定场景，正常游玩不应使用 |
+| `load_scene` | `{type, id?}` | `{type, id, result}` | **🚨 仅开发/调试用！会绕过正常流程节点，可能破坏存档流程导致坏档。正常游玩绝对不要调用！** |
 
 ---
 
@@ -68,9 +68,11 @@ In the career selection hall (after `start_new_game`), click the "Start" button 
 
 ### load_scene
 
-> **🔧 开发/调试工具 — 正常游玩时不要使用！**
+> **🚨 警告：仅开发/调试用！此工具直接跳转到指定场景，绕过所有正常流程节点，可能破坏存档数据，导致坏档！**
 >
-> 这个工具直接跳转到指定场景，会绕过地图节点导航系统。正常流程应该通过 `map_select_confirm` 自然推进，而不是用 `load_scene` 跳战斗/事件。
+> **正常游玩流程绝对不要调用此工具。必须通过 `map_select_assign` + `map_select_confirm` 自然推进。**
+>
+> **确认你真的需要使用它，再使用。**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|

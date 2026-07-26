@@ -31,6 +31,8 @@ Detects the current game UI page. Returns which page is active and whether there
 | `MODE_SELECT` | Mode choice dialog |
 | `LOBBY` | Career selection hall (`GameEntryUI`) |
 | `FIGHT` | In combat |
+| `SHOP` | Shop UI open |
+| `BREAKS` | **安全屋/休息处**（每层第一个事件节点后进入）— 有保险箱和食物。**不是 MAP！** 不要误以为回到了地图选点页面 |
 | `MAP` | Map screen or in-run but not fighting |
 | `HUB` | House/hub scene |
 | `UNKNOWN` | Unrecognized state |

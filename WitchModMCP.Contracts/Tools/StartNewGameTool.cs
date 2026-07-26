@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using UnityEngine;
 using Witch.UI;
 using Witch.UI.Window;
 using WitchModMCP.Dispatcher;
@@ -43,6 +44,7 @@ namespace WitchModMCP.Tools
             if (IsUIActive_<ModeChoiceUI>("ModeChoiceUI")) return "MODE_SELECT";
             if (IsUIActive_<GameEntryUI>("GameEntryUI")) return "LOBBY";
             if (FightManager.Instance != null && FightManager.Instance.fightType != FightType.None) return "FIGHT";
+            if (GameObject.Find("Breaks") != null) return "BREAKS";
             if (IsUIActive_<MapSelectUI>("MapSelectUI")) return "MAP";
             if (GameApp.Instance?.HouseItem?.activeSelf == true) return "HUB";
             if (MapManager.Instance != null) return "MAP";

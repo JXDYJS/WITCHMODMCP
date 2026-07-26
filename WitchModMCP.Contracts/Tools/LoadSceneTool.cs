@@ -9,7 +9,7 @@ namespace WitchModMCP.Tools
     public class LoadSceneTool : IMcpTool
     {
         public string Name => "load_scene";
-        public string Description => "加载/跳转到指定场景。type 支持: event (事件), fight (战斗), fakefight (假战斗)。id 可选: 具体ID、'common' (普通战)、'elite' (精英战)、'boss' (Boss战)。";
+        public string Description => "⚠️ 仅开发/调试用！跳转到指定场景，会绕过正常流程节点，可能破坏存档流程导致坏档。正常游玩不应使用。type 支持: event (事件), fight (战斗), fakefight (假战斗)。id 可选: 具体ID、'common' (普通战)、'elite' (精英战)、'boss' (Boss战)。";
         public JObject InputSchema => new()
         {
             ["type"] = "object",
@@ -18,7 +18,7 @@ namespace WitchModMCP.Tools
                 ["type"] = new JObject
                 {
                     ["type"] = "string",
-                    ["description"] = "场景类型: event, fight, fakefight"
+                    ["description"] = "⚠️ 仅开发调试用！场景类型: event, fight, fakefight"
                 },
                 ["id"] = new JObject
                 {

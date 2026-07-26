@@ -104,12 +104,15 @@ namespace WitchModMCP.Tools
                 // 6. 地图
                 bool isMap = IsUIActive<MapSelectUI>("MapSelectUI");
 
-                // 6. 小屋内（中枢）
+                // 6. 休息处/安全屋（Breaks - 继承 MonoBehaviour 而非 UIBase）
+                bool isBreaks = GameObject.Find("Breaks") != null;
+
+                // 7. 小屋内（中枢）
                 bool isHub = GameApp.Instance != null
                     && GameApp.Instance.HouseItem != null
                     && GameApp.Instance.HouseItem.activeSelf;
 
-                // 7. 跑局中（MapManager激活）
+                // 8. 跑局中（MapManager激活）
                 bool inRun = MapManager.Instance != null
                     && !isMainMenu
                     && !isModeSelect
@@ -122,6 +125,7 @@ namespace WitchModMCP.Tools
                 else if (isLobby) page = "LOBBY";
                 else if (inFight) page = "FIGHT";
                 else if (isShop) page = "SHOP";
+                else if (isBreaks) page = "BREAKS";
                 else if (isMap) page = "MAP";
                 else if (isHub) page = "HUB";
                 else if (inRun) page = "MAP";
