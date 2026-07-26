@@ -3,11 +3,10 @@
 WitchModMCP Gateway — MCP stdio server (zero external deps).
 
 This is the entry point AI tools connect to via stdio.
-It proxies tool calls to the game mod's HTTP server and exposes
-skill documentation as MCP Resources.
+It proxies tool calls to the game mod's HTTP server.
 
 Design (dynamic discovery):
-  * On startup, only `ping` is registered (plus skill-doc Resources).
+  * On startup, only `ping` is registered.
   * The MCP handshake completes immediately — the client sees an empty
     tools list except for `ping`.
   * When the first heartbeat to the game mod succeeds (background thread),
@@ -36,7 +35,6 @@ from mcp_gateway.mcp_transport import SimpleMCP, run_stdio_async
 
 from mcp_gateway.heartbeat import HeartbeatManager
 from mcp_gateway.mod_client import ModConnection, read_mod_config
-from mcp_gateway.resources import register_resources
 from mcp_gateway.tools import (
     init as tools_init,
     register_core_tools,
@@ -306,11 +304,7 @@ def main():
     except (ConnectionError, OSError, Exception) as e:
         log(f"C# mod not reachable at startup ({e}) — only ping until heartbeat")
 
-    # 6. Register skill documentation as MCP Resources (always available)
-    resource_count = register_resources(mcp)
-    log(f"Registered {resource_count} skill doc resources")
-
-    # 7. Run MCP stdio server (blocks until stdin closes).
+    # 6. Run MCP stdio server (blocks until stdin closes).
     #    run_stdio_async handles Content-Length framing and JSON-RPC dispatch.
     #    It also captures the asyncio event loop and write_stream so the
     #    heartbeat thread can schedule async work (tool registration + notifications).

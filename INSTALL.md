@@ -99,7 +99,6 @@ Mods/WitchModMCP/
 ├── Data/
 ├── Text/
 ├── ModResource/
-└── mcp_skills/
 ```
 
 ---

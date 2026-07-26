@@ -115,7 +115,6 @@ Tools for mod developers to inspect runtime state, debug mod behavior, and test 
 | `query_config(tableName?, id?, limit?)` | Diagnostics | Query game config tables (CardConfig, EnemyConfig, etc.) |
 | `search_config(pattern, limit?, includeFields?, searchNativeIds?)` | Diagnostics | Fuzzy-search all loaded config data by keyword |
 | `dump_mod_state()` | Diagnostics | List all loaded mods and their assemblies |
-| `get_env_info()` | Diagnostics | Scan MCPSkillNamespace attributes on all loaded assemblies |
 | `get_scene_tree(rootName?, maxDepth?, maxChildren?, includeComponents?, includeInactive?)` | Diagnostics | Dump the Unity scene GameObject hierarchy |
 | `get_recent_logs(count?, level?)` | Diagnostics | Tail recent game logs with level filtering |
 | `give_item(type, value)` | Diagnostics | Spawn any item: cards, relics, blessings, gold, stats, etc. |

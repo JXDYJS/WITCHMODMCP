@@ -14,7 +14,6 @@
 ```
 YourMod/                     ← Mod 完整文件夹（即最终要部署的东西）
 ├── ModConfig.json
-├── mcp_skills/
 ├── Scripts/                 ← C# 编译产物放这里
 │   ├── Entry.dll
 │   └── YourMod.Contracts.dll

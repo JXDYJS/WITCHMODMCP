@@ -115,7 +115,6 @@ WitchModMCP (Unity Mod)         ← 游戏内 HTTP 服务器
 | `query_config(tableName?, id?, limit?)` | 诊断 | 查询游戏配置表（CardConfig, EnemyConfig 等） |
 | `search_config(pattern, limit?, includeFields?, searchNativeIds?)` | 诊断 | 模糊搜索所有已加载的配置数据 |
 | `dump_mod_state()` | 诊断 | 列出所有已加载的 Mod 及其程序集 |
-| `get_env_info()` | 诊断 | 扫描所有程序集的 MCPSkillNamespace 特性 |
 | `get_scene_tree(rootName?, maxDepth?, maxChildren?, includeComponents?, includeInactive?)` | 诊断 | 导出 Unity 场景 GameObject 层级树 |
 | `get_recent_logs(count?, level?)` | 诊断 | 查看最近游戏日志（支持按级别过滤） |
 | `give_item(type, value)` | 诊断 | 给予任何物品：卡牌、遗物、祝福、金钱、属性等 |

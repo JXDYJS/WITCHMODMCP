@@ -200,7 +200,7 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 | [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
 | [Gameflow](./base/gameflow/SKILL.md) | `enter_game`, `start_new_game`, `start_run`, `map_select_state`, `map_select_assign`, `map_select_clear`, `map_select_confirm`, `load_scene`, `claim_rewards` | 启程, 开始游戏, 跳转, gameflow, 地图选点, 节点编排 |
 | [Deck](./base/deck/SKILL.md) | `get_outdeck_state`, `outdeck_move_card`, `outdeck_decompose` | 牌组, deck, 装备/备选, 分解, 卡牌管理, outdeck |
-| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `get_env_info`, `scan_ui`, `click_ui`, `get_rewards_state` | 调试, 反射, 查配置, debug, diagnostics, 环境发现（Mod skill 路径）, 奖励, rewards |
+| [Diagnostics](./base/diagnostics/SKILL.md) | `inspect`, `query_config`, `search_config`, `dump_mod_state`, `get_scene_tree`, `get_recent_logs`, `raycast_mouse`, `set_rng_seed`, `get_screenshot`, `give_item`, `scan_ui`, `click_ui`, `get_rewards_state` | 调试, 反射, 查配置, debug, diagnostics, 奖励, rewards |
 | [Game Insights](./insights/SKILL.md) | **§11 CSV schemas**, **§13 Quick-Start Guides** (add cards §13.1, add career §13.3, SkillScript patterns §11.5c, testing §13.7) | CSV schemas, Lua effect API, mod directory structure, built-in buff IDs |
 | [Templates](./templates/using-templates.md) | (reference) | ModTemplate / DllTemplate usage, CSV column reference, example mod |
 | [Code Patterns](./code-patterns/entry-patterns.md) | (reference) | Entry.lua patterns, Hook patterns, career mod architecture |
@@ -213,7 +213,7 @@ For a full module-by-module listing, open [base/SKILL.md](./base/SKILL.md).
 
 ## Skill documentation sync
 
-Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway auto-syncs docs on first heartbeat.
+Skill `.md` docs live inside the project's `.agents/skills/witchSkill/` directory and are loaded by the AI agent's skill system.
 
 ## Common intents → module routing
 
@@ -258,9 +258,6 @@ Skill `.md` docs live inside each mod's folder under `mcp_skills/`. The gateway 
 | "Manage my deck (equip/unequip cards)" | Deck | `get_outdeck_state` → `outdeck_move_card` |
 | "Decompose/destroy a card" | Deck | `get_outdeck_state` → `outdeck_decompose` |
 | "Check deck limits" | Deck | `get_outdeck_state` |
-| "What developer tools are available?" | Diagnostics | `get_env_info` |
-
-| "Discover mod skill doc paths" | Diagnostics | `get_env_info` |
 > **New mod creation workflow (card/cardpack/character):** Load this skill → `git clone` the template → load [insights/SKILL.md](./insights/SKILL.md) for CSV schema details → refer to §13.x quick-start guides for step-by-step instructions.
 
 ## Game source code decompilation (optional)

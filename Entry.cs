@@ -9,9 +9,6 @@ using WitchModMCP.Harmony;
 using WitchModMCP.MCP;
 using WitchModMCP.Utils;
 
-// ReSharper disable CheckNamespace — must be at global scope for assembly-level attribute
-[assembly: MCPSkillNamespace("mcp_skills")]
-
 namespace WitchModMCP
 {
     public static class WitchModMCPEntry
