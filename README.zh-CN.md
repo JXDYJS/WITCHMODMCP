@@ -33,7 +33,7 @@ AI 会自动读取 [INSTALL.md](./INSTALL.md) 并引导你完成安装。
 ### 架构
 
 ```
-AI 代理 (opencode)
+AI 代理 (opencode / Claude Code / Cursor 等)
     │  MCP JSON-RPC (stdin/stdout)
     ▼
 mcp_gateway/server.py          ← Python MCP stdio 服务器

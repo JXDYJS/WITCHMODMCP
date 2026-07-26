@@ -33,7 +33,7 @@ Read [INSTALL.md](./INSTALL.md) and follow the steps manually.
 ### Architecture
 
 ```
-AI Agent (opencode)
+AI Agent (opencode / Claude Code / Cursor etc.)
     │  MCP JSON-RPC (stdin/stdout)
     ▼
 mcp_gateway/server.py          ← Python MCP stdio server
