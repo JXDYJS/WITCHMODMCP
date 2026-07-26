@@ -8,7 +8,7 @@ This repository contains three parts. Verify they are all present before install
 
 | Component | Description | Location |
 |---|---|---|---|
-| **Game Mod** | C# Unity mod (source + build output). `dotnet build` → `Scripts/*.dll`; deploy the whole folder | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
+| **Game Mod** | C# Unity mod (source + pre-built DLLs in `Scripts/`). Deploy the whole folder | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
 | **MCP Gateway (Python)** | MCP stdio ↔ HTTP proxy, connects AI tools to the game | `mcp_gateway/`, `run_gateway.py` |
 | **Skill (AI docs)** | Knowledge base for game mechanics, tool usage, combat strategy | `.agents/skills/witchSkill/` |
 
@@ -35,22 +35,9 @@ The root of the cloned repo is `<project_root>`. All paths below should use abso
 
 ---
 
-## Step 2: Build & Deploy the Mod
+## Step 2: Deploy the Mod
 
-### Build
-
-```bash
-cd <project_root>
-dotnet build
-```
-
-The csproj outputs DLLs directly to `WitchModMCP/Scripts/`:
-- `Scripts/Entry.dll` ← Main mod entry
-- `Scripts/WitchModMCP.Contracts.dll` ← Contracts assembly
-
-It also publishes the decompile plugin to `mcp_plugins/decompile/publish/`.
-
-### Find the game installation directory
+### Prerequisite: Find the game installation directory
 
 First, ask the user for the path — the easiest way is to right-click the game in Steam → Manage → Browse local files, then paste the path.
 
@@ -69,7 +56,7 @@ Verify the path by checking for a `*_Data/Managed/` subdirectory.
 
 ### Deploy
 
-Copy the entire `WitchModMCP/` folder to the game's Mods directory:
+The repository already contains the built DLLs at `WitchModMCP/Scripts/`. Simply copy the entire `WitchModMCP/` folder to the game's Mods directory:
 
 ```bash
 # Windows
@@ -95,6 +82,8 @@ Mods/WitchModMCP/
 ├── Text/
 ├── ModResource/
 ```
+
+> **Optional: Build from source** — run `dotnet build` in the repo root. The csproj outputs to `WitchModMCP/Scripts/` and publishes the decompile plugin. Only needed if you modify the C# code.
 
 ---
 
