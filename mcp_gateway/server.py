@@ -35,6 +35,7 @@ from mcp_gateway.mcp_transport import SimpleMCP, run_stdio_async
 
 from mcp_gateway.heartbeat import HeartbeatManager
 from mcp_gateway.mod_client import ModConnection, read_mod_config
+from mcp_gateway.resources import register_resources
 from mcp_gateway.tools import (
     init as tools_init,
     register_core_tools,
@@ -304,7 +305,12 @@ def main():
     except (ConnectionError, OSError, Exception) as e:
         log(f"C# mod not reachable at startup ({e}) — only ping until heartbeat")
 
-    # 6. Run MCP stdio server (blocks until stdin closes).
+    # 6. Register witchSkill docs as MCP Resources (if available)
+    resource_count = register_resources(mcp, _workspace_dir)
+    if resource_count > 0:
+        log(f"Registered {resource_count} skill doc resources")
+
+    # 7. Run MCP stdio server (blocks until stdin closes).
     #    run_stdio_async handles Content-Length framing and JSON-RPC dispatch.
     #    It also captures the asyncio event loop and write_stream so the
     #    heartbeat thread can schedule async work (tool registration + notifications).
