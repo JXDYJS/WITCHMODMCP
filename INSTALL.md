@@ -4,12 +4,11 @@
 
 ## Project Structure
 
-This repository contains four parts. Verify they are all present before installing:
+This repository contains three parts. Verify they are all present before installing:
 
 | Component | Description | Location |
-|---|---|---|
-| **Game Mod (DLL source)** | C# Unity mod, injects HTTP API into game process | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
-| **Pre-built DLLs** | Ready-to-copy binaries for the game Mods folder | `bin/Release/` or release package |
+|---|---|---|---|
+| **Game Mod** | C# Unity mod (source + build output). `dotnet build` → `Scripts/*.dll`; deploy the whole folder | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
 | **MCP Gateway (Python)** | MCP stdio ↔ HTTP proxy, connects AI tools to the game | `mcp_gateway/`, `run_gateway.py` |
 | **Skill (AI docs)** | Knowledge base for game mechanics, tool usage, combat strategy | `.agents/skills/witchSkill/` |
 
@@ -36,22 +35,20 @@ The root of the cloned repo is `<project_root>`. All paths below should use abso
 
 ---
 
-## Step 2: Deploy the Mod DLL
+## Step 2: Build & Deploy the Mod
 
-### Option A: Use pre-built DLLs (recommended)
-
-Pre-built DLLs are in `bin/Release/` or the release package:
-- `WitchModMCP.dll`
-- `WitchModMCP.Contracts.dll`
-
-### Option B: Build from source
+### Build
 
 ```bash
 cd <project_root>
 dotnet build
 ```
 
-Output goes to `WitchModMCP/bin/Debug/net472/` (or similar).
+The csproj outputs DLLs directly to `WitchModMCP/Scripts/`:
+- `Scripts/Entry.dll` ← Main mod entry
+- `Scripts/WitchModMCP.Contracts.dll` ← Contracts assembly
+
+It also publishes the decompile plugin to `mcp_plugins/decompile/publish/`.
 
 ### Find the game installation directory
 
@@ -61,7 +58,7 @@ If the user doesn't know or can't provide it, try these in order:
 
 1. **Read `.game_path`** in the repo root (if it exists)
 2. **Check Steam registry** (Windows):
-   - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 000000`
+   - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 3709430`
    - Or scan `HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Valve\Steam`
 3. **Scan common paths**:
    - `C:\Program Files\Steam\steamapps\common\Witch's Apocalyptic Journey`
@@ -70,11 +67,9 @@ If the user doesn't know or can't provide it, try these in order:
 
 Verify the path by checking for a `*_Data/Managed/` subdirectory.
 
-### Deploy the mod
+### Deploy
 
-Game mods directory: `<game_root>\*_Data\Mods\`
-
-Copy the entire `WitchModMCP/` folder:
+Copy the entire `WitchModMCP/` folder to the game's Mods directory:
 
 ```bash
 # Windows
