@@ -491,7 +491,7 @@ def _register_tool_list(csharp_tools: list) -> int:
         handler.__signature__ = sig
         handler.__doc__ = desc or f"C# mod tool: {name}"
 
-        _mcp.add_tool(handler, name=name, description=desc)
+        _mcp.add_tool(handler, name=name, description=desc, input_schema=schema)
         count += 1
 
     if count:

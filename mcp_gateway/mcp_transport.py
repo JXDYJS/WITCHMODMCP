@@ -35,22 +35,24 @@ class SimpleMCP:
 
     # ── Tool API (matches FastMCP subset) ──
 
-    def tool(self, name: str | None = None, description: str = ""):
+    def tool(self, name: str | None = None, description: str = "",
+             input_schema: dict | None = None):
         def decorator(func):
             n = name or func.__name__
             self._tools[n] = {
                 "handler": func,
                 "description": description or func.__doc__ or "",
-                "input_schema": {"type": "object"},
+                "input_schema": input_schema or {"type": "object"},
             }
             return func
         return decorator
 
-    def add_tool(self, handler, *, name: str, description: str = ""):
+    def add_tool(self, handler, *, name: str, description: str = "",
+                 input_schema: dict | None = None):
         self._tools[name] = {
             "handler": handler,
             "description": description,
-            "input_schema": {"type": "object"},
+            "input_schema": input_schema or {"type": "object"},
         }
 
     def remove_tool(self, name: str):
