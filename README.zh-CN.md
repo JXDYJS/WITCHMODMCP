@@ -122,3 +122,6 @@ AI 会自动读取 [INSTALL.md](./INSTALL.md) 并引导你完成安装。
 | `load_scene(type, id?)` | 调试 | 跳转到任意事件、战斗或假战斗场景 |
 | `set_card_pile(pile, action, cards?, indices?, shuffle?)` | 调试 | 控制手牌、抽牌堆、弃牌堆、消耗堆 |
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | 调试 | 修改任意战斗实体的属性和 Buff |
+| `doLua(luaCode)` | Lua | 在游戏 xLua 环境中执行 Lua，可通过 `CS` 全局原生访问任意已加载 C# 类型 |
+
+**Lua 控制台** — mod 还提供一个浏览器终端（http://localhost:3101/console），可对运行中的游戏交互式执行 Lua。

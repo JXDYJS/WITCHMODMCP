@@ -122,3 +122,6 @@ Tools for mod developers to inspect runtime state, debug mod behavior, and test 
 | `load_scene(type, id?)` | Debug | Jump to any event, fight, or fake-fight scene |
 | `set_card_pile(pile, action, cards?, indices?, shuffle?)` | Debug | Manipulate hand, draw pile, discard pile, or exhaust pile |
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | Debug | Modify any combat entity's attributes and buffs |
+| `doLua(luaCode)` | Lua | Execute Lua in the game's xLua environment, with native access to any loaded C# type via the `CS` global |
+
+**Lua Console** — the mod also serves an in-browser terminal (http://localhost:3101/console) for running Lua interactively against the live game.
