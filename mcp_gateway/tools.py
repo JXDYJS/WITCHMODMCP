@@ -339,13 +339,23 @@ def register_core_tools(mcp: SimpleMCP) -> int:
             }, ensure_ascii=False)
         
         # ── Wait for heartbeat ──
+        # After killing a running game, _heartbeat.connected can stay True for
+        # up to 3*interval (~15s) before the disconnect is registered, so it is
+        # NOT a reliable signal that the new instance is up. Poll the mod
+        # directly (list_tools) until it actually responds; if the game fails
+        # to start, the loop times out below and we return a warning.
         connected = False
         for i in range(60):
             time.sleep(1)
-            if _heartbeat is not None and _heartbeat.connected:
-                connected = True
-                time.sleep(2)  # let tools fully register
-                break
+            if _heartbeat is not None and _heartbeat.connected and _mod is not None:
+                try:
+                    r = _mod.call_tool("list_tools", {})
+                except Exception:
+                    r = {"error": "mod unreachable"}
+                if not r.get("error"):
+                    connected = True
+                    time.sleep(2)  # let tools fully register
+                    break
         
         if not connected:
             return json.dumps({

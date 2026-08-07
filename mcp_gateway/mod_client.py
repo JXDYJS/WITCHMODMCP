@@ -9,8 +9,8 @@ Every request creates a fresh connection (thread-safe).
 import json
 import os
 import sys
+import threading
 import http.client
-from pathlib import Path
 
 DEFAULT_MOD_PORT = 3100
 
@@ -18,36 +18,6 @@ DEFAULT_MOD_PORT = 3100
 def log(msg: str):
     """Log diagnostic messages to stderr (never stdout)."""
     print(f"[mod_client] {msg}", file=sys.stderr, flush=True)
-
-
-def find_mod_config() -> str | None:
-    """Scan possible paths for ModConfig.json and return the first match."""
-    candidates = [
-        os.environ.get("MCP_MOD_CONFIG", ""),
-        str(Path.home() / ".config" / "witch-mod-mcp" / "ModConfig.json"),
-    ]
-    for c in candidates:
-        if c and Path(c).exists():
-            return c
-    return None
-
-
-def read_mod_config() -> dict:
-    """Read game mod config to get port.
-
-    Returns:
-        {"port": int, "config_path": str|None}
-    """
-    path = find_mod_config()
-    if path:
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                cfg = json.load(f)
-                port = cfg.get("MCPPort", DEFAULT_MOD_PORT)
-                return {"port": port, "config_path": path}
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {"port": DEFAULT_MOD_PORT, "config_path": None}
 
 
 class ModConnection:
@@ -60,6 +30,7 @@ class ModConnection:
     def __init__(self, port: int):
         self.port = port
         self._id_counter = 0
+        self._id_lock = threading.Lock()
 
     # ── low-level HTTP helpers ───────────────────────────────────────
 
@@ -82,42 +53,39 @@ class ModConnection:
 
     # ── public API ───────────────────────────────────────────────────
 
-    def ping(self) -> dict:
-        """GET /ping — alive check (no auth required)."""
-        try:
-            status, body = self._request("GET", "/ping")
-            if status == 200:
-                return json.loads(body)
-            return {"status": "error", "http_status": status}
-        except json.JSONDecodeError:
-            return {"status": "error", "message": "Invalid JSON response"}
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
     def call_tool(self, method: str, params: dict | None = None) -> dict:
-        """POST JSON-RPC to the mod. Normalises PascalCase keys to lowercase.
+        """POST JSON-RPC to the mod. Normalises PascalCase keys to camelCase.
 
         Args:
             method: Tool name (e.g. "get_game_data", "eval_command").
             params: Tool arguments dict.
 
         Returns:
-            Normalised JSON-RPC response dict with lowercase keys
-            (result / error / jsonrpc / id).
+            Normalised JSON-RPC response dict (result / error / jsonrpc / id).
 
         Note:
             Tool calls use a 120s timeout because some C# tools (decompile_source,
             get_fight_state during complex fights, etc.) may take many seconds.
         """
-        self._id_counter += 1
+        with self._id_lock:
+            self._id_counter += 1
+            req_id = self._id_counter
         req_body = json.dumps({
             "jsonrpc": "2.0",
-            "id": self._id_counter,
+            "id": req_id,
             "method": method,
             "params": params or {},
         })
         try:
             status, body = self._request("POST", "/", req_body, timeout=120)
+            if status != 200:
+                return {
+                    "jsonrpc": "2.0",
+                    "error": {
+                        "code": -32000,
+                        "message": f"Mod returned HTTP {status}: {body[:200]}",
+                    },
+                }
             data = json.loads(body)
             return self._lower_keys(data)
         except json.JSONDecodeError:
@@ -158,7 +126,8 @@ class ModConnection:
 
     @staticmethod
     def _lower_keys(d):
-        """Recursively lowercase all dict keys (handles PascalCase from C# Newtonsoft)."""
+        """Recursively convert dict keys from PascalCase to camelCase
+        (handles C# Newtonsoft serialization: JsonRpc -> jsonRpc)."""
         if isinstance(d, dict):
             result = {}
             for k, v in d.items():
