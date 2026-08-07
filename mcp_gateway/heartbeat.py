@@ -96,7 +96,7 @@ class HeartbeatManager:
                         self._connected = False
                     triggered = False
 
-            if resp:
+            if ok and resp:
                 cb = self.on_first_heartbeat if triggered else self.on_heartbeat
                 if cb:
                     try:

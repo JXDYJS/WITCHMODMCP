@@ -28,10 +28,10 @@ Game config data lives in two separate storage systems. Which tool to use depend
 
 | Layer | Where | Access Tool | Contains |
 |-------|-------|-------------|----------|
-| **`_tables`** | Structured config tables, keyed by `DataType` enum | `query_config` | `Card`, `Event`, `Map`, `Enemy`, `EnemyCard`, `Level`, `Partner`, `PartnerCard` (34 tables) |
-| **`DataConfigCache`** | Runtime ID registry, flat dict of all loaded entries | `search_config` | `Career`/职业, `Buff`, `Relic`/遗物, `CardPack`/卡包, `Blessing`/祝福, `Partner`/随从 等 (~2183 entries) |
+| **`_tables`** | Structured config tables, keyed by `DataType` enum | `query_config` | 全部已加载的 DataType 表（如 `Card`, `Event`, `Map`, `Enemy`, `EnemyCard`, `Level`, `Partner`, `PartnerCard`，具体集合随游戏版本/已装 Mod 变化） |
+| **`DataConfigCache`** | Runtime ID registry, flat dict of all loaded entries | `search_config` | `Career`/职业, `Buff`, `Relic`/遗物, `CardPack`/卡包, `Blessing`/祝福, `Partner`/随从 等（数量随版本与已装 Mod 变化） |
 
-**Quick rule:** If you want to look up data by **ID string** (like `career_1`, `buff_vulnerability`, a card runtime ID), use **`search_config`**. If you want to browse a **structured table** (like all Cards or all Events), use **`query_config`**.
+**Quick rule:** If you want to look up data by **ID string** (like `career_1`, `buff_vulnerability`, a card runtime ID), use **`search_config`**. If you want to browse a **structured table** (like all Cards or all Events), use **`query_config`**. 注：`Career`/`Buff`/`Relic`/`Blessing` 在 `_tables` 里也有 DataType 键，但难以按名定位，统一用 `search_config` 查运行时 ID。
 
 ## Tools
 
@@ -41,15 +41,15 @@ Game config data lives in two separate storage systems. Which tool to use depend
 | `query_config` | `{tableName?, id?, limit=5}` | Game config table listing or item query |
 | `search_config` | `{pattern, limit=20, includeFields=false}` | Fuzzy keyword search across DataConfigCache (all runtime IDs) |
 | `dump_mod_state` | — | `{modCount, mods: [{assemblyName, assemblyLocation, assemblyVersion, initTypes}], relatedAssemblies}` |
-| `get_modal_state` | — | `{hasModal, title?, description?, buttons?}` 检查弹窗。当 `get_scene_state().modals == true` 时调用 |
+| `get_modal_state` | — | `{hasModal, gameObjectName?, title?, description?, mustChoose?, showConfirm?, showCancel?, buttons?}` 检查弹窗。当 `get_scene_state().modals == true` 时调用 |
 | `get_scene_tree` | `{rootName?, maxDepth=10, maxChildren=50, includeComponents=true, includeInactive=false}` | `{sceneName, hierarchy: [node…]}` |
 | `get_recent_logs` | `{count=50, level="All"}` | JSON array of recent log entries |
 | `raycast_mouse` | `{screenX?, screenY?, maxResults=30}` | `{hitCount, hits: [{gameObjectName, hierarchyPath, components, ...}]}` |
 | `set_rng_seed` | `{seed?, forceRng?}` | `{result, changes: []}` |
 | `get_screenshot` | `{format="png", quality=75}` | `{mimeType, base64, width, height, size}` |
 | `give_item` | `{type, value}` | `{type, value, result}` |
-| `scan_ui` | `{panel?, includeInactive=false, interactableOnly=true}` | `{totalElements, elements: [{index, text, type, interactable, hierarchy, panel}]}` |
-| `click_ui` | `{index, allowInactive=false}` | `{result, message, text?, hierarchy?, type?}` |
+| `scan_ui` | `{panel?, includeInactive=false, interactableOnly=true}` | `{result, totalElements, elements: [{index, instanceId, text, type, interactable, hierarchy, panel}], message}` |
+| `click_ui` | `{instanceId?, index?, allowInactive=false}` | `{result, message, text?, hierarchy?, type?}` |
 ---
 
 ### inspect
@@ -128,7 +128,7 @@ print(result['item'])
 
 ### search_config
 
-**模糊搜索 DataConfigCache（全量运行时 ID 仓库）。** `query_config` 查的是 `_tables` 字典（34 张表），`search_config` 查的是 `DataConfigCache`（~2180 条，包含所有卡牌、Buff、卡包、遗物等运行时 ID）。两者互补。
+**模糊搜索 DataConfigCache（全量运行时 ID 仓库）。** `query_config` 查的是 `_tables` 字典（按 DataType 键），`search_config` 查的是 `DataConfigCache`（包含所有卡牌、Buff、卡包、遗物等运行时 ID，条目数随版本/已装 Mod 变化）。两者互补。
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -143,10 +143,10 @@ print(result['item'])
 |------|------|
 | `matchedKeys` | 匹配的 DataConfigCache key 列表。`includeFields=true` 时每项是 `{"_key": "...", "Id": "...", "UseScript": "...", ...}` 对象，包含该条目在 CSV 中定义的所有列 |
 | `matchCount` | DataConfigCache 中的匹配数 |
-| `totalCacheSize` | DataConfigCache 总条目数 (~2180) |
+| `totalCacheSize` | DataConfigCache 总条目数（运行时返回值，随版本/已装 Mod 变化） |
 | `nativeIdMatches` | NativeIds 中的匹配 ID 列表（仅 `searchNativeIds=true` 时） |
 | `nativeIdMatchCount` | NativeIds 中的匹配数 |
-| `totalNativeIds` | NativeIds 总条目数 (~1723) |
+| `totalNativeIds` | NativeIds 总条目数（运行时返回值，随版本/已装 Mod 变化） |
 
 **典型用法：**
 
@@ -298,7 +298,7 @@ g.call("set_rng_seed", {"forceRng": 0.5})
 
 ### get_screenshot
 
-Capture the current game画面 and return it as a base64-encoded image.
+Capture the current game screen and return it as a base64-encoded image.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -321,7 +321,7 @@ Grant resources or items to the player via the game's `Commands.give()` system. 
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `type` | string | Yes | Item type: `money`, `san`, `maxsan`, `card`, `relic`, `bless`, `power`, `exp`, `level`, `str`/`strength`, `luc`/`lucky`, `per`/`perceive`, `wis`/`wisdom`, `draw`, `randomcard`, `randomrelic`, `time`, `truth`/`true`, `win` |
+| `type` | string | Yes | Item type（未穷举）：`money`, `san`, `maxsan`, `card`, `relic`, `bless`, `power`, `exp`, `level`, `str`/`strength`, `luc`/`lucky`, `per`/`perceive`, `wis`/`wisdom`, `draw`, `randomcard`, `randomcardbydeck`, `randomcardByRarity`, `randomrelic`, `randomrelicByRarity`, `randombless`, `goodbless`, `time`, `timecount`, `truth`/`true`, `win`, `def`, `live`, `AllBuff`, `ench`, `slot`, `escape`, `unlimitsafe` |
 | `value` | string | Yes | Amount, config ID, or `"all"` |
 
 > **⚠️ Card must have both Data + Text CSV.** `Commands.give("card", id)` calls `GetOne(DataType.Card, id)["Name"]` to display the card name in the result message. This requires the card to have a matching `Text/Card/<file>.csv` with a `Name` column (see the Insights skill for CSV schemas). If only `Data/Card/<file>.csv` exists without `Text/Card/`, the command will fail with "给与物品失败". This is by design — a card is considered incomplete without localization data. Always create both CSV files.
@@ -365,7 +365,7 @@ Scan all active UI elements (Button + ButtonManager) in the current scene and re
 **Notes:**
 - The same GameObject may have both a `Button` and a `ButtonManager` — each gets its own index and instanceId.
 - **推荐用 `instanceId` 代替 `index`** 传给 `click_ui`。instanceId 是 Unity 运行时唯一 ID，不会被元素增删（index 漂移）影响。
-- `index` 仍然可用，但元素被 Destroy 后索引会漂移。instanceId 不会。`
+- `index` 仍然可用，但元素被 Destroy 后索引会漂移，instanceId 不会。
 - ⚠️ **index 始终是全局的**。如果加 `panel` 过滤，返回的元素 index 值仍然是全局索引。
 
 **Python:**
@@ -396,7 +396,7 @@ Click a UI element identified by `scan_ui` instanceId or index. Supports both `B
 
 *`instanceId` 和 `index` 至少提供一个。`instanceId` 优先。
 
-> **⚠️ This is a generic fallback tool.** If a specialized tool exists for the current UI (e.g. `event_choose_option`, `map_choose_node`, `pick_card_reward`, `select_deck_cards`), prefer that instead — specialized tools handle additional state synchronization (like drag-and-drop, card selection tracking) that a raw click cannot replicate.
+> **⚠️ This is a generic fallback tool.** If a specialized tool exists for the current UI (e.g. `event_choose_option`, `map_select_assign`, `pick_card_reward`, `select_deck_cards`), prefer that instead — specialized tools handle additional state synchronization (like drag-and-drop, card selection tracking) that a raw click cannot replicate.
 
 **Python:**
 ```python

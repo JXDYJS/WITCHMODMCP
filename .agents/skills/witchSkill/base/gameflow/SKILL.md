@@ -15,7 +15,7 @@ Drive the game's state machine across major scenes: main menu → hub → mode s
 | `start_new_game` | `{mode, useExistingSave?}` | `{result, mode, usedExisting, page, message}` | Select mode → enter lobby. Polls (up to 15s). |
 | `start_run` | — | `{result, message, page, level?}` | Lobby → Map. Polls (up to 20s). Has fallback. |
 | `map_select_state` | — | `{selectableNodes, slots, canContinue, result}` | Node selection UI state. Only available during passage/road events. |
-| `map_select_assign` | `{slotIndex, nodeId}` | `{result, placed, message}` | Place a selectable node into a slot (single per call). |
+| `map_select_assign` | `{slotIndex, nodeId}` | `{result, placed, placedCount, movedCount, nullActivatedCount, message}` | Place a selectable node into a slot (single per call). |
 | `map_select_clear` | `{slotIndex}` | `{result, message}` | Remove node from a slot. |
 | `map_select_confirm` | — | `{result, message}` | Confirm node arrangement AND advance. Called after every node—used both for starting the passage AND for moving to the next node. |
 | `claim_rewards` | — | `{claimed?, actions: []}` | ⚠️ 将未领取奖励全部转化为金钱的快捷按钮。见下方"正确领取流程" |
@@ -94,7 +94,7 @@ In the career selection hall (after `start_new_game`), click the "Start" button 
 > 3. 如果有 `BlessingChoiceGenerator` → 用 `pick_blessing_reward` 选一个祝福
 > 4. 所有奖励选完后，`claim_rewards` 关闭界面
 
-Clicks the "Close" button on `BattleRewardsUI`. Unconverted rewards auto-convert to gold. Also closes subsequent `CardChoiceUI` / `BlessingChoiceGenerator` if they appear (skipping them).
+Clicks the "Close" button on `BattleRewardsUI`. Unconverted rewards auto-convert to gold. Also closes a subsequent `CardChoiceUI` if it appears (skipping it). ⚠️ It does **NOT** handle `BlessingChoiceGenerator` — handle blessings with `pick_blessing_reward` / `skip_blessing_reward` first.
 
 **正确领取流程：**
 ```python
@@ -117,7 +117,7 @@ g.call("claim_rewards")
 
 Get the full state of the map node selection UI (MapSelectUI). Called during passage/road events when the game shows tile-selectable nodes.
 
-**Important: `nodeId` is the stable config-table ID.** Use it for `map_select_assign` — never use `index` which changes after each placement.
+**Important: `nodeId` is the stable config-table ID.** Use it for `map_select_assign` — `selectableNodes` has no `index` field (`index` only exists on `slots`), so always reference nodes by `nodeId`.
 
 ### map_select_assign
 

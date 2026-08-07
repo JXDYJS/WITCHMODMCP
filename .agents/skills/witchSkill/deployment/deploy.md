@@ -36,11 +36,11 @@ Copy-Item -LiteralPath "path/to/YourMod" -Destination "游戏Mods目录/YourMod"
 
 ## 部署后步骤
 
-1. **重启游戏** — CSV/Lua 变更必须重启才能生效。AI 应直接杀启进程：
+1. **重启游戏** — CSV/Lua/C# DLL 变更都必须重启才能生效（`reload_tools` 只热重载纯注册 MCP 工具的工具集 DLL，不重载 Mod 内容）。AI 应直接杀启进程，路径从 `get_game_info` 的 `gameRoot` 取：
    ```powershell
    Get-Process -Name "Witch*" -ErrorAction SilentlyContinue | Stop-Process -Force
    Start-Sleep -Seconds 3
-   Start-Process -FilePath "游戏安装目录/Witch's Apocalyptic Journey.exe"
+   Start-Process -FilePath "<gameRoot>/Witch's Apocalyptic Journey.exe"   # gameRoot 从 get_game_info 获取
    Start-Sleep -Seconds 25
    ```
 2. **检查 Mod 加载** — `dump_mod_state()` 确认 Mod 出现在列表中

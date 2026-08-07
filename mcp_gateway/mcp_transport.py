@@ -19,10 +19,10 @@ class _ToolManager:
 
     @property
     def _tools(self):
-        return self._owner._tools
+        return self._owner.snapshot_tools()
 
     def remove_tool(self, name: str):
-        self._owner._tools.pop(name, None)
+        self._owner.remove_tool(name)
 
 
 class SimpleMCP:
@@ -31,6 +31,7 @@ class SimpleMCP:
         self.instructions = instructions
         self._tools: dict[str, dict] = {}
         self._resources: dict[str, dict] = {}
+        self._registry_lock = threading.Lock()
         self._tool_manager = _ToolManager(self)
 
     # ── Tool API (matches FastMCP subset) ──
@@ -39,41 +40,72 @@ class SimpleMCP:
              input_schema: dict | None = None):
         def decorator(func):
             n = name or func.__name__
-            self._tools[n] = {
+            entry = {
                 "handler": func,
                 "description": description or func.__doc__ or "",
                 "input_schema": input_schema or {"type": "object"},
             }
+            with self._registry_lock:
+                self._tools[n] = entry
             return func
         return decorator
 
     def add_tool(self, handler, *, name: str, description: str = "",
                  input_schema: dict | None = None):
-        self._tools[name] = {
+        entry = {
             "handler": handler,
             "description": description,
             "input_schema": input_schema or {"type": "object"},
         }
+        with self._registry_lock:
+            self._tools[name] = entry
 
     def remove_tool(self, name: str):
-        self._tools.pop(name, None)
+        with self._registry_lock:
+            self._tools.pop(name, None)
+
+    def get_tool(self, name: str) -> dict | None:
+        with self._registry_lock:
+            return self._tools.get(name)
+
+    def snapshot_tools(self) -> dict[str, dict]:
+        """Return a copy of the tool registry safe to iterate outside the lock."""
+        with self._registry_lock:
+            return dict(self._tools)
 
     # ── Resource API (matches FastMCP subset) ──
 
     def resource(self, uri: str, name: str = "", description: str = ""):
         def decorator(func):
-            self._resources[uri] = {
+            entry = {
                 "handler": func,
                 "name": name,
                 "description": description,
             }
+            with self._registry_lock:
+                self._resources[uri] = entry
             return func
         return decorator
+
+    def get_resource(self, uri: str) -> dict | None:
+        with self._registry_lock:
+            return self._resources.get(uri)
+
+    def snapshot_resources(self) -> dict[str, dict]:
+        """Return a copy of the resource registry safe to iterate outside the lock."""
+        with self._registry_lock:
+            return dict(self._resources)
 
 
 # ── Write stream ──
 
 _client_uses_content_length: bool | None = None  # detected from first incoming frame
+
+# Upper bound for a single inbound frame, to reject malformed Content-Length
+# headers (e.g. huge values) that would otherwise make us block reading forever.
+_MAX_FRAME_BYTES = 64 * 1024 * 1024  # 64 MiB
+
+_stdout_lock = threading.Lock()
 
 def _set_output_format(content_length: bool):
     global _client_uses_content_length
@@ -82,14 +114,20 @@ def _set_output_format(content_length: bool):
 
 def _write_stdout(payload: str):
     """Write a message to stdout. Adapts output format to match what the
-    client sent (Content-Length framed or newline-delimited JSON)."""
+    client sent (Content-Length framed or newline-delimited JSON).
+
+    Thread-safe: responses (event loop) and heartbeat notifications
+    (heartbeat thread) can write concurrently, so the entire frame is
+    written under a lock to keep header+body contiguous.
+    """
     body = payload.encode("utf-8")
     if _client_uses_content_length:
-        header = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8")
-        sys.stdout.buffer.write(header + body)
+        frame = f"Content-Length: {len(body)}\r\n\r\n".encode("utf-8") + body
     else:
-        sys.stdout.buffer.write(body + b"\n")
-    sys.stdout.buffer.flush()
+        frame = body + b"\n"
+    with _stdout_lock:
+        sys.stdout.buffer.write(frame)
+        sys.stdout.buffer.flush()
 
 
 class WriteStream:
@@ -120,14 +158,14 @@ async def _dispatch(mcp: SimpleMCP, method: str, params: dict) -> dict:
                     "description": v["description"],
                     "inputSchema": v.get("input_schema", {"type": "object"}),
                 }
-                for n, v in mcp._tools.items()
+                for n, v in mcp.snapshot_tools().items()
             ]
         }
 
     if method == "tools/call":
         name = params.get("name", "")
         arguments = params.get("arguments", {})
-        tool = mcp._tools.get(name)
+        tool = mcp.get_tool(name)
         if tool is None:
             return {"error": {"code": -32601, "message": f"Tool not found: {name}"}}
         try:
@@ -145,13 +183,13 @@ async def _dispatch(mcp: SimpleMCP, method: str, params: dict) -> dict:
                     "description": v["description"],
                     "mimeType": "text/markdown",
                 }
-                for u, v in mcp._resources.items()
+                for u, v in mcp.snapshot_resources().items()
             ]
         }
 
     if method == "resources/read":
         uri = params.get("uri", "")
-        resource = mcp._resources.get(uri)
+        resource = mcp.get_resource(uri)
         if resource is None:
             return {"error": {"code": -32602, "message": f"Resource not found: {uri}"}}
         text = await resource["handler"]()
@@ -191,8 +229,23 @@ def _read_frame() -> str | None:
                 length = int(stripped.split(b":", 1)[1].strip())
             except ValueError:
                 continue
+
+            # Reject absurd/malformed lengths instead of reading until EOF.
+            if length < 0 or length > _MAX_FRAME_BYTES:
+                return None
+
             buf.readline()          # consume blank separator line
-            body = buf.read(length)
+
+            # read(length) may return fewer bytes on some platforms (and blocks
+            # forever if the peer declares more than it sends), so loop until the
+            # full body is read or the stream ends.
+            body = b""
+            while len(body) < length:
+                chunk = buf.read(length - len(body))
+                if not chunk:
+                    # EOF before the frame completed — treat as end of stream.
+                    return None
+                body += chunk
             return body.decode("utf-8", errors="replace")
 
         # ── Newline-delimited JSON (OpenCode, etc.) ──

@@ -1,21 +1,35 @@
 ---
 name: witch-mod-mcp
-description: "Mod development aid for the game Witch (魔女:终末旅途 roguelike deckbuilder): inspect and drive a running game instance through the WitchModMCP in-game HTTP server to develop, debug, and verify mods. Use when a mod developer wants to read live game state (player HP/SAN/money/deck, fight status, run progress), reflect over C# objects, query config tables, dump the scene tree or loaded-mod state, tail logs, or trigger console commands / items / scenes to reproduce and test mod behavior. Not a cheat/trainer tool for regular players. Triggers: WitchModMCP, Witch mod dev, MCPPort, get_game_data, eval_command, query_config, inspect RoleTable, dump_mod_state, reload_tools, scan_ui, click_ui, 魔女 mod 开发, 调试 mod, 游戏状态, play_card, end_turn, load_scene, give_item, get_fight_state, set_lobby_state, raycast_mouse, set_rng_seed."
+description: "Mod development aid for the game Witch / Witch's Apocalyptic Journey (魔女:终末旅途 roguelike deckbuilder): inspect and drive a running game instance through the WitchModMCP in-game HTTP server to develop, debug, and verify mods. Use when a mod developer wants to read live game state (player HP/SAN/money/deck, fight status, run progress), reflect over C# objects, query config tables, dump the scene tree or loaded-mod state, tail logs, or trigger console commands / items / scenes to reproduce and test mod behavior. Not a cheat/trainer tool for regular players. Triggers: WitchModMCP, Witch mod dev, MCPPort, get_game_data, eval_command, query_config, inspect RoleTable, dump_mod_state, reload_tools, scan_ui, click_ui, 魔女 mod 开发, 调试 mod, 游戏状态, play_card, end_turn, load_scene, give_item, get_fight_state, set_lobby_state, raycast_mouse, set_rng_seed."
 ---
 
 # WitchModMCP
 
-WitchModMCP is a mod development tool for the game **Witch** (魔女:终末旅途 roguelike deckbuilder). It helps you inspect live game state, test mod behaviour, query config tables, control fights, navigate scenes, and debug issues — all through standard MCP tools.
+WitchModMCP is a mod development tool for the game **Witch / Witch's Apocalyptic Journey** (魔女:终末旅途 roguelike deckbuilder). It helps you inspect live game state, test mod behaviour, query config tables, control fights, navigate scenes, and debug issues — all through standard MCP tools.
 
 ## Quick Start — Creating a New Mod
+
+> **⚠️ NEVER hand-create the mod folder — always copy from the cloned template.** `New-Item` / `mkdir` will miss the template's critical files (`Scripts/Lib/DataConfigs/` — 160+ original CSV schemas for column reference, `Scripts/ScriptSample.lua`, `Icon.png`, etc.), causing CSV column errors or missing resources. Always `git clone` → `Copy-Item` from the template.
 
 ```
 1. git clone https://github.com/meowalive/apocalyptic-journey-mod-tutorial.git
 
-2. Copy the right template:
+2. Choose the template by what your mod must do:
    Lua Mod (95% of cases):  copy ModTemplate/ → YourModName
+      - CSV content mods (cards, buffs, relics, careers, packs, events): Lua scripts in CSV columns + Entry.lua
+      - Lua hooks (AddMethodHookBefore/After) can OBSERVE any method but CANNOT change behavior:
+        no argument mutation, no method skip, no return-value change
+      - No compile needed
    C# DLL Mod (complex):     copy DllTemplate/ → YourModName
+      - ONLY when you must CHANGE game logic — alter costs/damage/playability/energy via
+        Harmony Prefix/Postfix, skip a method (return false), rewrite return values, do file
+        I/O, use external libraries, or add new UI
+      - Requires dotnet build (see deployment/build-dll.md)
    Folder name MUST match ModConfig.json's ModName.
+
+   When choosing a hook target, never guess a method name or signature — invoke
+   `decompile_source` to read the actual game source and confirm the exact type, method
+   name, and parameter layout before wiring up any Lua or Harmony hook.
 
 3. Edit ModConfig.json:
    "ModName": "YourModName", "ModAuthor": "YourName", "Enabled": true
@@ -31,20 +45,33 @@ WitchModMCP is a mod development tool for the game **Witch** (魔女:终末旅�
    ```
    如果只有 header + data 两行，data 行会被当作注释跳过，导致卡牌/卡包数据加载为 0。
 
-5. Copy to game Mods folder and restart.
-   ⚠️ **每次部署前先删除旧目录！** `Remove-Item -Recurse -Force "$gameDir\Mods\YourMod"` 再 `Copy-Item`。如果目标已存在时重复执行 `Copy-Item -Recurse`，会把源目录**嵌套复制**到目标内部（`YourMod/YourMod/`），导致游戏读到的是旧文件。
+5. Deploy to the game Mods folder, then restart the game.
+   ⚠️ **CSV/Lua/C# DLL 变更都必须重启游戏才能生效。** `reload_tools` 只热重载纯注册 MCP 工具的工具集 DLL（见规则 24），它**不会**重载你的 Mod 内容（CSV/Lua/Entry.dll）。以下两种部署方式二选一：
 
-   **重启游戏方式：** AI 可以直接 Kill 游戏进程再启动，因为 SKILL 知道游戏安装路径：
-   ```powershell
+   **方式 A（推荐）— 用 `deploy_mod` 工具自动部署：**
+   ```
+   deploy_mod({"mod_path": "E:/path/to/YourMod"})
+   ```
+   它会自动复制到 Mods 目录 → 重启游戏 → 等重连 → 检查加载状态和日志错误。注意：该工具较新，可能有未覆盖的边界情况。**如果它报错或部署后 Mod 没加载，立即回退到方式 B 手动部署。**
+
+   **方式 B（手动部署，最可靠）— 先用 `get_game_info` 拿真实路径：**
+   ```
+   get_game_info()   # → 返回 gameRoot, modsPath（不要硬编码路径，从返回值取）
+
+   # 每次部署前先删除旧目录！否则重复 Copy-Item -Recurse 会把源目录嵌套复制到目标内部
+   # （YourMod/YourMod/），导致游戏读到的是旧文件。
+   Remove-Item -LiteralPath "<modsPath>\YourMod" -Recurse -Force
+
+   Copy-Item -LiteralPath "E:/path/to/YourMod" -Destination "<modsPath>\YourMod" -Recurse
+
+   # 重启游戏（路径从 get_game_info 的 gameRoot 取）：
    Get-Process -Name "Witch*" -ErrorAction SilentlyContinue | Stop-Process -Force
    Start-Sleep -Seconds 3
-   Start-Process -FilePath "F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey.exe"   # 改为你的实际路径，可用 get_game_info 工具查询
+   Start-Process -FilePath "<gameRoot>\Witch's Apocalyptic Journey.exe"
    Start-Sleep -Seconds 25
    ```
-   CSV/Lua 变更必须重启游戏才能生效。C# DLL 热重载用 `reload_tools` 工具即可（见规则 24）。
+   部署后必须验证：`dump_mod_state()` 确认 Mod 在列表，`get_recent_logs` 确认无 Error。
 ```
-
-> **⚠️ 严禁手搓目录：必须从模板复制。** `New-Item` / `mkdir` 手动创建目录会丢失模板中的关键文件（`Scripts/Lib/DataConfigs/` 下的 160+ 个 CSV 列名参考、`Scripts/ScriptSample.lua`、`Icon.png` 等），直接导致 CSV 列名错误或资源缺失。**一律用 `git clone` → `Copy-Item` 从模板复制**。
 
 For detailed template usage, see [templates/using-templates.md](./templates/using-templates.md).
 
@@ -53,13 +80,13 @@ For detailed template usage, see [templates/using-templates.md](./templates/usin
 Communication goes through a gateway:
 
 ```
-AI (opencode)
+AI
   │  stdin/stdout (MCP JSON-RPC)
   ▼
 mcp_gateway/server.py                ← MCP stdio server
   │  - proxies tools/call → HTTP
   │  - background heartbeat
-  │  - auto-syncs skill docs + decompile source on first heartbeat
+  │  - registers skill docs as MCP resources at startup; decompiles game source on first heartbeat
   ▼
 WitchModMCP Mod (in Unity game)
   │  HTTP server on port MCPPort (default 3100) — no auth, localhost only
@@ -75,28 +102,39 @@ WitchModMCP Mod (in Unity game)
 1. **`list_tools` is the source of truth.** Always run it first.
 2. **Read before you write.** Prefer read-only tools. Mutation tools change live game state.
 3. **Every call blocks the game's main thread briefly.** Keep parameters tight (`limit`, `maxDepth`, etc.).
-4. **If `tools/list` fails**, the gateway cannot reach the game mod. Check that the game is running, WitchModMCP is loaded, and the port/token match.
+4. **If `list_tools` fails**, the gateway cannot reach the game mod. Check that the game is running, WitchModMCP is loaded, and the port/token match.
 
 ### Mod Content Rules
 
 5. **Clone the template repo first** (`git clone https://github.com/meowalive/apocalyptic-journey-mod-tutorial.git`). The CSV headers in the template ARE the schema. Do NOT probe the game runtime (`query_config` / `inspect`) to discover data formats. **NEVER use `New-Item` / `mkdir` to create mod folders manually** — you must `Copy-Item` from the cloned template to preserve required files.
 
-6. **Card Pack CSV requires `Data/CardPack/`** — this directory is NOT in the template. You must create it manually. See [insights §13.1](./insights/SKILL.md#131-adding-a-card-pack--cards-simplest-mod) for full steps.
+6. **To add a toggleable card pack, you MUST create `Data/CardPack/`** — this directory is NOT in the template. The game only lists packs that exist in the `CardPack` table (loaded from `Data/CardPack/*.csv`); a card's `PackBelong` pointing to a pack ID that has no `Data/CardPack/` entry cannot be selected/enabled in the card-pack UI (`givepack` even rejects unknown pack IDs). If you only add cards to the default pool (omit `PackBelong`), no `Data/CardPack/` is needed. See [insights §13.1](./insights/SKILL.md#131-adding-a-card-pack--cards-simplest-mod) for full steps.
 
 7. **Runtime ID format: `{ModFolder}_{CsvFileName}_{RawId}`** — always use `search_config` to verify actual runtime IDs after writing CSVs. The `ModFolder` must match the folder name (not `ModName` in config). CsvFileName is the `.csv` filename without extension.
 
-8. **`*` prefix on card/relic IDs** → excluded from random pools. Used for:
+8. **`*` prefix on card/relic IDs** → locked = excluded from ALL random pools (rewards, shop, card-choice, blessing, relic drops). The ID still loads into the config tables, so it can still be obtained deterministically via `give_item` or as a career starter card. Used for:
    - Character starter skill cards (Career `Skill1`/`Skill2`)
    - Event-only cards
    - Hidden/reward-only relics
 
 9. **For character mods:** Always load [insights SKILL.md](./insights/SKILL.md) and reference §11.5c (SkillScript pattern) and §13.3 (step-by-step character creation). The SkillScript Lua code is the hardest part — use the standardized template with `SkillTime` + `SpecialVars` + `AddEvent("StartRound")` + `AddEvent("Win")` + `AddEvent("Escape")`.
 
+### Lua / xLua Coding Rules
+
+When writing Lua scripts (CSV `*Script` columns or `Entry.lua`), follow these syntax conventions — the game uses xLua to bridge Lua and C#:
+
+1. **Lua uses colon calls on C# objects**: `self:AddBuff(id, level)`, not `self.AddBuff(id, level)`.
+2. **xLua has no `[]` indexer for C# `Dictionary`**: C# `Dictionary<string, T>` (and similar collections) must be accessed with `dict:get_Item("key")` / `dict:set_Item("key", "value")`. This applies only to **C# collection objects** reached from Lua; Lua-native tables use `[]` normally.
+3. **C# types use `CS.` prefix**: `CS.UnityEngine.Debug.Log(...)`.
+
 ### Test Verification — Always Verify After Changes
 
 **Writing the code is only half the work. You MUST test your mod with live MCP tools.** Never assume a CSV is correct or a Lua script works without testing.
 
 **Primary method — verify with MCP tools directly:**
+
+> ⚠️ The steps below are an **example test flow** for ONE typical card/career mod — adapt them to your actual mod and current game state. It is a **mod-testing flow, NOT the normal gameplay flow**: steps 4/6 call `load_scene` to jump straight into a fake fight, which is a **test-only tool** that bypasses the normal map/progression. Never treat this sequence as how to play the game, and never use `load_scene` during normal gameplay.
+
 ```
 # 1. Check data loaded (all content types)
 search_config({"pattern": "YourModFolder"})
@@ -108,7 +146,8 @@ search_config({"pattern": "YourMod_cardpack"})
 # 3. Enter game and check lobby
 enter_game → start_new_game → get_lobby_state
 
-# 4. Start a run and inject the card into a fight
+# 4. TEST ONLY — start a run, then jump straight into a fake fight to inject the card
+#    (load_scene is a testing shortcut that bypasses normal map progression)
 start_run → load_scene({"type": "fakefight"}) → give_item({"type": "card", "value": "RuntimeId"})
 
 # 5. Play the card
@@ -117,8 +156,8 @@ get_fight_state → play_card
 # 6. For character mods — check career loaded
 search_config({"pattern": "YourMod_career"})
 # Start a run with the new character
-set_lobby_state({"career": "YourMod_csvfile_careerid"})
-start_run → load_scene({"type": "fakefight"})
+set_lobby_state({"careerId": "YourMod_csvfile_careerid"})
+start_run → load_scene({"type": "fakefight"})   # TEST ONLY, see step 4
 get_fight_state  # Check character is present
 
 # 7. Check logs on failure
@@ -141,7 +180,7 @@ assert result["matchCount"] > 0, "Mod data not loaded!"
 mcp.call("enter_game")
 mcp.call("start_new_game", {"mode": "Normal", "useExistingSave": False})
 mcp.call("start_run")
-mcp.call("load_scene", {"type": "fakefight"})
+mcp.call("load_scene", {"type": "fakefight"})   # TEST ONLY — bypasses normal map progression
 
 # Inject card
 mcp.call("give_item", {"type": "card", "value": "MyMod_CsvFile_CardId"})
@@ -177,15 +216,13 @@ When a mod doesn't work (card not found, pack not showing, data not loading):
 #### General Debug Rules
 
 15. **Runtime ID namespace**: `{ModFolderName}_{CsvFileName}_{RawId}`. E.g., `EdictOfStars_starcards_1001`. Always verify with `search_config`.
-16. **PackBelong must point to a real CardPack** entry in `Data/CardPack/` (or auto-created from cards' PackBelong).
+16. **PackBelong must point to a real CardPack** entry in `Data/CardPack/` — no auto-creation from cards exists. Cards with `PackBelong` pointing to a nonexistent pack cannot be enabled in the card-pack UI. Omit `PackBelong` to put cards in the default pool (`cardpack_1`).
 17. **Must have Text CSV** — without it, game shows blank names. Mirror Data/ structure.
 18. **BaseScript is required** in Card CSV `InitScript`: `AttackCardItem` (targeted damage) or `CommonCardItem` (self/global/AoE).
-19. **`*` prefixed Ids** are starter cards (excluded from random pool).
+19. **`*` prefixed Ids** are locked (excluded from random pools, still obtainable via `give_item`/starter cards — see rule 8).
 20. **CSV Row 2 is a comment** (ignored by the game).
-21. **Lua uses colon calls**: `self:AddBuff(id, level)`, not `self.AddBuff(id, level)`.
-22. **xLua cannot use `[]` for dictionaries**: use `dict:get_Item("key")` / `dict:set_Item("key", "value")`.
-23. **C# types use `CS.` prefix**: `CS.UnityEngine.Debug.Log(...)`.
-24. **CSV/Lua 变更必须重启游戏**（C# DLL 变更可用 `reload_tools` 热重载）。AI 应直接 `Stop-Process` + `Start-Process` 杀启进程，无需手动操作。
+
+24. **CSV/Lua/C# DLL 变更都必须重启游戏才能生效**。唯一例外：`reload_tools` 只热重载**纯注册 MCP 工具**的工具集 DLL（不加载任何 Mod 内容/Entry.dll 的）。除此之外一切 Mod 内容变更都需杀启进程：AI 应直接 `Stop-Process` + `Start-Process` 杀启进程，无需手动操作。
 
 ## Module Index
 
@@ -195,6 +232,7 @@ WitchModMCP tools are organized into domain modules. Load the relevant module fo
 |--------|----------|---------|
 | **[Gameplay](./gameplay/SKILL.md)** | **正常游玩完整流程指南（不含开发工具）** | **游玩, 跑局, 正常流程, 怎么玩, gameplay** |
 | [Core](./base/core/SKILL.md) | `list_tools`, `list_commands`, `reload_tools`, `eval_command` | discovery, console command, eval_command |
+| [doLua](./base/dolua/SKILL.md) | `doLua` | 执行lua, 反射, CS命名空间, 访问其他mod, lua console, xlua |
 | [Meta](./base/meta/SKILL.md) | `get_scene_state`, `get_game_data`, `get_game_info`, `check_mode_saves`, `list_game_modes`, `get_recent_logs` | scene state, game data, game info, 场景检测, 页面状态, 日志 |
 | [Combat](./base/combat/SKILL.md) | `get_fight_state`, `play_card`, `use_skill`, `get_skills_state`, `end_turn`, `set_card_pile`, `set_fight_entity`, `get_deck_selection`, `select_deck_cards` | 战斗, 出牌, 打牌, combat, 技能, 选牌, 弃牌 |
 | [Lobby](./base/lobby/SKILL.md) | `get_lobby_state`, `set_lobby_state` | 大厅, 职业, 卡包, career, lobby |
@@ -209,7 +247,7 @@ For a full module-by-module listing, open [base/SKILL.md](./base/SKILL.md).
 
 ### Extension: DeveloperTools
 
-[DeveloperTools](./skills/SKILL.md) is an optional extension mod. See its docs for enhanced tool coverage.
+[DeveloperTools](./devtools/SKILL.md) 是**开发者调试视角**的工具文档子集（假战斗测试、流程导航、源码反编译）。其中所有工具均由基座 `WitchModMCP.Contracts` 实现——**不存在独立的 DeveloperTools Mod**，与 `base/` 模块是同一批工具。
 
 ## Skill documentation sync
 
@@ -244,6 +282,8 @@ Skill `.md` docs live inside the project's `.agents/skills/witchSkill/` director
 | "What clickable UI elements are available on this page?" | Diagnostics | `scan_ui` |
 | "Click a specific UI element" | Diagnostics | `scan_ui` → `click_ui` |
 | "Show recent game logs" | Diagnostics | `get_recent_logs` |
+| "Execute custom Lua / reflect over any C# type" | doLua | `doLua`（`CS.命名空间.类型` 原生访问，私有成员先 `xlua.private_accessible`） |
+| "Access another mod's namespace/types" | doLua | `SyncLuaAssemblies()` → `CS.ModNamespace.Type` |
 | "Use character skill 1/2" | Combat | `use_skill` |
 | "Check skill cooldowns" | Combat | `get_skills_state` |
 | "Play card X at enemy Y" | Combat | `play_card` |
@@ -270,12 +310,16 @@ Skill `.md` docs live inside the project's `.agents/skills/witchSkill/` director
 
 ```
 1. Call decompile_source with {"outputDir": "<repo_root>/game_src"}
-   Returns {status, manifestPath, dlls: {"Witch.dll": {hash, dir}, "Witch.Core.dll": {hash, dir}}}
+   Returns {status, manifestPath, dlls?: {"Witch.dll": {hash, dir}, "Witch.Core.dll": {hash, dir}}}
+   ⚠️  status 可取 fresh / running / started / decompiled。
+       只有 status="decompiled" 时返回才包含 dlls 字段；
+       缓存命中（fresh）或已启动（started）时没有 dlls，
+       解析路径前先判空（用 r.get('dlls') 或 'dlls' in r）。
    ⚠️  outputDir 建议设置在项目仓库根目录下（而非临时目录），
        方便后续查阅和 git 管理。
    ✅  decompile_source 自动校验 DLL hash，缓存有效时不重复反编译，
        无需手动检查源码是否过期。
-2. Resolve paths from dlls field
+2. Resolve paths from dlls field (if present)
 3. grep/read under those directories
 ```
 
@@ -304,10 +348,11 @@ Skill `.md` docs live inside the project's `.agents/skills/witchSkill/` director
     deploy.md                           Deploy tool + manual copy steps
     build-dll.md                        C# build pipeline
 
-  base/                              ← MCP tool modules
-    SKILL.md                            Module index
-    core/                               list_tools, list_commands, reload_tools, eval_command
-    meta/                               get_scene_state, get_game_data, check_mode_saves, list_game_modes
+    base/                              ← MCP tool modules
+      SKILL.md                            Module index
+      core/                               list_tools, list_commands, reload_tools, eval_command
+      dolua/                              doLua — xLua 反射逃生舱（原生 CS 访问任意类型）
+      meta/                               get_scene_state, get_game_data, check_mode_saves, list_game_modes
     combat/                             get_fight_state, play_card, end_turn, set_card_pile, set_fight_entity
     lobby/                              get_lobby_state, set_lobby_state
     gameflow/                           enter_game, start_new_game, start_run, load_scene, claim_rewards

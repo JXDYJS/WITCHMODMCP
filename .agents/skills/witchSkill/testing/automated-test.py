@@ -22,11 +22,13 @@ from pathlib import Path
 
 MOD_NAME = "YourModName"
 
-# 卡牌配置（query_config 验证用）
-CARD_IDS = [1001, 1002]          # 本 Mod 添加的卡牌 ID
-BUFF_IDS = [1001]                 # 本 Mod 添加的 Buff ID
-PACK_ID = "pack_yourpack"         # 所属卡包 ID
-CAREER_ID = "Career_1001"         # 职业 ID（如果是职业 Mod）
+# 卡牌配置（search_config 验证用）
+# ⚠️ 卡牌/Buff ID 在游戏内是"运行时 ID"（格式 {ModFolder}_{CsvFileName}_{RawId}），
+#    不是 CSV 里的原始数字。写入前先调 search_config({"pattern": "YourMod"}) 核实实际 ID。
+CARD_IDS = ["YourMod_cardsample_1001"]   # 本 Mod 添加的卡牌运行时 ID
+BUFF_IDS = ["YourMod_buffsample_1001"]   # 本 Mod 添加的 Buff 运行时 ID
+PACK_ID = "YourMod_cardpack_yourpack"    # 所属卡包运行时 ID
+CAREER_ID = "YourMod_careersample_yourcareer"  # 职业运行时 ID（如果是职业 Mod）
 
 # 期待的战斗数值
 EXPECTED_HAND_SIZE = 1            # 出牌后手牌数量
@@ -38,8 +40,8 @@ EXPECTED_BUFF_STACKS = 3          # Buff 层数
 # 连接配置
 MCP_PORT = 3100
 RUN_CONFIG = {
-    "mode": "Standard",           # 游戏模式
-    "career": "Witch",            # 测试用职业
+    "mode": "Normal",             # 游戏模式（Normal/Sublimation/Slot/Teach/Story，无 "Standard"）
+    "careerId": "Career_1",       # 测试用职业运行时 ID（set_lobby_state 的参数名是 careerId）
 }
 
 
@@ -139,23 +141,26 @@ def test_phase_3_no_errors(g):
         log("  ⚠️ 无法获取日志，跳过检查")
         return
 
+    # get_recent_logs 返回对象数组（每条含 type/message），不是字符串数组
     errors = [l for l in (logs if isinstance(logs, list) else [])
-              if isinstance(l, str) and "Error" in l]
+              if l.get('type') == 'Error'
+              or (l.get('message') and 'Error' in l.get('message', ''))]
     check("无加载错误", len(errors) == 0,
           f"发现 {len(errors)} 条错误（前 3 条: {errors[:3]}）")
 
 
 def test_phase_4_config_registered(g):
-    """验证配置表中已注册本 Mod 的内容。"""
+    """验证配置表中已注册本 Mod 的内容。用 search_config 查运行时 ID（query_config 的 tableName 只按
+    GameConfigManager 成员名解析，Card/Buff 等常规表名查不到）。"""
     for cid in CARD_IDS:
-        cfg = g.call("query_config", {"tableName": "CardConfig", "id": cid})
-        exists = cfg is not None and isinstance(cfg, dict) and "item" in cfg
-        check(f"卡牌 {cid} 已注册", exists, str(cfg))
+        cfg = g.call("search_config", {"pattern": cid})
+        found = cfg is not None and cfg.get("matchCount", 0) > 0
+        check(f"卡牌 {cid} 已注册", found, str(cfg))
 
     for bid in BUFF_IDS:
-        cfg = g.call("query_config", {"tableName": "BuffConfig", "id": bid})
-        exists = cfg is not None and isinstance(cfg, dict) and "item" in cfg
-        check(f"Buff {bid} 已注册", exists, str(cfg))
+        cfg = g.call("search_config", {"pattern": bid})
+        found = cfg is not None and cfg.get("matchCount", 0) > 0
+        check(f"Buff {bid} 已注册", found, str(cfg))
 
 
 def test_phase_5_fakefight(g):
@@ -175,8 +180,7 @@ def test_phase_5_fakefight(g):
     if page in ("HUB", "LOBBY"):
         log("  设置大厅并启程...")
         g.call("set_lobby_state", {
-            "career": RUN_CONFIG["career"],
-            "confirm": True,
+            "careerId": RUN_CONFIG["careerId"],
         })
         g.call("start_run")
         time.sleep(2)
@@ -197,9 +201,9 @@ def test_phase_5_fakefight(g):
         log(f"  手牌数: {len(fight.get('hand', []))}")
         log(f"  能量: {fight.get('player', {}).get('power')}")
 
-    # 注入测试卡牌
+    # 注入测试卡牌（参数名是 type/value，不是 item_type）
     for cid in CARD_IDS:
-        result = g.call("give_item", {"item_type": "card", "value": str(cid)})
+        result = g.call("give_item", {"type": "card", "value": cid})
         check(f"注入卡牌 {cid} 成功",
               result is not None and "error" not in str(result))
 
@@ -219,7 +223,7 @@ def test_phase_5_fakefight(g):
         check("卡牌费用正确", test_card.get("cost") == EXPECTED_ENERGY_COST,
               f"费用: {test_card.get('cost')}, 期望: {EXPECTED_ENERGY_COST}")
 
-        result = g.call("play_card", {"card_index": card_index, "target_index": 0})
+        result = g.call("play_card", {"index": card_index, "targetIndex": 0})
         played_ok = result is not None and "error" not in str(result)
         check("出牌成功", played_ok, str(result))
 
@@ -231,8 +235,8 @@ def test_phase_5_fakefight(g):
                 enemies = fight.get("enemies", [])
                 enemy = enemies[0] if enemies else {}
 
-                # 验证伤害
-                hp_before = test_card.get("targetHpBefore")
+                # 验证伤害（targetHpBefore/After 在 play_card 返回里，不在手牌卡对象上）
+                hp_before = result.get("targetHpBefore")
                 hp_after = result.get("targetHpAfter")
                 if hp_before is not None and hp_after is not None:
                     damage_dealt = hp_before - hp_after

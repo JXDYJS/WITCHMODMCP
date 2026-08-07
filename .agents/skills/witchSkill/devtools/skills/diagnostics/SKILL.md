@@ -14,7 +14,7 @@ description: "DeveloperTools diagnostics tools: screenshot capture, mouse raycas
 | `get_screenshot` | `{format?, quality?}` | `{mimeType, base64, width, height, size}` | 获取游戏画面截图 |
 | `raycast_mouse` | `{screenX?, screenY?, maxResults?}` | `{hitCount, hits}` | 鼠标位置射线检测 |
 | `set_rng_seed` | `{seed?, forceRng?}` | `{result, changes}` | 设置随机种子 |
-| `decompile_source` | `{outputDir, force?}` | `{status, manifestPath, dlls}` | 反编译 Witch.dll / Witch.Core.dll |
+| `decompile_source` | `{outputDir, dlls?, force?, clean?}` | `{status, manifestPath, dlls?}` | 反编译指定 DLL（默认 Witch.dll / Witch.Core.dll） |
 
 ---
 
@@ -99,20 +99,21 @@ g.call("set_rng_seed", {"forceRng": 0.5})
 
 ### decompile_source
 
-反编译游戏程序集 Witch.dll 和 Witch.Core.dll 到指定目录。按 DLL 哈希分目录缓存，已缓存的不会重复反编译。
+反编译游戏程序集（默认 Witch.dll 和 Witch.Core.dll）到指定目录。按 DLL 哈希分目录缓存，已缓存的不会重复反编译。
 
 | 参数 | 类型 | 必填 | 默认 | 说明 |
 |------|------|------|------|------|
 | `outputDir` | string | 是 | — | 反编译缓存根目录 |
+| `dlls` | string[] | 否 | `["Witch.dll", "Witch.Core.dll"]` | 要反编译的 DLL 列表（在 Managed 目录查找，或传绝对路径） |
 | `force` | bool | 否 | false | 强制重新反编译 |
+| `clean` | bool | 否 | false | 清理 outputDir 中过期的 hash 缓存目录 |
 
 **返回：**
 | 字段 | 说明 |
 |------|------|
-| `status` | `fresh`（缓存有效） / `decompiled`（刚反编译） |
-| `manifestPath` | 清单文件路径 |
-| `dlls.Witch.dll` | `{hash, dir}` — Witch.dll 的反编译目录 |
-| `dlls.Witch.Core.dll` | `{hash, dir}` — Witch.Core.dll 的反编译目录 |
+| `status` | `fresh`（缓存有效） / `running`（已有进程在跑） / `started`（刚启动） / `decompiled`（刚反编译完成） |
+| `manifestPath` | 清单文件路径（仅 `fresh`/`decompiled` 分支返回） |
+| `dlls` | `{Witch.dll: {hash, dir}, ...}` — **仅 `decompiled` 分支返回**；缓存命中（`fresh`/`started`）时**没有**此字段 |
 
 **缓存目录结构：**
 ```
@@ -130,14 +131,22 @@ g.call("set_rng_seed", {"forceRng": 0.5})
 r = g.call("decompile_source", {"outputDir": "./game_src"})
 print(f"状态: {r['status']}")
 
-# 获取反编译后的目录路径
-witch_dir = "./game_src/" + r['dlls']['Witch.dll']['dir']
-core_dir = "./game_src/" + r['dlls']['Witch.Core.dll']['dir']
-print(f"Witch.dll 源码: {witch_dir}")
-print(f"Witch.Core.dll 源码: {core_dir}")
+# ⚠️ 缓存命中（fresh/started）时返回里没有 dlls 字段，先判空
+if 'dlls' in r:
+    witch_dir = "./game_src/" + r['dlls']['Witch.dll']['dir']
+    core_dir = "./game_src/" + r['dlls']['Witch.Core.dll']['dir']
+    print(f"Witch.dll 源码: {witch_dir}")
+    print(f"Witch.Core.dll 源码: {core_dir}")
+else:
+    # 未返回 dlls：本次未实际反编译（缓存命中或已启动）。
+    # 已在缓存中的目录可从 manifest 反查，或用 outputDir 下的 {hash}/ 目录（hash 见 .decompile_manifest.json）
+    print("缓存命中，本次未反编译。用 manifestPath 检查已缓存目录。")
 
 # 强制重新反编译
 r = g.call("decompile_source", {"outputDir": "./game_src", "force": True})
+
+# 反编译自定义 DLL（如游戏 Managed 目录下的其他程序集）
+r = g.call("decompile_source", {"outputDir": "./game_src", "dlls": ["Mirror.dll", "XLua.dll"]})
 ```
 
 ---
@@ -152,7 +161,7 @@ DeveloperTools 的扩展诊断工具 + 基座 WitchModMCP 的诊断工具（insp
 | "游戏画面现在长什么样？" | `get_screenshot` | DeveloperTools |
 | "让随机结果可复现" | `set_rng_seed` | DeveloperTools |
 | "查看游戏 C# 源码" | `decompile_source` | DeveloperTools |
-| "查 CardConfig 表" | `query_config` | 基座 |
+| "查配置表内容" | `search_config` | 基座 |
 | "反射查看 C# 对象" | `inspect` | 基座 |
 | "Mod 加载了吗？" | `dump_mod_state` | 基座 |
 | "给我 100 金" | `give_item` | 基座 |
@@ -163,4 +172,4 @@ DeveloperTools 的扩展诊断工具 + 基座 WitchModMCP 的诊断工具（insp
 1. **截图 vs 结构化数据** — `get_screenshot` 用于视觉确认；结构化数据用 `get_fight_state` / `get_game_data`
 2. **射线检测诊断 UI** — 当需要知道鼠标悬停在哪个 UI 元素上时，用 `raycast_mouse`
 3. **RNG 种子用于 Bug 复现** — 设置种子后相同操作序列产生相同随机结果，便于复现和调试 Bug
-4. **反编译注意事项** — 首次反编译约 30 秒；需要 `dotnet` 运行时；仅反编译 witch.dll 和 witch.core.dll
+4. **反编译注意事项** — 首次反编译约 30 秒；需要 `dotnet` 运行时；默认反编译 Witch.dll 和 Witch.Core.dll，可用 `dlls` 参数指定其他 DLL（在 Managed 目录下查找，或传绝对路径）

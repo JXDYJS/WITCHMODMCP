@@ -20,7 +20,9 @@ CLI usage:
     python witch_mcp.py get_game_data
     python witch_mcp.py eval_command '{"command": "help give"}'
     python witch_mcp.py inspect '{"typeName": "RoleTable", "memberPath": "Instance.San"}'
-    python witch_mcp.py --port 3100 query_config '{"tableName": "CardConfig", "limit": 3}'
+    # ⚠️ query_config 的 tableName 按 GameConfigManager 成员名解析，Card/Buff 等常规表名查不到；
+    #    确认内容是否加载请用 search_config（查 DataConfigCache 运行时 ID）
+    python witch_mcp.py --port 3100 search_config '{"pattern": "YourMod", "limit": 5}'
     # PowerShell double-quote escaping:
     python witch_mcp.py search_config '{\"pattern\": \"buff\", \"limit\": 5}'
 """
@@ -117,8 +119,8 @@ class WitchMcp:
     def get_game_data(self) -> Any:
         return self.call("get_game_data")
 
-    def get_recent_logs(self, count: int = 50) -> Any:
-        return self.call("get_recent_logs", {"count": count})
+    def get_recent_logs(self, count: int = 50, level: str = "All") -> Any:
+        return self.call("get_recent_logs", {"count": count, "level": level})
 
     def dump_mod_state(self) -> Any:
         return self.call("dump_mod_state")

@@ -1,123 +1,177 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- ═══════════════════════════════════════════════════════════════
+       WitchModMCP — 唯一 csproj
+       · BuildPart=Core  (默认)  → src/Core/**      → WitchModMCP.dll → Scripts/Entry.dll
+       · BuildPart=Tools (自调用) → src/Tools/**     → WitchModMCP.Contracts.dll
+       · Deploy target (独立触发) → 整个 WitchModMCP/ 复制到游戏 Mods 目录
+       ═══════════════════════════════════════════════════════════════ -->
+
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
-    <Platforms>AnyCPU</Platforms>
     <LangVersion>latest</LangVersion>
+    <Platforms>AnyCPU</Platforms>
     <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
     <GenerateDocumentationFile>False</GenerateDocumentationFile>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <RootNamespace>Meowalive.Mod.WitchModMCP</RootNamespace>
-    <AssemblyName>WitchModMCP</AssemblyName>
-    <GameFolderName>Witch's Apocalyptic Journey</GameFolderName>
-    <GameDataNameBack>Witch's Apocalyptic Journey_Data</GameDataNameBack>
-    <GameSteamid>3709430</GameSteamid>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>WitchModMCP</RootNamespace>
+
+    <!-- 构建部件选择 -->
+    <BuildPart Condition="'$(BuildPart)' == ''">Core</BuildPart>
+    <AssemblyName Condition="'$(BuildPart)' == 'Core'">WitchModMCP</AssemblyName>
+    <AssemblyName Condition="'$(BuildPart)' == 'Tools'">WitchModMCP.Contracts</AssemblyName>
+
+    <!-- 游戏路径（编译引用 + Deploy 目标目录，需重新编译时改这里） -->
     <GameManagedPath>F:\steam\steamapps\common\Witch's Apocalyptic Journey\Witch's Apocalyptic Journey_Data\Managed</GameManagedPath>
-    <Configurations>Debug;Release;Debug 魔女 WitchModMCP;Release 魔女 WitchModMCP;</Configurations>
-    <OutputPath>$(ProjectDir)WitchModMCP\Scripts\</OutputPath>
+
+    <!-- Mod 发布文件夹（构建产物写到这里，Deploy 整体复制） -->
+    <ModDir>$(ProjectDir)WitchModMCP</ModDir>
+    <OutputPath>$(ModDir)\Scripts\</OutputPath>
+
+    <!-- 两个部件的中间产物分开，避免 obj 冲突 -->
+    <IntermediateOutputPath Condition="'$(BuildPart)' == 'Core'">$(ProjectDir)obj\core\</IntermediateOutputPath>
+    <IntermediateOutputPath Condition="'$(BuildPart)' == 'Tools'">$(ProjectDir)obj\tools\</IntermediateOutputPath>
   </PropertyGroup>
 
-  <Target Name="DebugPaths" BeforeTargets="Build">
-    <Message Importance="high" Text="========== 路径调试信息 ==========" />
-    <Message Importance="high" Text="  📁 GameManagedPath: $(GameManagedPath)" />
-    <Message Importance="high" Text="==================================" />
-  </Target>
+  <!-- ═══════════════ 源码（按部件选择） ═══════════════ -->
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DebugType>embedded</DebugType>
-    <IsPublishable>True</IsPublishable>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DebugType>embedded</DebugType>
-    <IsPublishable>True</IsPublishable>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug 魔女 WitchModMCP|AnyCPU' ">
-    <DebugType>embedded</DebugType>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release 魔女 WitchModMCP|AnyCPU' ">
-    <DebugType>embedded</DebugType>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Folder Include="WitchModMCP\Data\" />
-    <Folder Include="WitchModMCP\Text\" />
-    <Folder Include="WitchModMCP\ModResource\" />
+  <ItemGroup Condition="'$(BuildPart)' == 'Core'">
+    <Compile Include="src\Core\**\*.cs" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="WitchModMCP.Contracts\**\*.cs" />
-    <Compile Remove="WitchModMCP\mcp_plugins\**\*.cs" />
-    <Compile Remove="decompiled_game\**\*.cs" />
-    <Compile Remove="DecompiledSource\**\*.cs" />
-    <!-- DeveloperTools merged into WitchModMCP.Contracts -->
+  <ItemGroup Condition="'$(BuildPart)' == 'Tools'">
+    <Compile Include="src\Tools\**\*.cs" />
   </ItemGroup>
 
-  <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">
-    <ItemGroup Condition="Exists('$(GameManagedPath)')">
-      <Reference Include="Witch">
-        <HintPath>$(GameManagedPath)\Witch.dll</HintPath>
-        <Private>false</Private>
-      </Reference>
-      <Reference Include="Witch.Core">
-        <HintPath>$(GameManagedPath)\Witch.Core.dll</HintPath>
-        <Private>false</Private>
-      </Reference>
-      <Reference Include="UnityEngine.CoreModule">
-        <HintPath>$(GameManagedPath)\UnityEngine.CoreModule.dll</HintPath>
-        <Private>false</Private>
-      </Reference>
-      <Reference Include="UnityEngine.InputLegacyModule">
-        <HintPath>$(GameManagedPath)\UnityEngine.InputLegacyModule.dll</HintPath>
-        <Private>false</Private>
-      </Reference>
-      <Reference Include="UnityEngine.IMGUIModule">
-        <HintPath>$(GameManagedPath)\UnityEngine.IMGUIModule.dll</HintPath>
-        <Private>false</Private>
-      </Reference>
-      <Reference Include="Newtonsoft.Json">
-        <HintPath>$(GameManagedPath)\Newtonsoft.Json.dll</HintPath>
-        <Private>false</Private>
-      </Reference>
-    </ItemGroup>
+  <!-- ═══════════════ 游戏引用（共享） ═══════════════ -->
+
+  <ItemGroup>
+    <Reference Include="Witch">
+      <HintPath>$(GameManagedPath)\Witch.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Witch.Core">
+      <HintPath>$(GameManagedPath)\Witch.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(GameManagedPath)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(GameManagedPath)\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.Physics2DModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.Physics2DModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ScreenCaptureModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.ScreenCaptureModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(GameManagedPath)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(GameManagedPath)\Unity.InputSystem.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UniTask">
+      <HintPath>$(GameManagedPath)\UniTask.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Mirror">
+      <HintPath>$(GameManagedPath)\Mirror.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Plugins">
+      <HintPath>$(GameManagedPath)\Plugins.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="MemoryPack.Core">
+      <HintPath>$(GameManagedPath)\MemoryPack.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Loxodon.Framework.Obfuscation">
+      <HintPath>$(GameManagedPath)\Loxodon.Framework.Obfuscation.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Core 部件：WebSocketSharp（从 lib/ 复制进 Scripts/，游戏运行需要） -->
+  <ItemGroup Condition="'$(BuildPart)' == 'Core'">
+    <Reference Include="WebSocketSharp">
+      <HintPath>$(ModDir)\lib\websocket-sharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Tools 部件：引用已编好的主程序集（不复制，同目录已有） -->
+  <ItemGroup Condition="'$(BuildPart)' == 'Tools'">
+    <Reference Include="WitchModMCP">
+      <HintPath>$(ModDir)\Scripts\WitchModMCP.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- ═══════════════ 目标 ═══════════════ -->
+
+  <!-- 主程序集编译后复制为游戏入口 Entry.dll -->
+  <Target Name="CopyEntryDll" AfterTargets="Build" Condition="'$(BuildPart)' == 'Core'">
+    <Copy SourceFiles="$(OutputPath)WitchModMCP.dll"
+          DestinationFiles="$(OutputPath)Entry.dll" />
   </Target>
 
-  <Target Name="BuildMod" AfterTargets="Build"
-          Condition="'$(BuildingContracts)' != 'true'">
-    <MSBuild Projects="WitchModMCP.Contracts\WitchModMCP.Contracts.csproj" Targets="Build"
-             Properties="Configuration=$(Configuration);BuildingContracts=true" />
+  <!-- 编译工具 DLL（热重载用，独立程序集）：自调用本 csproj 切到 Tools 部件 -->
+  <Target Name="BuildTools" AfterTargets="Build" Condition="'$(BuildPart)' == 'Core'">
+    <MSBuild Projects="$(MSBuildProjectFile)" Targets="Restore;Build"
+             Properties="BuildPart=Tools;Configuration=$(Configuration)" />
+  </Target>
+
+  <!-- 部署：把整个 mod 文件夹复制到游戏 Mods 目录（硬编码路径，独立触发） -->
+  <Target Name="Deploy" DependsOnTargets="Build">
     <PropertyGroup>
-      <ModDir>$(ProjectDir)WitchModMCP</ModDir>
+      <GameDataDir>$([System.IO.Path]::GetDirectoryName($(GameManagedPath)))</GameDataDir>
+      <GameModsDir>$(GameDataDir)\Mods</GameModsDir>
+      <GameModDir>$(GameModsDir)\WitchModMCP</GameModDir>
     </PropertyGroup>
-    <Copy SourceFiles="$(TargetDir)$(TargetName).dll" DestinationFiles="$(ModDir)\Scripts\Entry.dll" Condition="Exists('$(TargetDir)$(TargetName).dll')" />
-    <Message Importance="high" Condition="Exists('$(ModDir)\Scripts\Entry.dll')" Text="✅ WitchModMCP.dll → WitchModMCP/Scripts/Entry.dll" />
-    <Copy SourceFiles="$(ProjectDir)WitchModMCP.Contracts\bin\$(Configuration)\WitchModMCP.Contracts.dll" DestinationFiles="$(ModDir)\Scripts\WitchModMCP.Contracts.dll" Condition="Exists('$(ProjectDir)WitchModMCP.Contracts\bin\$(Configuration)\WitchModMCP.Contracts.dll')" />
-    <Message Importance="high" Condition="Exists('$(ModDir)\Scripts\WitchModMCP.Contracts.dll')" Text="✅ WitchModMCP.Contracts.dll → Scripts/" />
-    <MSBuild Projects="$(ModDir)\mcp_plugins\decompile\Decompile.csproj"
-             Targets="Restore;Publish"
-             Properties="PublishDir=$(ModDir)\mcp_plugins\decompile\publish\;Configuration=Release" />
+    <RemoveDir Directories="$(GameModDir)" />
+    <Exec Command="robocopy &quot;$(ModDir)&quot; &quot;$(GameModDir)&quot; /E /XD obj bin /R:1 /W:1 /NFL /NDL /NJH /NJS /NC /NS" IgnoreExitCode="true">
+      <Output TaskParameter="ExitCode" PropertyName="_RobocopyExit" />
+    </Exec>
+    <Error Condition="'$(_RobocopyExit)' >= '8'"
+           Text="Deploy failed: robocopy exit code $(_RobocopyExit)" />
+    <Message Importance="high"
+             Text="✅ Deployed mod to $(GameModDir) (robocopy exit $(_RobocopyExit))" />
   </Target>
 
-  <Target Name="DeployMod" AfterTargets="BuildMod"
-          Condition="$(Configuration.Contains('魔女')) And Exists('$(GameManagedPath)')">
-    <PropertyGroup>
-      <GameModsDir>$([System.IO.Path]::GetDirectoryName($(GameManagedPath)))\Mods\$(AssemblyName)</GameModsDir>
-    </PropertyGroup>
-    <RemoveDir Directories="$(GameModsDir)" />
-    <ItemGroup>
-      <ModFiles Include="$(ProjectDir)WitchModMCP\**\*.*"
-                Exclude="$(ProjectDir)WitchModMCP\mcp_plugins\**\bin\**;$(ProjectDir)WitchModMCP\mcp_plugins\**\obj\**" />
-    </ItemGroup>
-    <Copy SourceFiles="@(ModFiles)" DestinationFolder="$(GameModsDir)\%(RecursiveDir)" />
-    <Message Importance="high" Text="✅ 已部署 Mod 到: $(GameModsDir)" />
-  </Target>
-
-  <Target Name="CleanModFiles" AfterTargets="Clean">
-    <ItemGroup>
-      <DllsToDelete Include="$(ProjectDir)WitchModMCP\Scripts\*.dll"/>
-      <DllsToDelete Include="$(ProjectDir)WitchModMCP\Scripts\*.pdb"/>
-    </ItemGroup>
-    <Delete Files="@(DllsToDelete)" Condition="Exists('%(FullPath)')" />
-  </Target>
 </Project>

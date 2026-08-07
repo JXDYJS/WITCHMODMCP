@@ -18,7 +18,7 @@ Design (dynamic discovery):
     — no race with concurrent tools/list messages.
 
 Environment variables:
-    MCP_MOD_PORT             — game mod HTTP port (default: from ModConfig or 3100)
+    MCP_MOD_PORT             — game mod HTTP port (default: 3100)
     MCP_HEARTBEAT_INTERVAL   — heartbeat interval seconds (default: 5)
     MCP_HEARTBEAT_MAX_FAIL   — consecutive failures before disconnected (default: 3)
     MCP_DECOMPILE_DIR        — decompile cache directory
@@ -34,7 +34,7 @@ from pathlib import Path
 from mcp_gateway.mcp_transport import SimpleMCP, run_stdio_async
 
 from mcp_gateway.heartbeat import HeartbeatManager
-from mcp_gateway.mod_client import ModConnection, read_mod_config
+from mcp_gateway.mod_client import ModConnection, DEFAULT_MOD_PORT
 from mcp_gateway.resources import register_resources
 from mcp_gateway.tools import (
     init as tools_init,
@@ -105,7 +105,10 @@ def _trigger_decompile():
     os.makedirs(decompile_dir, exist_ok=True)
     try:
         resp = _mod.call_tool("decompile_source", {"outputDir": decompile_dir})
-        result = resp.get("result", {})
+        if resp.get("error"):
+            log(f"  decompile error: {resp['error']}")
+            return
+        result = resp.get("result", {}) or {}
         status = result.get("status", "unknown")
         log(f"  decompile_source: {status}")
         if result.get("error"):
@@ -248,12 +251,11 @@ def _on_heartbeat(resp: dict):
 def main():
     global _mod, _heartbeat
 
-    # 1. Read configuration
-    mod_config = read_mod_config()
-    port = int(os.environ.get("MCP_MOD_PORT") or mod_config["port"])
+    # 1. Read configuration. The mod's MCP HTTP server defaults to 3100
+    #    (see ModConfig.json MCPPort); MCP_MOD_PORT overrides it.
+    port = int(os.environ.get("MCP_MOD_PORT") or DEFAULT_MOD_PORT)
 
     log(f"Mod port: {port}")
-    log(f"Config source: {mod_config.get('config_path', 'defaults')}")
     log(f"Workspace: {_workspace_dir}")
 
     # 2. Create mod connection
@@ -302,7 +304,7 @@ def main():
                 log("C# mod returned empty tool list — only ping available")
         else:
             log(f"C# mod responded with error: {disc_err}")
-    except (ConnectionError, OSError, Exception) as e:
+    except Exception as e:
         log(f"C# mod not reachable at startup ({e}) — only ping until heartbeat")
 
     # 6. Register witchSkill docs as MCP Resources (if available)

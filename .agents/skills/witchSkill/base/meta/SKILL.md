@@ -11,10 +11,10 @@ Global state probes — detect the current game page, read player/runtime snapsh
 
 | Tool | Params | Returns |
 |------|--------|---------|
-| `get_scene_state` | — | `{page, inRun, inFight, fightType?, player?, modals, transitioning, overlays, level}` |
+| `get_scene_state` | — | `{page, inRun, inFight, fightType?, isFake?, player?, fightPlayer?, modals, transitioning, activeUI?, activeUIs?, overlays, level?}` |
 | `get_game_data` | — | `{player?, fight?, runtime?}` — player HP/SAN/money/deck snapshot |
 | `get_game_info` | — | `{dataPath, gameRoot, managedPath, modsPath, unityVersion, platform, loadedMods}` — game install info |
-| `check_mode_saves` | `{mode?}` | `{hasSaves, totalSaves, validSaves, saves: [{name, mode, level, career?, cardCount, relicCount}]}` |
+| `check_mode_saves` | `{mode?}` | `{hasSaves, saves: [{name, mode, level, createdTime, seed, hardLevel, career?, cardCount, relicCount}]}` — `totalSaves`/`validSaves` only present when saves exist |
 | `list_game_modes` | — | `{modes: [{mode, hasSave, saveCount, save?}]}` |
 | `get_recent_logs` | `{count=50, level="All"}` | JSON array of recent log entries, optional level filter (`All`, `Log`, `Warning`, `Error`) |
 
@@ -43,7 +43,7 @@ Detects the current game UI page. Returns which page is active and whether there
 | `page` | string | Current page identifier |
 | `inRun` | bool | Whether a run is in progress |
 | `inFight` | bool | Whether currently in combat |
-| `fightType` | string | Combat type when inFight (e.g. `Player`, `Enemy`) |
+| `fightType` | string | Combat phase/type when inFight — `FightType` enum: `Player`, `Enemy`, `Init`, `OtherTurn`, `Partner`, `Win`, `Loss`, `Escape` |
 | `fightPlayer` | object | `{hp, maxHp, power, shield}` when inFight |
 | `modals` | bool | Whether a blocking modal is open |
 | `transitioning` | bool | Whether a scene transition/animation is playing |
@@ -124,6 +124,7 @@ Returns the game's installation paths and version information. Useful for script
 |-------|------|-------------|
 | `dataPath` | string | Unity `Application.dataPath` — the game's `_Data` folder |
 | `gameRoot` | string | Parent of dataPath — the game install root directory |
+| `gameRootParent` | string | Parent of gameRoot (if resolvable) — 源码有返回，实时版本以实际为准 |
 | `managedPath` | string | Path to `Managed/` (game DLLs) |
 | `modsPath` | string | Path to `Mods/` directory |
 | `unityVersion` | string | Unity engine version (e.g. `6000.0.46f1`) |
@@ -131,7 +132,7 @@ Returns the game's installation paths and version information. Useful for script
 | `productName` | string | Unity product name |
 | `companyName` | string | Unity company name |
 | `loadedMods` | array | `[{name, directory}]` — all currently loaded mods and their disk paths |
-| `loadedModDirectories` | array | Raw mod directory paths from GameConfigManager |
+| `loadedModDirectories` | array | Raw mod directory paths from GameConfigManager — **仅在对应内部成员非空时返回**，实时版本可能不含此字段，请以 `list_tools`/实际返回为准 |
 
 **Python:**
 ```python
@@ -154,9 +155,14 @@ Inspect save files for a specific game mode, or all modes. Uses `ModeChoiceUI.Ch
 **Python:**
 ```python
 saves = g.call("check_mode_saves", {"mode": "Normal"})
-print(f"Valid saves: {saves['validSaves']}")
-for s in saves['saves']:
-    print(f"  {s['name']} — level {s['level']}, {s.get('career', '?')}")
+# ⚠️ 无存档时返回 {hasSaves: false, saves: []}，没有 totalSaves/validSaves！
+#    先判 hasSaves 再读 validSaves
+if not saves.get('hasSaves'):
+    print("无有效存档")
+else:
+    print(f"Valid saves: {saves.get('validSaves')}")
+    for s in saves['saves']:
+        print(f"  {s['name']} — level {s['level']}, {s.get('career', '?')} (created {s.get('createdTime')}, seed {s.get('seed')})")
 ```
 
 ### list_game_modes

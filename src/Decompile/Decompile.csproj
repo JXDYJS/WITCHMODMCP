@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- ⚠️ 静态工具：不参与主 csproj 构建。
+       DecompileSourceTool 在游戏内以子进程方式运行此发布产物，
+       路径硬编码为 <mod>/mcp_plugins/decompile/publish/Decompile.dll。
+       改源码后手动重新发布：
+         dotnet publish src/Decompile/Decompile.csproj -c Release -o WitchModMCP/mcp_plugins/decompile/publish
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ICSharpCode.Decompiler" Version="10.1.0.8386" />
+  </ItemGroup>
+</Project>

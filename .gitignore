@@ -2,6 +2,8 @@
 bin/
 obj/
 #WitchModMCP/Scripts/
+# Main assembly output (Entry.dll is the tracked copy of WitchModMCP.dll)
+WitchModMCP/Scripts/WitchModMCP.dll
 
 # NuGet cache
 *.nupkg
@@ -35,6 +37,7 @@ test_log.txt
 
 # Test screenshots (regenerated each run)
 screenshot_test.*
+console_test.html
 
 # OS files
 Thumbs.db
@@ -46,8 +49,10 @@ Thumbs.db
 .cache
 cache
 
-# Decompiled game source (large, regenerated on demand)
+# Decompiled game/mod source (large, regenerated on demand via decompile_source)
 decompiled_game/
+game_src/
+decompiled_mods/
 
 # Session/chat artifacts
 session-*.md
@@ -59,6 +64,18 @@ plugins_il.res
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# npm / bun
+WitchModMCP/Terminal/node_modules/
+WitchModMCP/Terminal/bun.lock
+
+# Generated ESM bundle (rebuilt by bun build)
+WitchModMCP/Terminal/node_modules/xterm-readline/xterm-readline.mjs
+
+# Plan document (not for distribution)
+WitchLuaConsole.md
+# Uncommitted problem notes (modal guard etc.)
+notes_*_problem.md
 
 # Per-user AI tool configs (not to be distributed)
 opencode.json

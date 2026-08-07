@@ -65,11 +65,13 @@ print(f"已启用卡包 ({len(active_packs)}): {active_packs}")
 **Python：**
 ```python
 # 选择法师职业 + 智慧属性 + 指定卡包
+# ⚠️ 卡包 ID 是运行时 ID（如 "cardpack_1"，Mod 卡包为 "{ModFolder}_cardpack_{id}"），
+#    实际值从 get_lobby_state 的 cardPacks.available[].id 取
 r = g.call("set_lobby_state", {
     "careerId": "Career_3",
     "partnerId": "Partner_5",
     "attributes": {"main": "Wisdom", "second": "Lucky"},
-    "cardPackIds": ["pack_1", "pack_2", "pack_3", "pack_4", "pack_5", "pack_6"]
+    "cardPackIds": ["cardpack_1", "cardpack_2", "cardpack_3", "cardpack_4", "cardpack_5", "cardpack_6"]
 })
 print(f"变更: {r['changes']}")
 

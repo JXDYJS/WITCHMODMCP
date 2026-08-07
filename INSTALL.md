@@ -8,7 +8,7 @@ This repository contains three parts. Verify they are all present before install
 
 | Component | Description | Location |
 |---|---|---|---|
-| **Game Mod** | C# Unity mod (source + pre-built DLLs in `Scripts/`). Deploy the whole folder | `WitchModMCP/`, `WitchModMCP.Contracts/`, `Harmony/`, `MCP/`, `Dispatcher/`, `Utils/` |
+| **Game Mod** | C# Unity mod (source + pre-built DLLs in `Scripts/`). Deploy the whole folder | `WitchModMCP/` (deploy folder), `src/Core/` (mod core source), `src/Tools/` (MCP tool DLL source), `src/Decompile/` (decompile plugin source) |
 | **MCP Gateway (Python)** | MCP stdio ↔ HTTP proxy, connects AI tools to the game | `mcp_gateway/`, `run_gateway.py` |
 | **Skill (AI docs)** | Knowledge base for game mechanics, tool usage, combat strategy | `.agents/skills/witchSkill/` |
 
@@ -83,7 +83,7 @@ Mods/WitchModMCP/
 ├── ModResource/
 ```
 
-> **Optional: Build from source** — run `dotnet build` in the repo root. The csproj outputs to `WitchModMCP/Scripts/` and publishes the decompile plugin. Only needed if you modify the C# code.
+> **Optional: Build from source** — run `dotnet build` in the repo root. The csproj compiles all code (src/) into `WitchModMCP/Scripts/` (Entry.dll + WitchModMCP.Contracts.dll). To also deploy to the game's Mods folder, run `dotnet build -t:Deploy` (the game path is hardcoded in `WitchModMCP.csproj`). The decompile plugin is a static net8.0 artifact shipped under `WitchModMCP/mcp_plugins/decompile/publish/` — it is not rebuilt by the main csproj.
 
 ---
 
@@ -108,9 +108,6 @@ cp -r "<project_root>/.agents/skills/witchSkill" "<user_project>/.agents/skills/
 ```bash
 # AGENTS.md — supported by most coding agents (opencode, Cursor, Codex, Claude Code, VS Code, etc.)
 cp "<project_root>/AGENTS.md" "<user_project>/AGENTS.md"
-
-# INSTRUCTIONS.md — used by Codex CLI
-cp "<project_root>/INSTRUCTIONS.md" "<user_project>/INSTRUCTIONS.md"
 ```
 
 If the user's project already has an `AGENTS.md`, append the WitchModMCP instructions to it instead of overwriting.

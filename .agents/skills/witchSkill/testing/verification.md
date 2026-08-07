@@ -62,7 +62,7 @@ def test_data_loaded():
 def test_card_injectable():
     mcp.call("enter_game")
     mcp.call("start_new_game", {"mode": "Normal", "useExistingSave": False})
-    mcp.call("set_lobby_state", {"careerId": "career_1"})
+    mcp.call("set_lobby_state", {"careerId": "Career_1"})  # 基座职业运行时 ID 是大写 C
     mcp.call("start_run")
     mcp.call("load_scene", {"type": "fakefight"})
     r = mcp.call("give_item", {"type": "card", "value": "MyMod_CsvFile_CardId"})
@@ -93,6 +93,8 @@ if __name__ == "__main__":
 | Mod 未加载 | 没有 `[Mod] 已加载: YourMod.YourAuthor` 行 |
 
 只有在日志完全干净的情况下，才考虑用 `inspect`/`query_config` 查更深层状态。
+
+> ⚠️ **`query_config` 的 `tableName` 按 `GameConfigManager` 成员名解析**，`Card`/`Buff`/`CardConfig` 等常规表名大多查不到（返回"找不到配置表"）。确认内容是否加载请用 `search_config`（查 `DataConfigCache` 运行时 ID）。
 
 ## 跨模块测试工作流
 
@@ -130,7 +132,7 @@ lobby = g.call("get_lobby_state")
 print("可用卡包:", [p['id'] for p in lobby['cardPacks']['available']])
 
 # 7. 启程进战斗注入卡牌测试
-g.call("set_lobby_state", {"careerId": "career_1"})
+g.call("set_lobby_state", {"careerId": "Career_1"})  # 基座职业 ID 大写 C
 g.call("start_run")  # 进入 MAP 页面
 g.call("load_scene", {"type": "fakefight"})  # ⚠️ 确保从 MAP 调用，不要在 FIGHT 中再调
 g.call("give_item", {"type": "card", "value": "YourMod_CsvFile_CardId"})
@@ -165,7 +167,7 @@ print(f"出牌结果: {result}")
 | `search_config` 搜 Mod 名得到 0 条 | CSV 未加载，检查 `get_recent_logs` 中的 CSV 解析错误 |
 | `dump_mod_state` 找不到 Mod | ModConfig.json `Enabled=false` |
 | 日志显示 "ModConfig.json parse failed" | JSON 语法错误 |
-| `query_config` 查不到条目 | CSV 在错误的 Data/ 子目录下 |
+| `query_config` 报"找不到配置表" | `tableName` 需是 `GameConfigManager` 成员名；常规表名不可用，改用 `search_config` |
 | 游戏内看不到卡牌 | `PackBelong` 未设置或指向不存在的 CardPack |
 | 卡牌无名 | 缺少 Text CSV |
 | 卡牌无法打出 | `BaseScript` 未设置 |

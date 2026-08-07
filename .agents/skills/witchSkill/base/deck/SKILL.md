@@ -23,7 +23,7 @@ description: "WitchModMCP deck (牌组) management tools: read and modify the Ou
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
-| `get_outdeck_state` | — | `{isOpen, equippedCards, reserveCards, limits}` | 读取牌组完整状态 |
+| `get_outdeck_state` | — | `{isOpen, equippedCards, reserveCards, cardBottomCount, cardTopCount, maxAlCardCount, equippedCount, reserveCount}` | 读取牌组完整状态 |
 | `outdeck_move_card` | `{instanceId}` | `{result, action, message}` | 移动卡牌（装备↔备选自动检测方向） |
 | `outdeck_decompose` | `{instanceId}` | `{result, action, cost, message}` | 分解卡牌（消耗金钱移除） |
 
@@ -43,7 +43,6 @@ description: "WitchModMCP deck (牌组) management tools: read and modify the Ou
 | `equippedCards[].instanceId` | string | **运行时唯一实例 ID**（用于 move/decompose） |
 | `equippedCards[].cost` | string | 费用 |
 | `equippedCards[].rarity` | string | 稀有度 |
-| `equippedCards[].type` | string | 卡牌类型（攻击牌/技能牌等） |
 | `equippedCards[].tag` | string | 标签（Retain/Burnout 等） |
 | `reserveCards` | array | 备选卡牌列表（同 equippedCards 结构） |
 | `cardBottomCount` | int | 装备下限 |
