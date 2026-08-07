@@ -20,6 +20,7 @@ namespace WitchModMCP.Tools
             return GameDispatcher.RunOnMainThread(() =>
             {
                 McpRouter.ReloadAllTools();
+                WitchModMCPEntry.ResyncLuaAssemblies();
                 return (JToken)new JObject
                 {
                     ["status"] = "ok",

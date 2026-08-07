@@ -17,14 +17,14 @@ namespace WitchModMCP.Tools
             ["type"] = "object",
             ["properties"] = new JObject
             {
-                ["LuaCode"] = new JObject{["type"] = "string",["description"] = "实际需要执行的lua代码"}
+                ["luaCode"] = new JObject{["type"] = "string",["description"] = "实际需要执行的lua代码"}
             }
         };
         public async Task<JToken> Execute(JToken args)
         {
-            string code = args["LuaCode"]?.Value<string>();
+            string code = args["luaCode"]?.Value<string>() ?? args["LuaCode"]?.Value<string>();
             if (string.IsNullOrEmpty(code))
-                return new JObject { ["success"] = false, ["error"] = "LuaCode is required" };
+                return new JObject { ["success"] = false, ["error"] = "luaCode is required" };
 
             object[] results = null;
             string error = null;

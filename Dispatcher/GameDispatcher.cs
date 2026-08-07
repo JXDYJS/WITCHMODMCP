@@ -34,6 +34,7 @@ namespace WitchModMCP.Dispatcher
     {
         private static readonly int TypeCount = Enum.GetValues(typeof(WitchModMCPTaskType)).Length;
         private static readonly ConcurrentQueue<WitchModMCPTask>[] _queues;
+        private static int _mainThreadId;
         static GameDispatcher()
         {
             _queues = new ConcurrentQueue<WitchModMCPTask>[TypeCount];
@@ -45,8 +46,10 @@ namespace WitchModMCP.Dispatcher
 
         public static void Initialize()
         {
-            
+            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
         }
+
+        public static bool IsMainThread => Thread.CurrentThread.ManagedThreadId == _mainThreadId;
 
         public static void EnqueueTask(WitchModMCPTask task)
         {
@@ -82,6 +85,12 @@ namespace WitchModMCP.Dispatcher
 
         public static Task<T> RunOnMainThread<T>(Func<T> func, WitchModMCPTaskType type = WitchModMCPTaskType.Update)
         {
+            if (IsMainThread)
+            {
+                try { return Task.FromResult(func()); }
+                catch (Exception ex) { return Task.FromException<T>(ex); }
+            }
+
             var tcs = new TaskCompletionSource<T>();
             EnqueueTask(new WitchModMCPTask(() =>
             {
