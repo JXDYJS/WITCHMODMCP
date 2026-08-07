@@ -30,20 +30,14 @@ Read [INSTALL.md](./INSTALL.md) and follow the steps manually.
 
 ---
 
-### Architecture
+### Known Issues
 
-```
-AI Agent (opencode / Claude Code / Cursor etc.)
-    │  MCP JSON-RPC (stdin/stdout)
-    ▼
-mcp_gateway/server.py          ← Python MCP stdio server
-    │  HTTP JSON-RPC (localhost:3100)
-    ▼
-WitchModMCP (Unity Mod)         ← In-game HTTP server
-    │  C# reflection & Harmony
-    ▼
-Witch's Apocalyptic Journey     ← Game runtime
-```
+1. Some tools can trigger game bugs.
+2. The game may show popup dialogs that the AI cannot detect.
+3. Actions may be performed through popups directly.
+4. Some tools return success even when the operation failed.
+5. The Lua console is unfinished.
+6. Only tested in single-player World Deduction mode.
 
 ### Tools
 

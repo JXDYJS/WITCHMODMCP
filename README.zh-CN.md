@@ -30,20 +30,14 @@ AI 会自动读取 [INSTALL.md](./INSTALL.md) 并引导你完成安装。
 
 ---
 
-### 架构
+### 已知问题
 
-```
-AI 代理 (opencode / Claude Code / Cursor 等)
-    │  MCP JSON-RPC (stdin/stdout)
-    ▼
-mcp_gateway/server.py          ← Python MCP stdio 服务器
-    │  HTTP JSON-RPC (localhost:3100)
-    ▼
-WitchModMCP (Unity Mod)         ← 游戏内 HTTP 服务器
-    │  C# 反射 & Harmony
-    ▼
-魔女:终末旅途                   ← 游戏运行时
-```
+1. 部分工具使用会触发游戏 bug。
+2. 游戏可能出现弹窗操作而 AI 察觉不到。
+3. 可能透过弹窗直接操作。
+4. 部分工具执行失败但会返回成功。
+5. Lua 控制台并未完成。
+6. 仅在单人世界推演模式测试过。
 
 ### 工具
 
