@@ -51,7 +51,16 @@
     <Compile Remove="WitchModMCP\mcp_plugins\**\*.cs" />
     <Compile Remove="decompiled_game\**\*.cs" />
     <Compile Remove="DecompiledSource\**\*.cs" />
+    <Compile Remove="game_src\**\*.cs" />
+    <Compile Remove="decompiled_mods\**\*.cs" />
     <!-- DeveloperTools merged into WitchModMCP.Contracts -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="WebSocketSharp">
+      <HintPath>$(ProjectDir)WitchModMCP\lib\websocket-sharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
 
   <Target Name="AddGameReferences" BeforeTargets="ResolveAssemblyReferences">

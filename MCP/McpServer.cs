@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using WitchModMCP.Terminal;
 
 namespace WitchModMCP.MCP
 {
@@ -12,12 +13,16 @@ namespace WitchModMCP.MCP
         private const int MaxBodyBytes = 4 * 1024 * 1024;
 
         private HttpListener _listener;
+        private WebSocketServer _wsServer;
         private CancellationTokenSource _cts;
         private bool _disposed;
         private volatile bool _shuttingDown;
         private int _port;
 
         public bool IsShuttingDown => _shuttingDown;
+
+        /// <summary>Mod root directory (set by Entry before Start).</summary>
+        public string ModDirectory { get; set; }
 
         public void Start(int port)
         {
@@ -30,6 +35,8 @@ namespace WitchModMCP.MCP
                 _listener.Start();
                 _cts = new CancellationTokenSource();
                 _ = Task.Run(ListenLoop);
+                _wsServer = new WebSocketServer();
+                _wsServer.Start(port + 1);
                 Commands.Log(WitchModMCPEntry.MOD_TAG, $"[McpServer] Listening on http://localhost:{port}/");
             }
             catch (HttpListenerException ex)
@@ -137,6 +144,30 @@ namespace WitchModMCP.MCP
                     return;
                 }
 
+                // ──── GET /console — serve xterm.js terminal page ────
+                if (context.Request.HttpMethod == "GET" &&
+                    context.Request.Url.AbsolutePath.TrimEnd('/') == "/console")
+                {
+                    await ServeConsolePage(context);
+                    return;
+                }
+
+                // ──── GET /xterm/* — static files from Terminal/node_modules/@xterm ────
+                if (context.Request.HttpMethod == "GET" &&
+                    context.Request.Url.AbsolutePath.StartsWith("/xterm/"))
+                {
+                    await ServeXtermStatic(context);
+                    return;
+                }
+
+                // ──── GET /xterm-readline/* — static files from Terminal/node_modules/xterm-readline ────
+                if (context.Request.HttpMethod == "GET" &&
+                    context.Request.Url.AbsolutePath.StartsWith("/xterm-readline/"))
+                {
+                    await ServeXtermReadlineStatic(context);
+                    return;
+                }
+
                 // ──── Only POST for tool calls ────
                 if (context.Request.HttpMethod != "POST")
                 {
@@ -205,6 +236,196 @@ namespace WitchModMCP.MCP
             }
         }
 
+        private async Task ServeConsolePage(HttpListenerContext context)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(ModDirectory))
+                {
+                    context.Response.StatusCode = 500;
+                    var err = Encoding.UTF8.GetBytes("Server not configured (ModDirectory missing)");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                var htmlPath = Path.Combine(ModDirectory, "Terminal", "console.html");
+                if (!File.Exists(htmlPath))
+                {
+                    context.Response.StatusCode = 404;
+                    var err = Encoding.UTF8.GetBytes($"console.html not found at {htmlPath}");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                var html = File.ReadAllText(htmlPath, Encoding.UTF8);
+                var buf = Encoding.UTF8.GetBytes(html);
+                context.Response.ContentType = "text/html; charset=utf-8";
+                context.Response.ContentLength64 = buf.Length;
+                await context.Response.OutputStream.WriteAsync(buf, 0, buf.Length);
+                Commands.Log(WitchModMCPEntry.MOD_TAG, "[McpServer] Served console.html");
+            }
+            catch (Exception ex)
+            {
+                Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ServeConsolePage error: {ex.Message}");
+                try
+                {
+                    context.Response.StatusCode = 500;
+                    var err = Encoding.UTF8.GetBytes($"Internal error: {ex.Message}");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                }
+                catch { }
+            }
+        }
+
+        private async Task ServeXtermStatic(HttpListenerContext context)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(ModDirectory))
+                {
+                    context.Response.StatusCode = 500;
+                    var err = Encoding.UTF8.GetBytes("Server not configured");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                // URL: /xterm/xterm/lib/xterm.js
+                // Maps to: {ModDirectory}/Terminal/node_modules/@xterm/xterm/lib/xterm.js
+                var relativePath = context.Request.Url.AbsolutePath
+                    .TrimStart('/')
+                    .Substring("xterm/".Length); // "xterm/lib/xterm.js"
+
+                var filePath = Path.Combine(ModDirectory, "Terminal", "node_modules", "@xterm", relativePath);
+                var resolved = Path.GetFullPath(filePath);
+
+                // Security: ensure resolved path is under the expected base
+                var baseDir = Path.GetFullPath(Path.Combine(ModDirectory, "Terminal", "node_modules", "@xterm"));
+                if (!resolved.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.StatusCode = 403;
+                    var err = Encoding.UTF8.GetBytes("Forbidden");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                if (!File.Exists(resolved))
+                {
+                    context.Response.StatusCode = 404;
+                    var err = Encoding.UTF8.GetBytes("Not found");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                var ext = Path.GetExtension(resolved).ToLowerInvariant();
+                var mime = ext switch
+                {
+                    ".css" => "text/css; charset=utf-8",
+                    ".js" => "application/javascript; charset=utf-8",
+                    ".mjs" => "application/javascript; charset=utf-8",
+                    ".map" => "application/octet-stream",
+                    ".png" => "image/png",
+                    ".woff2" => "font/woff2",
+                    _ => "application/octet-stream"
+                };
+
+                var content = File.ReadAllBytes(resolved);
+                context.Response.ContentType = mime;
+                context.Response.ContentLength64 = content.Length;
+                await context.Response.OutputStream.WriteAsync(content, 0, content.Length);
+            }
+            catch (Exception ex)
+            {
+                Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ServeXtermStatic error: {ex.Message}");
+                try
+                {
+                    context.Response.StatusCode = 500;
+                    var err = Encoding.UTF8.GetBytes($"Internal error: {ex.Message}");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                }
+                catch { }
+            }
+        }
+
+        private async Task ServeXtermReadlineStatic(HttpListenerContext context)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(ModDirectory))
+                {
+                    context.Response.StatusCode = 500;
+                    var err = Encoding.UTF8.GetBytes("Server not configured");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                // URL: /xterm-readline/lib/readline.js
+                // Maps to: {ModDirectory}/Terminal/node_modules/xterm-readline/lib/readline.js
+                var relativePath = context.Request.Url.AbsolutePath
+                    .TrimStart('/')
+                    .Substring("xterm-readline/".Length);
+
+                var filePath = Path.Combine(ModDirectory, "Terminal", "node_modules", "xterm-readline", relativePath);
+                var resolved = Path.GetFullPath(filePath);
+
+                // Security: ensure resolved path is under the expected base
+                var baseDir = Path.GetFullPath(Path.Combine(ModDirectory, "Terminal", "node_modules", "xterm-readline"));
+                if (!resolved.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.StatusCode = 403;
+                    var err = Encoding.UTF8.GetBytes("Forbidden");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                if (!File.Exists(resolved))
+                {
+                    context.Response.StatusCode = 404;
+                    var err = Encoding.UTF8.GetBytes("Not found");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                    return;
+                }
+
+                var ext = Path.GetExtension(resolved).ToLowerInvariant();
+                var mime = ext switch
+                {
+                    ".css" => "text/css; charset=utf-8",
+                    ".js" => "application/javascript; charset=utf-8",
+                    ".mjs" => "application/javascript; charset=utf-8",
+                    ".map" => "application/octet-stream",
+                    ".png" => "image/png",
+                    ".woff2" => "font/woff2",
+                    _ => "application/octet-stream"
+                };
+
+                var content = File.ReadAllBytes(resolved);
+                context.Response.ContentType = mime;
+                context.Response.ContentLength64 = content.Length;
+                await context.Response.OutputStream.WriteAsync(content, 0, content.Length);
+            }
+            catch (Exception ex)
+            {
+                Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] ServeXtermReadlineStatic error: {ex.Message}");
+                try
+                {
+                    context.Response.StatusCode = 500;
+                    var err = Encoding.UTF8.GetBytes($"Internal error: {ex.Message}");
+                    context.Response.ContentLength64 = err.Length;
+                    context.Response.OutputStream.Write(err, 0, err.Length);
+                }
+                catch { }
+            }
+        }
+
         private static async Task<string> ReadWithLimit(StreamReader reader, int maxBytes)
         {
             var buffer = new char[8192];
@@ -231,6 +452,8 @@ namespace WitchModMCP.MCP
 
             // Cancel the listen token first — this signals the ListenLoop
             try { _cts?.Cancel(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] Dispose Cancel: {ex.Message}"); }
+
+            try { _wsServer?.Dispose(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] Dispose ws: {ex.Message}"); }
 
             // Close forcefully aborts pending GetContextAsync() calls
             try { _listener?.Close(); } catch (Exception ex) { Commands.LogError(WitchModMCPEntry.MOD_TAG, $"[McpServer] Dispose Close: {ex.Message}"); }

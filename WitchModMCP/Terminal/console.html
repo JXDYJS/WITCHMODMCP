@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Witch Lua Console</title>
+    <link rel="stylesheet" href="/xterm/xterm/css/xterm.css" />
+    <style>
+      body { margin: 0; padding: 0; background: #1e1e1e; height: 100vh; overflow: hidden; }
+      #terminal { height: 100vh; }
+    </style>
+  </head>
+  <body>
+    <div id="terminal"></div>
+    <script type="module">
+      import { Terminal } from '/xterm/xterm/lib/xterm.mjs';
+      import { FitAddon } from '/xterm/addon-fit/lib/addon-fit.mjs';
+      import ReadlineModule from '/xterm-readline/xterm-readline.mjs';
+      const { Readline } = ReadlineModule;
+
+      const term = new Terminal({
+        cursorBlink: true,
+        cursorStyle: 'block',
+        fontSize: 14,
+        fontFamily: 'Consolas, "Courier New", monospace',
+        theme: { background: '#1e1e1e', foreground: '#d4d4d4' },
+        allowProposedApi: true,
+      });
+
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+
+      const rl = new Readline();
+      term.loadAddon(rl);
+
+      term.open(document.getElementById('terminal'));
+      fitAddon.fit();
+
+      window.addEventListener('resize', () => fitAddon.fit());
+
+      term.write('Witch Lua Console v0.1\x1b[0m\r\n');
+      term.write('Type Lua code and press Enter to execute. Shift+Enter for new line.\r\n\r\n');
+
+      let ws = null;
+
+      function connect() {
+        const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = location.hostname;
+        ws = new WebSocket(`${proto}//${host}:3101/ws`);
+
+        ws.onopen = () => {
+          rl.println('\x1b[32mConnected.\x1b[0m');
+          readLine();
+        };
+
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          const text = msg.data || msg.message || '';
+          if (msg.type === 'error') {
+            rl.println('\x1b[31m' + text + '\x1b[0m');
+          } else {
+            rl.println(text);
+          }
+          readLine();
+        };
+
+        ws.onclose = () => {
+          term.write('\r\n\x1b[31mConnection lost. Retrying in 3s...\x1b[0m\r\n');
+          setTimeout(connect, 3000);
+        };
+
+        ws.onerror = () => {};
+      }
+
+      function readLine() {
+        rl.read('\x1b[36m>> \x1b[0m').then(code => {
+          if (!code.trim()) {
+            readLine();
+            return;
+          }
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ cmd: 'exec', code }));
+          } else {
+            rl.println('\x1b[31mNot connected.\x1b[0m');
+            readLine();
+          }
+        });
+      }
+
+      connect();
+    </script>
+  </body>
+</html>
