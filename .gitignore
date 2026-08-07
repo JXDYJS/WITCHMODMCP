@@ -74,6 +74,8 @@ WitchModMCP/Terminal/node_modules/xterm-readline/xterm-readline.mjs
 
 # Plan document (not for distribution)
 WitchLuaConsole.md
+# Uncommitted problem notes (modal guard etc.)
+notes_*_problem.md
 
 # Per-user AI tool configs (not to be distributed)
 opencode.json
