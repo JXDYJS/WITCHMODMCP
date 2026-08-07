@@ -11,16 +11,18 @@ description: "DeveloperTools game flow tools: page detection, game state machine
 
 | 工具 | 参数 | 返回 | 说明 |
 |------|------|------|------|
-| `get_scene_state` | — | `{page, inRun, inFight, fightType?, player?, modals, transitioning, overlays}` | 检测当前页面。**每次操作的起点** |
+| `get_scene_state` | — | `{page, inRun, inFight, fightType?, isFake?, player?, fightPlayer?, modals, transitioning, activeUI?, activeUIs?, overlays, level?}` | 检测当前页面。**每次操作的起点** |
 | `enter_game` | — | `{result, message, page}` | 主菜单 → 小屋。轮询等待（最长 15s） |
 | `start_new_game` | `{mode, useExistingSave?}` | `{result, mode, usedExisting, page, message}` | 选模式 → 大厅。轮询等待（最长 15s） |
 | `start_run` | — | `{result, message, page, level?}` | 大厅 → 启程。轮询等待（最长 20s），有自动回退机制 |
-| `check_mode_saves` | `{mode?}` | `{hasSaves, totalSaves, validSaves, saves}` | 检查指定模式的存档详情 |
+| `check_mode_saves` | `{mode?}` | `{hasSaves, saves}` — 无存档时只有这两个字段；`totalSaves`/`validSaves` 仅在存在存档时出现 | 检查指定模式的存档详情 |
 | `list_game_modes` | — | `{modes: [{mode, hasSave, saveCount, save?}]}` | 列出所有可用的游戏模式 |
 | `map_select_state` | — | `{selectableNodes, slots, canContinue}` | 获取地图节点编排界面状态 |
 | `map_select_assign` | `{slotIndex, nodeId}` | `{result, placed, message}` | 将可选节点放置到槽位。**单次放一个** |
 | `map_select_clear` | `{slotIndex}` | `{result}` | 清空指定槽位 |
 | `map_select_confirm` | — | `{result}` | 确认编排并继续前进 |
+
+> ⚠️ `load_scene` 也是本流程的一部分工具，但**仅限开发/测试**，正常游玩禁用（见下方页面状态机与最佳实践）。
 
 ---
 
@@ -33,11 +35,11 @@ description: "DeveloperTools game flow tools: page detection, game state machine
 |------|------|------|
 | `selectableNodes` | array | 可选节点列表（"手牌"） |
 | `selectableNodes[].nodeId` | string | **稳定 ID**，唯一标识一个节点（如 "shop"、"Breaks"、"level_10006"） |
-| `selectableNodes[].index` | int | **⚠️ 不稳定序号**，每次状态刷新都会变化，不要依赖 |
+| `selectableNodes[].id` | string | 节点配置表 Id |
 | `slots` | array | 6个槽位（0=起点, 1-4=中间, 5=终点） |
 | `canContinue` | bool | 是否所有槽位已填满可以继续 |
 
-**重要：`index` 字段是遍历时动态生成的序号，不是稳定 ID。** 每次放置节点后，可选列表缩小、索引全部偏移。**永远不要用 `index` 来定位节点。**
+**注意：`selectableNodes` 里没有 `index` 字段**（`index` 是 `slots` 的字段）。放置节点时用 `nodeId` 定位，不要依赖任何序号。
 
 ### map_select_assign
 
@@ -56,8 +58,8 @@ description: "DeveloperTools game flow tools: page detection, game state machine
 | `message` | 状态描述 |
 
 **⚠️ 关键行为说明：**
-- 使用 `nodeId`（稳定配置表ID）而非 `index`。`index` 是容器遍历的动态序号，每次放置后偏移
-- 旧版曾支持 `mappings` 批量数组和 `nodeIndex`，均已移除。当前版本每次只放一个节点
+- 使用 `nodeId`（稳定配置表ID）而非 `index`。`selectableNodes` 里没有 `index` 字段；`index` 只存在于 `slots`
+- schema 仍保留 `mappings` 批量数组参数，但**实现只接受 1 条 mapping**（`mappings.Count != 1` 会报错）。等效于单次放置，用 `{slotIndex, nodeId}` 即可
 - 如果同一个 `nodeId` 已被放置，再次引用会失败
 
 **Python：**
@@ -135,7 +137,7 @@ MAIN_MENU ──enter_game──→ HUB ──start_new_game──→ LOBBY ─�
 | `page` | string | 当前页面标识 |
 | `inRun` | bool | 是否在跑局中 |
 | `inFight` | bool | 是否在战斗中 |
-| `fightType` | string | 战斗类型（Player/Enemy） |
+| `fightType` | string | 战斗阶段（`FightType` 枚举：Player/Enemy/Init/OtherTurn/Partner 等） |
 | `isFake` | bool | 是否是假战斗 |
 | `fightPlayer` | object | `{hp, maxHp, power, shield}` |
 | `player` | object | `{hp, maxHp, san, maxSan, money}` |
@@ -247,9 +249,13 @@ elif r['result'] == 'timeout':
 **Python：**
 ```python
 saves = g.call("check_mode_saves", {"mode": "Normal"})
-print(f"有效存档: {saves['validSaves']}")
-for s in saves['saves']:
-    print(f"  {s['name']} — Lv.{s['level']}, {s.get('career', '?')}")
+# ⚠️ 无存档时返回 {hasSaves:false, saves:[]}，没有 totalSaves/validSaves！
+if not saves.get('hasSaves'):
+    print("无有效存档")
+else:
+    print(f"有效存档: {saves.get('validSaves')}")
+    for s in saves['saves']:
+        print(f"  {s['name']} — Lv.{s['level']}, {s.get('career', '?')}")
 ```
 
 ### list_game_modes
@@ -293,24 +299,26 @@ g.call("start_run")
 g.call("load_scene", {"type": "fakefight"})  # 基座工具
 ```
 
-## 典型工作流：跳转指定战斗
+## 典型工作流：跳转指定战斗（仅测试）
+
+> ⚠️ **以下流程只用于开发/测试！** `load_scene` 会绕过正常流程节点，可能破坏存档。**正常游玩不要用 `load_scene`** —— 正常推进请用 `map_select_confirm`（见"典型工作流：全流程启动到战斗"）。
 
 ```python
-# 如果已在跑局中，直接跳转到指定战斗
-g.call("load_scene", {"type": "fight", "id": "boss"})   # 首领战
-g.call("load_scene", {"type": "fight", "id": "elite"})  # 精英
-g.call("load_scene", {"type": "fight", "id": "common"}) # 普通
-g.call("load_scene", {"type": "event"})                 # 事件
-g.call("load_scene", {"type": "fakefight"})             # 假战斗
+# 🔧 仅测试：如果已在跑局中，直接跳转到指定战斗
+g.call("load_scene", {"type": "fight", "id": "boss"})   # 首领战（测试用）
+g.call("load_scene", {"type": "fight", "id": "elite"})  # 精英（测试用）
+g.call("load_scene", {"type": "fight", "id": "common"}) # 普通（测试用）
+g.call("load_scene", {"type": "event"})                 # 事件（测试用）
+g.call("load_scene", {"type": "fakefight"})             # 假战斗（测试用）
 ```
 
 ## 最佳实践
 
 1. **永远先调 get_scene_state** — 这是所有操作的起点。如果页面是 FIGHT，用 Combat 模块工具；如果是 LOBBY，用 Lobby 模块
 2. **处理返回状态** — 导航工具有 success / timeout / already_xx 等状态。timeout 后调用 get_scene_state 诊断
-3. **start_run 的回退机制** — 如果 `GameEntryUI.StartGame()` 失败，工具自动尝试 `PlayerManager.StartGame()`。变更细节在 `changes` 字段中
+3. **start_run 的回退机制** — 如果 `GameEntryUI.StartGame()` 失败，工具自动尝试 `PlayerManager.StartGame()`。返回只有 `{result, message, page, level}`，无 `changes` 字段
 4. **假战斗 vs 真战斗** — `load_scene type=fakefight` 快速进入测试战斗；`type=fight` 消耗地图进度。优先用 fakefight 做卡牌测试
 5. **⚠️ 不要在战斗中调用 `load_scene`！** 如果当前页面已经是 `FIGHT`，再次 `load_scene` 会导致新战斗的 `FightPlayer.Init()` 不被调用，`FightPlayer.Instance` 为 null，后续战斗工具全部失效。**始终从 MAP 页面调用 `load_scene` 进入战斗。**
 6. **存档管理** — 测试前用 `check_mode_saves` 确认已有存档，避免意外覆盖
-7. **地图节点编排一定要用 `nodeId` 而非 `index`** — `index` 是动态遍历序号，每次放置后变化。`nodeId`（如 "shop"、"Breaks"、"level_10006"）是配置表稳定 ID，不变不重复
-8. **推荐用批量 `mappings` 一次填完** — 一次性传递所有 `{slotIndex, nodeId}`，工具内部按顺序处理，只同步一次。比逐次调用 `map_select_assign` 更高效可靠
+7. **地图节点编排一定要用 `nodeId` 而非 `index`** — `selectableNodes` 无 `index` 字段（`index` 只属于 `slots`）。`nodeId`（如 "shop"、"Breaks"、"level_10006"）是配置表稳定 ID，不变不重复
+8. **每次调用 `map_select_assign` 只放一个节点** — 虽然 schema 里有 `mappings` 数组参数，但实现只接受 1 条（传多条会报错）。用 `{slotIndex, nodeId}` 逐个放置，放完 6 个后再 `map_select_confirm`

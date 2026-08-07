@@ -5,7 +5,7 @@ description: "WitchModMCP combat tools: fight state snapshot, card play, turn en
 
 # Combat Module
 
-Complete battle read-write loop. All tools require the game to be in a fight (`get_scene_state` returns `page=FIGHT`).
+Complete battle read-write loop. All tools require the game to be in a fight (`get_scene_state` returns `page=FIGHT`) — except `get_skills_state`, which also works outside fights.
 
 > **⚠️ IMPORTANT: Do NOT call `load_scene` to load a fight while already in a fight!**
 > If you call `load_scene` (fight/fakefight) while already on `page=FIGHT`,
@@ -13,21 +13,19 @@ Complete battle read-write loop. All tools require the game to be in a fight (`g
 > `FightPlayer.Instance` null), causing `end_turn`, `set_card_pile` (draw into hand),
 > and other tools to fail.
 >
-> **Correct approach:** End the current fight via `claim_rewards`, return to the map,
-> then use `map_choose_node` to enter the next fight. For test scripts that need to
-> chain multiple fights, always exit to the map page between fights.
+> **Correct approach:** Win the current fight first (reduce enemy HP to 0; `claim_rewards` only collects and closes the battle-reward UI after victory — it does not end an ongoing fight), then return to the map, then use the map passage tools (`map_select_state` → `map_select_assign` → `map_select_confirm`) to enter the next fight. For test scripts that need to chain multiple fights, always exit to the map page between fights.
 
 ## Tools
 
 | Tool | Params | Returns | Notes |
 |------|--------|---------|-------|
 | `get_fight_state` | — | `{inFight, phase, player, enemies, hand, drawPile, discardPile, exhaustPile, masterDeckCount, inSelectionMode}` | Full battle snapshot |
-| `play_card` | `{cardId? / index?, targetIndex?, choices?}` | `{result, cardId, handBefore, handAfter, targetHpBefore?, targetHpAfter?}` | Play a card from hand |
-| `use_skill` | `{index, targetIndex?, ignoreCooldown?, setCooldown?}` | `{result, skillRuntimeId, skillName, player?}` | Use career skill 1 or 2 |
-| `get_skills_state` | — | `{careerId, careerName, skills: [{index, runtimeId, name, cooldown, canUse}]}` | Check skill cooldowns and availability |
+| `play_card` | `{cardId? / index?, targetIndex?, choices?}` | `{result, message, cardId, handBefore, handAfter, targetIndex?, targetHpBefore?, targetHpAfter?, discardedCount?, autoConfirmed?}` | Play a card from hand |
+| `use_skill` | `{index, targetIndex?, ignoreCooldown?, setCooldown?}` | `{result, skillRuntimeId, skillRawId, skillName, targetIndex?, player?}` | Use career skill 1 or 2 |
+| `get_skills_state` | — | `{result, careerId, careerName, inFight, skillCount, skills: [{index, runtimeId, rawId, name, cooldown, canUse, actionImage}]}` | Check skill cooldowns and availability |
 | `end_turn` | — | `{result, message, phase?}` | End the player's current turn |
 | `set_card_pile` | `{pile, action, cards?, indices?, shuffle?}` | `{result, changes: []}` | Manipulate hand/draw/discard/exhaust piles |
-| `set_fight_entity` | `{target, hp?, maxHp?, shield?, power?, maxPower?, addBuffs?, removeBuffs?, clearBuffs?}` | `{result, changes: []}` | Modify player or enemy attributes |
+| `set_fight_entity` | `{instanceId?, target?, hp?, maxHp?, shield?, power?, maxPower?, addBuffs?, removeBuffs?, clearBuffs?}` | `{result, changes: []}` | Modify player or enemy attributes |
 | `get_deck_selection` | — | `{totalCards, cards: [{index, cardId, name, cost, rarity, tag, isSelected}]}` | When DeckUI is open (card selection modal), list all selectable cards. |
 | `select_deck_cards` | `{indices: [int]}` | `{result, clicked, clickedCount, message}` | Select/toggle cards in the DeckUI modal. Auto-closes when required count is reached. |
 
@@ -41,11 +39,11 @@ Returns a complete snapshot of the current battle. Call this before any combat m
 | Field | Type | Description |
 |-------|------|-------------|
 | `inFight` | bool | Whether in a fight |
-| `phase` | string | `Player` / `Enemy` turn |
+| `phase` | string | `Player` / `Enemy` turn（等于 `FightType` 枚举，还可能为 `Partner`/`OtherTurn`/`Win`/`Loss` 等） |
 | `isFake` | bool | Whether this is a fake fight (preview/test) |
-| `turn` | int | Current level/turn number |
-| `player` | object | `{hp, maxHp, shield, power, maxPower, isDead, buffs: [{id, level, type}]}` |
-| `enemies` | array | `[{index, id, name, hp, maxHp, shield, isDead, attack, defend, buffs, intents}]` — each enemy |
+| `turn` | int | 当前地图层数（`MapManager.Level`，非回合数），未进战斗为 0 |
+| `player` | object | `{instanceId, hp, maxHp, shield, power, maxPower, isDead, buffs: [{id, level, type}]}` |
+| `enemies` | array | `[{index, instanceId, id, name, hp, maxHp, shield, isDead, attack, defend, buffs, intents}]` — each enemy |
 | `hand` | array | `[{index, cardId, instanceId, cost}]` — cards in hand |
 | `drawPile` | object | `{count, top5: [{cardId, instanceId}]}` — draw pile count + top 5 |
 | `discardPile` | object | `{count, last5: [{cardId, instanceId}]}` — discard pile count + last 5 |

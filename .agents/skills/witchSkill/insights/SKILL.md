@@ -37,13 +37,13 @@ The game uses a `Singleton<T>` pattern extensively:
 // Key singletons:
 Singleton<GameConfigManager>.Instance  // Config tables + mod loading
 Singleton<DialogueManager>.Instance     // Dialogue system
-RoleTable.Instance / RoleTable.Inst     // Player runtime data
-FightManager.Inst                        // Current fight controller
+RoleTable.Instance                      // Player runtime data
+FightManager.Instance                   // Current fight controller
 GameRuntimeData.Instance                 // Runtime game variables
 GameApp.Instance                         // Application root
 UIManager.Instance                       // UI management
 MapManager.Instance                      // Map navigation
-PlayerManager.Inst                       // Player management
+PlayerManager.Instance                   // Player management
 LobbyManager.Instance                    // Career selection hall
 ```
 
@@ -55,8 +55,8 @@ All game content (cards, buffs, relics, careers, etc.) is stored in **CSV files*
 
 1. **CSV loading**: Reads `.csv` and `.xlsx` files from `Data/` and `Text/` directories
 2. **Row format**: Each row is `Dictionary<string, string>`, column names are keys
-3. **Script columns**: Columns whose name contains `"Script"` are interpreted as Lua code and pre-compiled
-4. **Data types**: `DataType` enum values include `Card`, `Buff`, `Relic`, `Career`, `CardPack`, `Enemy`, `EnemyCard`, `EventList`, `Map`, `Hard`, `Blessing`, `Dialogue`, `Partner`, `PartnerCard`, `RoleData`, `EnchTag`, `KeyWords`, `Level`
+3. **Script columns**: Columns whose name ends with `"Script"` (case-insensitive, excluding `Id`) are interpreted as Lua code and pre-compiled
+4. **Data types**: `DataType` enum values include `Card`, `Buff`, `Relic`, `Career`, `CardPack`, `Enemy`, `EnemyCard`, `Event`, `Map`, `Hard`, `Bless`, `Dialogue`, `Partner`, `PartnerCard`, `RoleData`, `EnchTag`, `KeyWords`, `Level`. (The CSV **subfolder** names are `EventList` and `Blessing` — the enum values are `Event` / `Bless`.)
 5. **Caching**: `Globals.DataConfigCache` is a `ConcurrentDictionary<string, IDataConfig>`
 
 ### ID Naming Convention
@@ -86,7 +86,7 @@ public class DataConfig {
 }
 ```
 
-**Script pre-compilation**: When a DataConfig is created, all columns containing `"Script"` in their key are compiled via `PreCompileScripts()`.
+**Script pre-compilation**: When a DataConfig is created, all columns whose key ends with `"Script"` (excluding `Id`) are compiled via `PreCompileScripts()`.
 
 ## 4. Mod Loading System
 
@@ -136,9 +136,7 @@ Mod 有两种 hook 机制，**底层完全不同**，理解这一点对选择模
 
 ### 5.1 ModHookRegistry（Lua + C# 共用，可 hook 任意方法但只能监听）
 
-> ⚠️ **重要更新：Rougamo 织入的是 ALL 方法，不是部分方法。** 以下描述已根据反编译源码修正。
-
-Rougamo 的 `Modifiable` attribute 配置为 `[Pointcut(AccessFlags.All | AccessFlags.Property | AccessFlags.Method)]`，因此 **Witch.dll 和 Witch.Core.dll 中每个方法、属性 getter/setter 都被 IL 织入**（协程、TargetRpc 等少数例外）。
+Rougamo 的 `Modifiable` attribute 配置为 `[Pointcut(AccessFlags.All | AccessFlags.Property | AccessFlags.Method)]`，因此 **Witch.dll 和 Witch.Core.dll 中每个方法、属性 getter/setter 都被 IL 织入**（协程、TargetRpc 等少数例外）。此结论来自反编译源码验证。
 
 织入后的每个公开方法都变成一个 Rougamo 生成的包装器，调用链如下：
 
@@ -257,37 +255,39 @@ The player's runtime state is stored in `RoleTable` (singleton):
 
 | Field | Description |
 |-------|-------------|
-| `CurHp` / `MaxHp` | Health |
-| `San` / `MaxSan` | SAN (sanity) |
-| `Money` | Gold |
-| `Power` / `MaxPower` | Energy |
-| `Status.Defend` | Shield/block |
-| `Deck` | Card collection |
-| `RelicList` | Relic collection |
-| `BlessList` | Blessing collection |
+| `San` / `MaxSan` | HP / max HP (sanity) |
+| `Money` | Gold (`ObfuscatedInt`) |
+| `cardList` | Card collection (`ObservableCollection<DataConfig>`) |
+| `relicList` | Relic collection |
+| `blessingConfigs` | Blessing collection |
+| `SkillTime` | `Dictionary<string,int>` skill cooldowns |
+| `SpecialVarMap` | `Dictionary<string,string>` cross-battle stats |
+
+> Note: during a fight, `CurHp`/`MaxHp`/`Power`/`Defend`/buffs live on the fight entity, not on `RoleTable`:
+> `FightPlayer.Instance.Status` (`StatusManager.CurHp`/`MaxHp`/`defend`) and `FightPlayer.Instance.CurPowerCount`/`MaxPowerCount`.
 
 ## 8. Fight System
 
-`FightManager.Inst` controls the current battle:
+`FightManager.Instance` is the current battle controller. Battle state is split across several singletons:
 
-| Property | Description |
-|----------|-------------|
-| `FightPlayer` | Player entity in fight |
-| `AllEnemys` | List of enemy entities |
-| `FightCards` | Hand cards |
-| `DrawCards` | Draw pile |
-| `DiscardCards` | Discard pile |
-| `ExhaustCards` | Exhausted cards |
+| Access | Description |
+|--------|-------------|
+| `FightManager.Instance` | Controller: `fightType` (`FightType`), `IsFake` |
+| `FightPlayer.Instance` | Player fight entity (`Status`, `CurPowerCount`, `MaxPowerCount`) |
+| `EnemyManager.Instance.enemyList` | Enemy entities (`List<Enemy>`) |
+| `FightCardManager.Instance.FightcardList` | Hand cards (`List<DataConfig>`) |
+| `FightCardManager.Instance.cardList` | Draw pile |
+| `FightCardManager.Instance.usedCardList` | Discard pile |
 
-Phases: `Player` → `Enemy` → `Player` → ...
+Phases are a `FightType` enum, not just `Player`/`Enemy`: `Init`, `Player`, `OtherTurn`, `Enemy`, `Partner`, `Win`, `Loss`, `Escape`, `None`, etc.
 
 ## 9. Animation System
 
 Animations are sprite-based (not 3D model):
 - Each animation is a directory of PNG frames
-- `AnimationLib/config.json` defines: `AnimationPerFrame`, `isLoop`, `Direction`
-- Frame sequence follows naming convention `frame_N.png`
-- Animation resolution: 300×300 for skill animations
+- `AnimationLib/<Character>/<State>/config.json` defines: `AnimationPerFrame`, `isLoop`, `Direction` (e.g. `{"AnimationPerFrame":0.1,"isLoop":false,"Direction":"Right"}`)
+- Frame naming follows the `{State}_NN.png` convention (e.g. `Idle_00.png`, zero-padded 2 digits). Some mods use hashed filenames instead — read the directory to confirm
+- Frame resolution is **not fixed** — it varies per mod (Mokou uses 256×256, rdl 384×384). Verify with the actual assets
 
 ## 10. Automation API (Built-in)
 
@@ -305,14 +305,11 @@ The game contains a built-in automation framework (`Witch.UI.Automation.*`):
 
 This provides an alternative approach for implementing MCP tools.
 
-> ⚠️ **CSV Schema 仅供参考。** 以下列出的列名来自对 BlackMage、Mokou、MoonRite、EdictOfStars、Muga-Yoshihide 等真实 mod 的 CSV 文件头部的观察。不同游戏版本或新增功能可能导致列名变化。**AI 如果需要确认某个 CSV 的确切列名，唯一可靠的方法是：**
-> 1. 克隆模板仓库 `git clone https://github.com/meowalive/apocalyptic-journey-mod-tutorial.git`
-> 2. 查看 `ModTemplate/Scripts/Lib/DataConfigs/` 下的原始游戏 CSV 列名参考
-> 3. 或使用 `decompile_source` 后搜索 `DataType.Card` 等枚举和 `LoadResourceTable` 方法
+> 下列 CSV 表头均与真实 mod（BlackMage、Mokou、EdictOfStars、PlagueSpread）磁盘文件逐列核对。若怀疑某列已随版本变化，用 `decompile_source` 反编译后查 `LoadResourceTable`，或查看模板仓库 `ModTemplate/Scripts/Lib/DataConfigs/` 下的原始 CSV 列名参考。
 
 ## 11. Mod Content Data Formats (CSV Schemas)
 
-All mod content is defined in CSV files under `Data/` and `Text/` directories. The game loads `.csv` and `.xlsx` files. Each column is a `Dictionary<string, string>` key. Columns containing `"Script"` in their name are pre-compiled as Lua.
+All mod content is defined in CSV files under `Data/` and `Text/` directories. The game loads `.csv` and `.xlsx` files. Each column is a `Dictionary<string, string>` key. Columns whose name ends with `"Script"` (excluding `Id`) are pre-compiled as Lua.
 
 ### 11.1 Mod Directory Structure
 
@@ -406,7 +403,7 @@ self:AddDescription("1", "Buff", "3")
 self:AddDescription("2", "Buff", "5")
 ```
 
-> ⚠️ **API 仅供参考，不一定完全正确。** 以下列出的 Lua 方法和参数来自对现有 mod 的观察总结，但游戏版本更新或未覆盖的 API 可能导致不准确。**AI 如果需要确认某个 API 的签名、参数或返回值，唯一可靠的方法是使用 `decompile_source` 工具反编译游戏源码后查阅。** 反编译后可在 `game_src/Witch.Core` 等目录中搜索 `ScriptExecutor`、`IScriptExecutor`、`CardItem`、`ExcuterPublicHelper` 等关键类型。
+> 下列 Lua API 已与 `ScriptExecutor.cs` 反编译源码核对签名。需要确认参数/返回值时，用 `decompile_source` 后搜索 `ScriptExecutor`、`IScriptExecutor`、`CardItem` 等类型。
 
 **UseScript: Lua effect API (self = ScriptExecutor):**
 
@@ -428,11 +425,11 @@ self:AddDescription("2", "Buff", "5")
 | `self:ChangePower("-2")` | Lose 2 energy |
 | `self:ChangeDefence("5")` | Gain 5 shield |
 | `self:AddCardById(id)` | Add specific card (by runtime ID) to hand (used by Muga, JogasakiNoah) |
-| `self:AddCardByCardList(count, name)` | Add random card matching name from card list (BlackMage pattern) |
+| `self:AddCardByCardList(count, tag)` | Add `count` cards matching `tag` filter (searches draw pile). Real signature `AddCardByCardList(string count, string tag = "all")` |
 | `self:AddCard("id")` | Add card to hand (generic, used by EdictOfStars) |
 | `self:RandomAddCard("id")` | Add card randomly to hand |
 | `self:CreateCard(dataConfig)` | Create a card instance from DataConfig (Muga depict) |
-| `self:AddCardToDeckById(id, toHand)` | Add card to deck (true=hand, false=draw pile) |
+| `self:AddCardToDeckById(id, toUsed)` | Add card to fight piles: `true`→discard pile (`usedCardList`), `false`→draw pile (`cardList`). Param is `toUsed`, not "hand" |
 | `self:BurnCard("1", "0")` | Burn 1 card (0=random, 1=choose) |
 | `self:BurnCardByData(dataConfig)` | Burn a specific card instance |
 | `self:ForAllStatus(function(t) ... end)` | Iterate all status entities (enemies+self). Check `t.InstanceId` for filtering (used by Muga, MoonRite, JogasakiNoah) |
@@ -445,8 +442,8 @@ self:AddDescription("2", "Buff", "5")
 
 | ID | Chinese Name | Description |
 |----|-------------|-------------|
-| `buff_vulnerable` | 易伤 | Take increased damage |
-| `buff_regenerate` | 再生 | Regenerate HP over time |
+| `buff_vulnerability` | 易伤 | Take increased damage |
+| `buff_RegenerationPrayer` | 再生 | Regenerate HP over time |
 | `buff_burn` | 烧伤 | Burn damage over time |
 | `buff_evergreen` | 常青 | Regeneration/evergreen buff |
 | `buff_bleeding` | 流血 | Bleeding damage over time |
@@ -463,7 +460,7 @@ self:AddDescription("2", "Buff", "5")
 Data/Card/plague.csv:
 ```
 Id,Rarity,Expend,Tag,InitScript,DrawScript,UseScript,DropScript,Icon,Effects,Action,PackBelong
-plague_spread,2,2,,"self.Vars:set_Item(""BaseScript"", ""CommonCardItem""); self:AddDescription(""1"", ""Buff"", ""3""); self:AddDescription(""2"", ""Buff"", ""5"");",,"self:SetStatus(""AllTarget""); self:AddBuff(""buff_vulnerable"", ""3""); self:SetStatus(""Self""); self:AddBuff(""buff_regenerate"", ""5"");",,Icon/Card/plague,,Skill,YourMod_plaguepack_pack_plague
+plague_spread,2,2,,"self.Vars:set_Item(""BaseScript"", ""CommonCardItem""); self:AddDescription(""1"", ""Buff"", ""3""); self:AddDescription(""2"", ""Buff"", ""5"");",,"self:SetStatus(""AllTarget""); self:AddBuff(""buff_vulnerability"", ""3""); self:SetStatus(""Self""); self:AddBuff(""buff_RegenerationPrayer"", ""5"");",,Mods/YourMod/ModResource/Images/Card/plague,,Skill,YourMod_plaguepack_pack_plague
 ```
 
 Runtime ID: `YourMod_plague_plague_spread` (if CSV filename is `plague.csv`)
@@ -576,7 +573,7 @@ Adding a new playable character requires the Career CSV plus supporting files (R
 **Runtime ID for career:** `{ModFolder}_{CsvFileName}_{RawId}`  
 Example: `Mokou_careersample_mokou`
 
-> ⚠️ **SkillScript API 仅供参考。** 以下模式来自对 Mokou、Muga-Yoshihide、EdictOfStars 等真实 mod 的观察，但 `CS.ScriptExecutor.PlayerInfo` 的可用字段、`self:AddEvent()` 支持的事件名等细节可能随游戏版本变化。**如有疑问，唯一可靠的确认方式是 `decompile_source` 后查阅反编译源码。**
+> `CS.ScriptExecutor.PlayerInfo.SkillTime`（`Dictionary<string,int>`）与 `SpecialVars`（`Dictionary<string,string>`）已从反编译源码确认；`self:AddEvent()` 支持的事件名以 `EventType.cs` 枚举为准。
 
 ### 11.5c SkillScript — Character Passive & Initialization Lua Code
 
@@ -698,13 +695,41 @@ end)
 
 **File location:** `Data/Partner/<filename>.csv` and `Data/PartnerCard/<filename>.csv`
 
-Partners (like EdictOfStars' "观星猫") follow similar CSV patterns. See the template's `Lib/DataConfigs/` for exact column names.
+Partner columns (from real mod EdictOfStars):
+
+| Column | Description |
+|--------|-------------|
+| `Id` | Unique partner ID (raw) |
+| `Hp` | Health |
+| `Attack` | Attack value |
+| `Defend` | Defend value |
+| `ActionCount` | Actions per turn |
+| `Rarity` | Rarity display |
+| `InitScript` | Lua: initialization |
+| `CardList` | Action list |
+| `ChoiceIcon` | Selection icon path |
+| `Model` | Monster model path |
+| `Animation` | Animation path |
+| `Bless` | Blessing granted |
+| `CareerImage` | Selection detail image |
 
 ### 11.5g Blessing CSV Schema (Blessings)
 
 **File location:** `Data/Blessing/<filename>.csv`
 
-Blessings can also be added. Set `PackBelong` to a card pack runtime ID to associate them with the pack. See the template's `Lib/DataConfigs/` for exact columns.
+Blessing columns (from real mod EdictOfStars):
+
+| Column | Description |
+|--------|-------------|
+| `Id` | Unique blessing ID (raw) |
+| `Weight` | Weight (random pool) |
+| `OwnScript` | Lua: on acquisition |
+| `FightScript` | Lua: per-fight |
+| `Icon` | Icon path |
+| `Type` | Blessing type |
+| `Source` | Source |
+| `Rarity` | Rarity display |
+| `PackBelong` | Card pack runtime ID to associate with the pack |
 
 ---
 
@@ -738,9 +763,9 @@ Blessings can also be added. Set `PackBelong` to a card pack runtime ID to assoc
 | `Name_zh-Hant` | Traditional Chinese name | `瘟疫蔓延` |
 | `Name_ja` | Japanese name | `疫病拡散` |
 | `是否完成` | Translation completion flag | `TRUE` |
-| `Description` | Chinese description | `对所有敌人施加{0}层{buff_vulnerable}，自身获得{1}层{buff_regenerate}。` |
+| `Description` | Chinese description | `对所有敌人施加{0}层{buff_vulnerability}，自身获得{1}层{buff_RegenerationPrayer}。` |
 | `Description_zh-Hant` | Traditional Chinese description | `...` |
-| `Description_en` | English description | `Apply {0} stacks of {buff_vulnerable} to all enemies, then gain {1} stacks of {buff_regenerate}.` |
+| `Description_en` | English description | `Apply {0} stacks of {buff_vulnerability} to all enemies, then gain {1} stacks of {buff_RegenerationPrayer}.` |
 | `Description_ja` | Japanese description | `...` |
 
 **Description placeholders:**
@@ -800,7 +825,7 @@ Copy the mod folder to `Witch's Apocalyptic Journey_Data/Mods/`.
 - Start the game
 - Use `get_scene_state` to confirm game loaded
 - Use `search_config({"pattern": "YourModFolder"})` to verify data was loaded into DataConfigCache. If zero matches, CSV loading failed.
-- For card packs: use `give_item givepack <PackId>` to get the pack in a run
+- For card packs: use `eval_command({"command": "givepack <PackId>"})` to get the pack in a run (`givepack` is a console command; `give_item` has no `givepack` type)
 - For cards: start a run and check if cards appear in the pool
 - Use `give_item card <CardId>` to test a specific card in fight
 
@@ -808,7 +833,7 @@ Copy the mod folder to `Witch's Apocalyptic Journey_Data/Mods/`.
 - CSV column order does NOT matter; column names are the keys
 - All Lua strings in CSV must escape `"` as `""` (Excel convention) or wrap in `""` 
 - The `Id` column is the raw ID; runtime ID becomes `{ModFolder}_{CsvFilename}_{RawId}` (no underscores in ModFolder name recommended)
-- Cards with `*` prefix in `Id` are starter cards (given at run start, not found in pool)
+- Cards with `*` prefix in `Id` are locked: excluded from ALL random pools, but still load into the config tables so they can be obtained deterministically (starter cards, `give_item`, events)
 - **Text CSV is REQUIRED for cards to be fully functional.** The game engine merges `Data/Card/` (gameplay data) and `Text/Card/` (localization) into a single row. The `Commands.give("card", id)` command calls `GetOne(DataType.Card, id)["Name"]` to get the card name for the result message — if the Text CSV is missing, the `Name` column doesn't exist and the command fails. This is by design: a card without localization data is considered incomplete. Always create a matching `Text/Card/<file>.csv` with at minimum `Id` and `Name` columns.
 - No need to restart Unity editor for CSV-only mods; the game loads them at startup
 
@@ -935,13 +960,13 @@ starting_buff,,0,0,0,999,Mods/MyCharacter/ModResource/Images/Buff/starting_buff,
 - `Defend/` — defend animation frames
 - `Hit/` — hit animation frames
 - `Skill/` — skill animation frames  
-Each animation directory contains `frame_N.png` files and (optionally) `config.json` with `{"AnimationPerFrame": 0.1, "isLoop": false, "Direction": 1}`.
+Each animation directory contains PNG frames (naming like `Idle_00.png`; zero-padded 2 digits) and (optionally) `config.json` with `{"AnimationPerFrame": 0.1, "isLoop": false, "Direction": "Right"}`. Frame resolution is not fixed — verify with the actual assets.
 The animation path in Career CSV is set at the `AnimationLib/` level (no trailing slash).
 
-**7. Character selection hook (JogasakiNoah pattern):** If you want to hide a character from selection (e.g., unlockable or hidden), use Entry.lua hooks:
+**7. Character selection hook (JogasakiNoah pattern):** If you want to hide a character from selection (e.g., unlockable or hidden), use Entry.lua hooks on a real `GameEntryUI` method (e.g. `ShowCareer` / `UpdateLobby`):
 ```lua
 function ModConfig:Setup()
-  self:AddMethodHookAfter("GameEntryUI.UpdateState", function(ctx)
+  self:AddMethodHookAfter("GameEntryUI.ShowCareer", function(ctx)
     -- Hide character from selection based on condition
   end)
 end
@@ -1107,7 +1132,7 @@ get_recent_logs({"count": 100})
 # 4. Test in-game
 enter_game
 start_new_game({"mode": "Normal"})
-set_lobby_state({"career": "default_career", "cardPacks": ["YourModName_yourfile_cardpack_yourpack"]})
+set_lobby_state({"careerId": "Career_1", "cardPackIds": ["YourModName_yourfile_cardpack_yourpack"]})
 start_run
 load_scene({"type": "fakefight"})
 give_item({"type": "card", "value": "YourModName_yourfile_your_card_id"})

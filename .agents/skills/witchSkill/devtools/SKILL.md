@@ -1,11 +1,13 @@
 ---
 name: witch-mod-mcp-developertools
-description: "Mod development aid for the game Witch (魔女:终末旅途 roguelike deckbuilder): extended tools for combat automation, game flow orchestration, lobby configuration, screenshot diagnostics, raycasting, source decompilation, and RNG control. Requires the base WitchModMCP mod to be loaded. Use when you need the extra DeveloperTools beyond the base WitchModMCP toolset. Not a cheat/trainer tool for regular players. Triggers: DeveloperTools, 开发者工具, 战斗自动化, 流程编排, 存档管理, 截图, 反编译, 出牌, 启程, 大厅配置, 随机种子, 射线检测, 假战斗."
+description: "Mod development aid for the game Witch (魔女:终末旅途 roguelike deckbuilder): developer-tool documentation for combat automation, game flow orchestration, lobby configuration, screenshot diagnostics, raycasting, source decompilation, and RNG control. These tools are implemented by the base WitchModMCP.Contracts mod (no separate DeveloperTools mod exists) — this module is a developer-debugging view over the same tools documented in base/*. Not a cheat/trainer tool for regular players. Triggers: DeveloperTools, 开发者工具, 战斗自动化, 流程编排, 存档管理, 截图, 反编译, 出牌, 启程, 大厅配置, 随机种子, 射线检测, 假战斗."
 ---
 
 # DeveloperTools
 
-DeveloperTools 是 WitchModMCP 的扩展工具集，提供 18 个额外工具。需配合基座 WitchModMCP 同时加载使用。所有工具通过同一 HTTP 端口暴露，`list_tools` 会同时列出基座和扩展工具。
+DeveloperTools 是 WitchModMCP 的**开发者工具子集文档**，涵盖 18 个工具的使用说明。这些工具全部由**基座** `WitchModMCP.Contracts` 实现（不存在单独的 DeveloperTools Mod），与基座 `base/*` 模块共用同一 HTTP 端口，`list_tools` 会一次性列出全部工具。
+
+> ⚠️ **本模块与 `base/` 模块描述的是同一批工具**：`get_scene_state`/`enter_game`/`start_new_game`/`start_run` 等见 `base/meta` 与 `base/gameflow`；`get_fight_state`/`play_card`/`end_turn` 等见 `base/combat`；`get_lobby_state`/`set_lobby_state` 见 `base/lobby`。本模块侧重于**开发调试视角**的编排（假战斗测试、流程导航、源码反编译）。
 
 ## 模块索引
 

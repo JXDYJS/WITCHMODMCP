@@ -8,80 +8,117 @@ Experience guides (directory structure, workflow, troubleshooting) are in `.agen
 ### Standard CSV Structure
 
 ```
-Id,Name_zh-Hans,Name_zh-Hant,Name_en,Name_ja,Col1,Col2,ScriptCol
+Id,Rarity,Expend,Tag,InitScript,DrawScript,UseScript,DropScript,Icon,Effects,Action
 # 第二行是注释行, auto-ignored
-1001,名称1,名稱1,Name1,名前1,val1,val2,lua_code_here
-1002,名称2,名稱2,Name2,名前2,val3,val4,lua_code_here
+1001,1,1,,InitScript_lua_here,,UseScript_lua_here,,Icon/Card/name,,Attack
 ```
 
 Key rules:
-- **Row 2** is ignored (comment row)
+- **Row 2** is ignored (comment row), data starts at Row 3
 - **UTF-8** encoding
 - **Id** column is always required and must be unique within file
-- **Name/Description** columns: 4 languages = zh-Hans, zh-Hant, en, ja
 - **Script columns**: any column with "Script" in name is Lua code
-- **Text CSVs** mirror Data CSVs structure, provide localized text
+- **Text CSVs** do NOT mirror Data CSVs — they carry the localized display columns (`Name`/`Description` + language variants). See "Text CSV Format" below.
 - **Runtime ID**: `{ModFolder}_{CsvFileName}_{RawId}`
 
-### Card CSV Columns (common fields)
+> ⚠️ **CSV 列名以模板 `Lib/DataConfigs/` 的真实表头为准**，不要在模板外臆造列。游戏按列名（而非顺序）读取，`Cost`/`CardType`/`Damage`/`Defend`/`Magic`/`Heal`/`Buff`/`Exhaust` 等均**不存在**于真实 Card CSV 表头中。
+
+### Card CSV Columns
+
+**File location:** `Data/Card/<filename>.csv`
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `Id` | int | Unique card ID |
-| `Name_{lang}` | string | Card name |
-| `Description_{lang}` | string | Card effect description, supports `{0}~{3}` for DesVal1-4 |
-| `Cost` | int | Energy cost |
-| `CardType` | enum | `Attack`, `Skill`, `Power`, `Curse`, `Status` |
-| `TargetType` | enum | `enemy`, `allEnemy`, `self`, `all`, `randomEnemy` |
-| `DamageType` | enum | `physical`, `magical`, `true` |
-| `Damage` | int | Base damage |
-| `Defend` | int | Shield/block value |
-| `Magic` | int | Magic damage |
-| `Heal` | int | Healing value |
-| `Buff` | string | Buff(s) applied, format: `buff_id,level` |
-| `SelfBuff` | string | Buff(s) applied to self |
-| `Exhaust` | bool | Whether card exhausts after use |
-| `Ethereal` | bool | Whether card is ethereal (discards at turn end) |
-| `Rarity` | enum | `common`, `uncommon`, `rare`, `special` |
-| `PackBelong` | string | Which card pack this belongs to |
-| `InitScript` | string | Lua run on card initialization (sets DesVal1-4) |
-| `UseScript` | string | Lua run when card is played |
-| `UpgradeScript` | string | Lua run when card is upgraded |
-| `TriggerScript` | string | Lua for trigger effects |
-| `ConditionScript` | string | Lua condition for card playability |
+| `Id` | string | Unique card ID (raw; runtime ID adds `{ModFolder}_{CsvFileName}_` prefix) |
+| `Rarity` | int | Numeric rarity: 1=Common, 2=Uncommon, 3=Rare, 4=Special |
+| `Expend` | int | Energy cost |
+| `Tag` | string | Card tags (comma-separated): `Retain`, `Burnout`, `Recycle`, `Ascension` |
+| `InitScript` | string | Lua run on card initialization (sets `BaseScript` + `DesVal1-4`) |
+| `DrawScript` | string | Lua run when the card is drawn |
+| `UseScript` | string | Lua run when the card is played (main effect) |
+| `DropScript` | string | Lua run when the card is discarded |
 | `Icon` | string | Icon image path (no extension) |
+| `Effects` | string | Visual effect path (optional) |
+| `Action` | string | Card type: `Attack`, `Skill`, or empty |
+| `PackBelong` | string | *(optional)* Which card pack this belongs to (runtime ID). **Omit to put the card in the default pool.** |
+
+> **No `Cost` / `CardType` / `TargetType` / `DamageType` / `Damage` / `Defend` / `Magic` / `Heal` / `Buff` / `SelfBuff` / `Exhaust` / `Ethereal` columns exist.** Damage/shield/heal/buff effects are implemented entirely in `UseScript` via `SetStatus` + `Damage` / `ChangeHp` / `ChangeDefence` / `AddBuff` / `AddDescription`. "消耗/虚无" semantics are expressed through `Tag` / card scripts, not dedicated columns.
+>
+> **`BaseScript` is not a CSV column** — it is set inside `InitScript` via `self.Vars:set_Item("BaseScript", "AttackCardItem"|"CommonCardItem")`.
+
+### Text CSV Format (Card)
+
+**File location:** `Text/Card/<filename>.csv`
+
+Real column header (from template `Text/Card/blood.csv`):
+```
+Id,是否锁定,Type,Note,Name,Name_en,Name_zh-Hant,Name_ja,Description,Description_zh-Hant,Description_en,Description_ja
+```
+
+- `Id` must match the Data CSV `Id` (raw)
+- `Name` is the Simplified-Chinese name; there is **no `Name_zh-Hans` column** — language variants are `Name`(zh-Hans), `Name_en`, `Name_zh-Hant`, `Name_ja`
+- `Description` supports `{0}~{3}` placeholders replaced by `DesVal1-4` (set in `InitScript`), and `{buff_id}` replaced by the buff's display name
+- A card without a Text CSV entry has a blank name and is considered incomplete
 
 ### Buff CSV Columns
 
+**File location:** `Data/Buff/<filename>.csv`
+
+Real column header (from template `Data/Buff/buff.csv`):
+```
+Id,InitScript,ApplyScript,ClearScript,ReducePerTurn,ReducePerAttacked,ReducePerUse,UpperBound,Icon,Type,Rarity,Effects,SoundEffects,Action,CanZero
+```
+
 | Column | Type | Description |
 |--------|------|-------------|
-| `Id` | int | Unique buff ID |
-| `Name_{lang}` / `Description_{lang}` | string | Localized text |
-| `Type` | enum | `buff`, `debuff`, `neutral` |
-| `MaxLayer` | int | Maximum stack count |
-| `isClear` | bool | Whether it clears at turn end |
-| `isDispel` | bool | Whether it is dispellable |
-| `Icon` | string | Icon name (31×31 PNG in ModResource/Icon/) |
-| `InitScript` | string | Lua on buff application |
-| `UseScript` | string | Lua on buff tick |
-| `Duration` | int | Turns duration |
-| `LinkScript` | string | Lua linking to another buff |
+| `Id` | string | Unique buff ID (used as `buff_id` in scripts) |
+| `InitScript` | string | Lua on buff initialization (display update) |
+| `ApplyScript` | string | Lua triggered when buff is applied (use `self:AddEvent`) |
+| `ClearScript` | string | Lua triggered when buff is cleared |
+| `ReducePerTurn` | int | Stacks reduced per turn |
+| `ReducePerAttacked` | int | Stacks reduced when attacked |
+| `ReducePerUse` | int | Stacks reduced on action |
+| `UpperBound` | int | Maximum stack count |
+| `Icon` | string | Icon image path (no extension) |
+| `Type` | string | Buff category — **localized display word** (e.g. `正面`/`负面`/`能力`/`属性`), not an enum keyword |
+| `Rarity` | int | Rarity display value |
+| `Effects` | string | Visual effect path (optional) |
+| `SoundEffects` | string | Sound effect path (optional) |
+| `Action` | string | Animation type (optional) |
+| `CanZero` | string | Whether stacks may reach zero |
+
+> **No `MaxLayer` / `isClear` / `isDispel` / `UseScript` / `Duration` / `LinkScript` columns exist.** Stack decay is configured by `ReducePerTurn` / `ReducePerAttacked` / `ReducePerUse` (not a boolean `isClear`); lifecycle scripts are `ApplyScript`/`ClearScript` (not `UseScript`).
 
 ### Career CSV Columns
 
+**File location:** `Data/Career/<filename>.csv`
+
+Real column header (from template `Data/Career/career.csv`):
+```
+Id,SanMax,SkillScript,Animation,Vocal,Skill1,Skill2,ChoiceIcon,DollIcon,Character,Avatar,CareerImage,ActionImage1,ActionImage2,Dialogue,EmojiPath,AttackEffect,SkillEffect,HitEffect,DefendEffect
+```
+
 | Column | Type | Description |
 |--------|------|-------------|
-| `Id` | int | Career ID |
-| `Name_{lang}` / `Description_{lang}` | string | Localized |
-| `SanMax` | int | Max SAN |
-| `HpMax` | int | Max HP |
-| `RoleDataId` | int | Role data reference |
-| `CardAsset` | string | Card back image |
-| `CardList` | string | Starting card IDs (comma-separated) |
-| `RelicList` | string | Starting relic IDs |
-| `PartnerList` | string | Starting partner IDs |
-| `Attribute` | string | Attribute template |
-| `PackBelong` | string | Card pack ownership |
+| `Id` | string | Career ID (raw) |
+| `SanMax` | int | Max SAN (HP) |
+| `SkillScript` | string | Lua — passive skills, event listeners, initialization |
+| `Animation` | string | Animation directory path |
+| `Vocal` | string | Voice/animation library path |
+| `Skill1` | string | **Runtime ID** of first active skill card |
+| `Skill2` | string | Runtime ID of second active skill card |
+| `ChoiceIcon` | string | Character selection icon path |
+| `DollIcon` | string | Doll/animated icon path |
+| `Character` | string | Full character art path |
+| `Avatar` | string | Portrait/headshot path |
+| `CareerImage` | string | Career selection image path |
+| `ActionImage1` | string | Skill 1 icon path |
+| `ActionImage2` | string | Skill 2 icon path (if has 2 skills) |
+| `Dialogue` | string | Dialogue sprite directory path |
+| `EmojiPath` | string | Emoji sprite path |
+| `AttackEffect` / `SkillEffect` / `HitEffect` / `DefendEffect` | string | Effect names |
+
+> **No `HpMax` / `RoleDataId` / `CardAsset` / `CardList` / `RelicList` / `PartnerList` / `Attribute` / `PackBelong` columns exist.** Starting cards/partners/relics are handled by other mechanisms (skill cards referenced via `Skill1`/`Skill2`, starting buffs via `SkillScript`), not CSV columns.
 
 ## Hook Points (Common Targets)
 
@@ -123,24 +160,25 @@ AnimationLib/
 {
   "AnimationPerFrame": 0.1,
   "isLoop": true,
-  "Direction": "row"
+  "Direction": "Right"
 }
 ```
 
-- Frame dimensions: 300×300 (skill animations)
 - `AnimationPerFrame`: seconds per frame
 - `isLoop`: whether it loops
-- `Direction`: sprite layout direction
+- `Direction`: sprite layout direction — **`"Right"` / `"Left"`** (real rdl mod uses `"Right"`), not `"row"`
+
+> Frame dimensions vary by animation (real rdl `Attack` uses a **1536×640** sprite sheet, not individual 300×300 frames). Check the actual PNG size for the animation you're replacing.
 
 ### Image Specifications
 
 | Asset Type | Size | Notes |
 |------------|------|-------|
-| Buff icon | **31×31** | PNG, in `ModResource/Icon/` |
-| Relic icon | **128×128** | Framed PNG |
+| Buff icon | **32×32** | PNG, in `ModResource/Icon/Buff/` (e.g. EdictOfStars `Icon/Buff/bloodstain.png`) |
+| Relic icon | varies | PNG in `ModResource/Icon/Relic/` — sizes vary per mod (e.g. 55×55); verify your own art |
 | Card art | Variable | In `ModResource/Images/` |
 | Card pack cover | 300×440 | Outer frame + silhouette layer |
-| Skill animation frame | 300×300 | PNG frame strip |
+| Skill animation frame | Varies | PNG frame strip — check actual sheet dimensions |
 
 ### Resource Redirection (Asset Swap Pattern)
 
@@ -180,8 +218,11 @@ self:SetStatus("AllRandomFriend1")  -- 1 random friend
 ### Card Methods
 
 ```lua
--- Add card to hand by cardListId and cardId
-self:AddCardByCardList("1", "CardId_Here")
+-- Add card to hand by cardListId and tag filter:
+-- AddCardByCardList(string count, string tag = "all")
+-- The 2nd argument is a TAG filter over the draw pile (e.g. "Attack" or "all"),
+-- NOT a card ID. Example (draw 1 card from the card list with tag "all"):
+self:AddCardByCardList("1", "all")
 
 -- Play animation action N times
 for i = 1, 10 do
@@ -198,11 +239,11 @@ self:EventTrigger("Action")
 -- Change player money
 self:ChangeMoney(amount)
 
--- Give a blessing
-ScriptExecutor.PlayerInfo.AddBless(DataId.blessing_1)
+-- Give a blessing (static method on PlayerInfo; needs the CS. prefix in xLua)
+CS.ScriptExecutor.PlayerInfo.AddBless("blessing_id")
 
 -- Access player data
-ScriptExecutor.PlayerInfo  -- PlayerInfo object
+CS.ScriptExecutor.PlayerInfo  -- PlayerInfo object
 ```
 
 ### Event System
@@ -239,10 +280,11 @@ end)
 
 ```lua
 -- In InitScript, set description values for {0}~{3}
-self.Vars.DesVal1 = tostring(6)  -- replaces {0}
-self.Vars.DesVal2 = tostring(3)  -- replaces {1}
-self.Vars.DesVal3 = tostring(2)  -- replaces {2}
-self.Vars.DesVal4 = tostring(1)  -- replaces {3}
+-- Vars is a C# IDictionary<string,string> — use set_Item, NOT direct property assignment
+self.Vars:set_Item("DesVal1", tostring(6))  -- replaces {0}
+self.Vars:set_Item("DesVal2", tostring(3))  -- replaces {1}
+self.Vars:set_Item("DesVal3", tostring(2))  -- replaces {2}
+self.Vars:set_Item("DesVal4", tostring(1))  -- replaces {3}
 ```
 
 ### xLua Limitations
@@ -270,7 +312,6 @@ These events can be listened to via `self:AddEvent("EventName", handler)` in car
 | `NoPower` | Insufficient energy |
 | `AddPower` | Energy gained |
 | `Dead` | Unit death |
-| `ToughCountZero` | Toughness reaches zero |
 | `OnEnemyDead` | Enemy death |
 | `Resurrection` | Unit revived |
 | `EndRound` | Round ended |
@@ -282,7 +323,6 @@ These events can be listened to via `self:AddEvent("EventName", handler)` in car
 | `BurnCard` | Card burned |
 | `Init` | Fight initialization |
 | `OnDiceCheck` | Dice roll check |
-| `OnDiceValue` | Dice roll value |
 | `Win` | Fight won |
 | `Escape` | Fight escaped |
 | `StartRound` | Round started |
@@ -310,7 +350,7 @@ These use `EventCenter` instead of `ScriptExecutor.AddEvent`:
 
 `RoleTable` implements `INotifyPropertyChanged`, so you can listen for property changes:
 ```lua
-RoleTable.Inst.PropertyChanged:Add(function(sender, args)
+RoleTable.Instance.PropertyChanged:Add(function(sender, args)
     if args.PropertyName == "Money" then
         -- money changed
     end
@@ -319,38 +359,25 @@ end)
 
 ## Complete Card CSV Column Reference
 
-All columns available for Card CSV (`Data/Card/*.csv`):
+All columns available for Card CSV (`Data/Card/*.csv`) — verified against template `Lib/DataConfigs/Data/Card/*.csv` headers:
 
 | Column | Type | Required | Description |
 |--------|------|----------|-------------|
-| `Id` | int | Yes | Unique ID within file |
-| `Rarity` | enum | Yes | `common`, `uncommon`, `rare`, `special` |
-| `Cost` | int | Yes | Energy cost |
-| `CardType` | enum | Yes | `Attack`, `Skill`, `Power`, `Curse`, `Status` |
-| `TargetType` | enum | For attacks | `enemy`, `allEnemy`, `self`, `all`, `randomEnemy` |
-| `DamageType` | enum | For attacks | `physical`, `magical`, `true` |
-| `Damage` | int | No | Base damage |
-| `Defend` | int | No | Shield/block |
-| `Magic` | int | No | Magic damage |
-| `Heal` | int | No | Healing |
-| `Buff` | string | No | Buff applied: `buff_id,level` |
-| `SelfBuff` | string | No | Self buff: `buff_id,level` |
-| `Exhaust` | bool | No | Card consumed on use |
-| `Ethereal` | bool | No | Discards at turn end |
-| `Expend` | int | No | Cards to expend (sacrifice) |
-| `Icon` | string | No | Icon path (no `.png`) |
-| `BaseScript` | string | **Yes** | `AttackCardItem` (targetable) or `CommonCardItem` (no target) |
-| `PackBelong` | string | **Yes** | Card pack ID this belongs to |
-| `Tag` | string | No | Comma-separated tags |
-| `InitScript` | string | No | Lua: runs at init (set DesVal1-4) |
+| `Id` | string | Yes | Unique ID within file (raw; runtime ID adds `{ModFolder}_{CsvFileName}_`) |
+| `Rarity` | int | Yes | 1=Common, 2=Uncommon, 3=Rare, 4=Special |
+| `Expend` | int | Yes | Energy cost |
+| `Tag` | string | No | Comma-separated tags (`Retain`, `Burnout`, `Recycle`, `Ascension`) |
+| `InitScript` | string | Yes* | Lua: runs at init — must set `BaseScript` via `self.Vars:set_Item("BaseScript", ...)` |
 | `DrawScript` | string | No | Lua: runs when drawn |
-| `UseScript` | string | No | Lua: runs when played |
+| `UseScript` | string | Yes* | Lua: runs when played (main effect) |
 | `DropScript` | string | No | Lua: runs when discarded |
-| `UpgradeScript` | string | No | Lua: runs when upgraded |
-| `TriggerScript` | string | No | Lua: trigger condition |
-| `ConditionScript` | string | No | Lua: playability condition |
+| `Icon` | string | No | Icon path (no `.png`) |
 | `Effects` | string | No | Visual effect path |
-| `Action` | string | No | Animation action |
-| `SoundEffects` | string | No | Sound effect |
+| `Action` | string | No | Card type: `Attack` / `Skill` / empty |
+| `PackBelong` | string | No | Card pack runtime ID; **omit → default card pool** |
+
+\* `InitScript`/`UseScript` effectively required for a functional card.
+
+> **Columns that do NOT exist:** `Cost` (use `Expend`), `CardType`, `TargetType`, `DamageType`, `Damage`, `Defend`, `Magic`, `Heal`, `Buff`, `SelfBuff`, `Exhaust`, `Ethereal`, `UpgradeScript`, `TriggerScript`, `ConditionScript`, `SoundEffects`. All damage/shield/heal/buff behavior lives in Lua (`UseScript`/`InitScript`). `BaseScript` is set inside `InitScript`, not a CSV column.
 
 

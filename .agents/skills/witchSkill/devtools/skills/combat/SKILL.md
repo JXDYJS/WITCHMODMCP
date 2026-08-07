@@ -12,7 +12,7 @@ description: "DeveloperTools combat tools: fight state snapshot, card play, turn
 > 会导致新战斗的 `FightPlayer.Init()` 不被调用，`FightPlayer.Instance` 为 null，
 > 后续 `end_turn`、`set_card_pile`（抽牌到手上）等工具将失效。
 > 
-> **正确做法：** 先通过 `claim_rewards` 结束当前战斗并回到地图，再 `map_choose_node` 进入下一场战斗。
+> **正确做法：** 先通过 `claim_rewards` 结束当前战斗并回到地图，再 `map_select_confirm` 进入下一场战斗。
 > 测试脚本如需连续测试多场战斗，应在每场战斗之间退出到地图页面。
 
 ## 工具总览
@@ -38,9 +38,9 @@ description: "DeveloperTools combat tools: fight state snapshot, card play, turn
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | `inFight` | bool | 是否有战斗 |
-| `phase` | string | `Player` / `Enemy` |
+| `phase` | string | `Player` / `Enemy` / `Partner` / `OtherTurn` / `Init` 等（`FightType` 枚举值） |
 | `isFake` | bool | 是否是假战斗 |
-| `turn` | int | 当前层数 |
+| `turn` | int | 当前层数（实现取自 `MapManager.Level`，实际是层数而非回合数） |
 | `player` | object | `{hp, maxHp, shield, power, maxPower, isDead, buffs}` |
 | `enemies` | array | `[{index, id, name, hp, maxHp, shield, isDead, attack, defend, buffs, intents}]` |
 | `hand` | array | `[{index, cardId, instanceId, cost}]` — 手牌 |
@@ -211,7 +211,11 @@ g.call("set_fight_entity", {
 
 ### claim_rewards
 
-战斗胜利后领取奖励。关闭 `BattleRewardsUI`（未领取的奖励自动转化为金钱），然后关闭 `CardChoiceUI` 和 `BlessingChoiceGenerator`。之后再调用 `load_scene`（基座工具）进入下一场景。
+战斗胜利后领取奖励。关闭 `BattleRewardsUI`（未领取的奖励自动转化为金钱），然后关闭 `CardChoiceUI`。
+
+> ⚠️ `claim_rewards` **不会**关闭 `BlessingChoiceGenerator`。有祝福奖励时先用 `pick_blessing_reward` / `skip_blessing_reward` 处理，再调 `claim_rewards`。
+>
+> ⚠️ **正常游玩不要用 `load_scene`！** 领取奖励后游戏自然回到地图（MapSelectUI），正常推进请用 `map_select_confirm` 进入下一节点。`load_scene` 是**仅测试**用的调试工具，会绕过正常流程节点，可能破坏存档。
 
 **Python：**
 ```python
@@ -219,8 +223,11 @@ g.call("set_fight_entity", {
 r = g.call("claim_rewards")
 print(f"领取动作: {r['actions']}")
 
-# 继续下一场战斗
-g.call("load_scene", {"type": "fight", "id": "common"})
+# ✅ 正常游玩：回到地图后继续
+# g.call("map_select_confirm")
+
+# 🔧 仅测试：跳下一场战斗（测试脚本用，正常游玩禁用）
+# g.call("load_scene", {"type": "fight", "id": "common"})
 ```
 
 ---
