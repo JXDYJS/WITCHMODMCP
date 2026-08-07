@@ -83,7 +83,7 @@ Mods/WitchModMCP/
 ├── ModResource/
 ```
 
-> **Optional: Build from source** — run `dotnet build` in the repo root. The csproj outputs to `WitchModMCP/Scripts/` and publishes the decompile plugin. Only needed if you modify the C# code.
+> **Optional: Build from source** — run `dotnet build` in the repo root. The csproj compiles all code (src/) into `WitchModMCP/Scripts/` (Entry.dll + WitchModMCP.Contracts.dll). To also deploy to the game's Mods folder, run `dotnet build -t:Deploy` (the game path is hardcoded in `WitchModMCP.csproj`). The decompile plugin is a static net8.0 artifact shipped under `WitchModMCP/mcp_plugins/decompile/publish/` — it is not rebuilt by the main csproj.
 
 ---
 
