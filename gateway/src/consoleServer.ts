@@ -61,44 +61,60 @@ export async function startConsoleServer(
   }
   const wsPort = opts.modPort + 1;
 
-  const server = createServer((req, res) => {
-    void handleRequest(req, res, assetsDir, wsPort).catch((e) => {
-      sendError(res, 500, "Internal error: " + ((e as Error).message ?? String(e)));
+  // If the preferred port is taken (another gateway instance), walk up to
+  // MAX_PORT_TRIES consecutive ports so the console stays reachable.
+  const MAX_PORT_TRIES = 10;
+  let lastErr: NodeJS.ErrnoException | null = null;
+  for (let attempt = 0; attempt < MAX_PORT_TRIES; attempt++) {
+    const port = opts.port + attempt;
+    const server = createServer((req, res) => {
+      void handleRequest(req, res, assetsDir, wsPort).catch((e) => {
+        sendError(res, 500, "Internal error: " + ((e as Error).message ?? String(e)));
+      });
     });
-  });
 
-  const bound: { port: number } = await new Promise((resolve, reject) => {
-    server.once("error", (err: NodeJS.ErrnoException) => {
-      if (err.code === "EADDRINUSE") {
-        console.error(
-          "[console] port " + opts.port + " already in use — another gateway instance is " +
-          "probably running; open http://" + HOST + ":" + opts.port + "/console",
-        );
-        resolve({ port: -1 });
-      } else {
-        reject(err);
-      }
+    const bound = await new Promise<number | null>((resolve, reject) => {
+      server.once("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "EADDRINUSE") {
+          resolve(null); // try next port
+        } else {
+          reject(err);
+        }
+      });
+      server.listen(port, HOST, () => {
+        const addr = server.address();
+        resolve(typeof addr === "object" && addr ? addr.port : port);
+      });
     });
-    server.listen(opts.port, HOST, () => {
-      const addr = server.address();
-      resolve({ port: typeof addr === "object" && addr ? addr.port : opts.port });
-    });
-  });
 
-  if (bound.port === -1) {
-    // EADDRINUSE: nothing of ours is listening; close the dead socket.
-    server.close();
-    return null;
+    if (bound === null) {
+      server.close();
+      lastErr = Object.assign(new Error("EADDRINUSE"), { code: "EADDRINUSE" }) as NodeJS.ErrnoException;
+      continue;
+    }
+
+    const url = "http://" + HOST + ":" + bound + "/console";
+    if (bound !== opts.port) {
+      console.error(
+        "[console] port " + opts.port + " already in use — serving on " + url +
+        " instead (another gateway instance may be running)",
+      );
+    }
+    return {
+      port: bound,
+      url,
+      close: () =>
+        new Promise<void>((resolve, reject) =>
+          server.close((e) => (e ? reject(e) : resolve())),
+        ),
+    };
   }
 
-  return {
-    port: bound.port,
-    url: "http://" + HOST + ":" + bound.port + "/console",
-    close: () =>
-      new Promise<void>((resolve, reject) =>
-        server.close((e) => (e ? reject(e) : resolve())),
-      ),
-  };
+  console.error(
+    "[console] ports " + opts.port + ".." + (opts.port + MAX_PORT_TRIES - 1) +
+    " all in use — console disabled (" + (lastErr?.message ?? "unknown") + ")",
+  );
+  return null;
 }
 
 async function handleRequest(

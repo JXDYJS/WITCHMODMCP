@@ -68,12 +68,16 @@ describe("consoleServer", () => {
     expect(res.status).toBe(405);
   });
 
-  it("returns null (graceful) when the port is already in use", async () => {
+  it("falls back to the next free port when the preferred port is taken", async () => {
     const second = await startConsoleServer({
-      port: handle!.port,
+      port: handle!.port, // already bound by the first instance
       modPort: 3100,
       assetsDir: dir,
     });
-    expect(second).toBeNull();
+    expect(second).not.toBeNull();
+    expect(second!.port).toBe(handle!.port + 1); // walked up one port
+    const res = await fetch(second!.url);
+    expect(res.status).toBe(200);
+    await second!.close();
   });
 });
