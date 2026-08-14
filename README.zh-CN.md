@@ -124,4 +124,4 @@ AI 会自动读取 [INSTALL.md](./INSTALL.md) 并引导你完成安装。
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | 调试 | 修改任意战斗实体的属性和 Buff |
 | `doLua(luaCode)` | Lua | 在游戏 xLua 环境中执行 Lua，可通过 `CS` 全局原生访问任意已加载 C# 类型 |
 
-**Lua 控制台** — mod 还提供一个浏览器终端（http://localhost:3100/console），可对运行中的游戏交互式执行 Lua。
+**Lua 控制台** — 浏览器内 Lua REPL（CodeMirror 编辑器 + 输出面板），可对运行中的游戏交互式执行 Lua。控制台页面由 **MCP 网关托管**（http://127.0.0.1:3200/console，端口可用 `MCP_CONSOLE_PORT` 覆盖）——装上网关即装上控制台，无需额外配置。mod 仍保留旧版 xterm 页面（http://localhost:3100/console）作为后备。AI 也可通过 `open_console` 工具帮你打开。

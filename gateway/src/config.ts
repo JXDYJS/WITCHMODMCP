@@ -22,6 +22,10 @@ export interface GatewayConfig {
   decompileDir: string;
   /** Skip the automatic decompile on first heartbeat. */
   disableDecompile: boolean;
+  /** Browser Lua console static server port (default 3200). */
+  consolePort: number;
+  /** Set MCP_DISABLE_CONSOLE=1 to skip hosting the browser console page. */
+  disableConsole: boolean;
   /** Absolute workspace root (contains both `gateway/` and `mcp_gateway/`). */
   workspaceDir: string;
 }
@@ -56,6 +60,8 @@ export function loadConfig(): GatewayConfig {
     heartbeatMaxFailures: numOr(3, "MCP_HEARTBEAT_MAX_FAIL"),
     decompileDir: env["MCP_DECOMPILE_DIR"] ?? join(workspaceDir, ".cache", "game_src"),
     disableDecompile: env["MCP_DISABLE_DECOMPILE"] === "1",
+    consolePort: numOr(3200, "MCP_CONSOLE_PORT"),
+    disableConsole: env["MCP_DISABLE_CONSOLE"] === "1",
     workspaceDir,
   };
 }

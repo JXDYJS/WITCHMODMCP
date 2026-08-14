@@ -124,4 +124,4 @@ Tools for mod developers to inspect runtime state, debug mod behavior, and test 
 | `set_fight_entity(instanceId?, target?, hp?, shield?, power?, buffs?, ...)` | Debug | Modify any combat entity's attributes and buffs |
 | `doLua(luaCode)` | Lua | Execute Lua in the game's xLua environment, with native access to any loaded C# type via the `CS` global |
 
-**Lua Console** — the mod also serves an in-browser terminal (http://localhost:3100/console) for running Lua interactively against the live game.
+**Lua Console** — an in-browser Lua REPL (CodeMirror editor + output pane) for running Lua interactively against the live game. The console page is **hosted by the MCP gateway** (http://127.0.0.1:3200/console, port via `MCP_CONSOLE_PORT`) — installing the gateway installs the console, no extra setup. The mod keeps serving a legacy xterm page at http://localhost:3100/console as a fallback. The AI can also open it for you via the `open_console` tool.

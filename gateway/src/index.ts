@@ -15,6 +15,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { loadConfig, type GatewayConfig } from "./config.js";
+import { startConsoleServer, type ConsoleServerHandle } from "./consoleServer.js";
 import { ModConnection, log as modLog } from "./modClient.js";
 import { HeartbeatManager, type HeartbeatResponse } from "./heartbeat.js";
 import { DynamicToolRegistrar } from "./tools/dynamicTools.js";
@@ -45,6 +46,22 @@ export async function main(): Promise<void> {
     },
   );
 
+  // Browser Lua console (CodeMirror page served locally; WS exec stays in-game).
+  let consoleServer: ConsoleServerHandle | null = null;
+  if (!config.disableConsole) {
+    try {
+      consoleServer = await startConsoleServer({
+        port: config.consolePort,
+        modPort: config.modPort,
+      });
+      if (consoleServer) log(`Lua console: ${consoleServer.url}`);
+    } catch (e) {
+      log(`console server failed to start: ${(e as Error).message}`);
+    }
+  } else {
+    log("Lua console disabled (MCP_DISABLE_CONSOLE=1)");
+  }
+
   // Shared state fed to core tools.
   let cachedGamePath = "";
   const registrar = new DynamicToolRegistrar(server, mod);
@@ -53,6 +70,7 @@ export async function main(): Promise<void> {
     mod,
     registrar,
     cachedGamePath,
+    consoleUrl: consoleServer?.url ?? "",
     setCachedGamePath: (p) => {
       cachedGamePath = p;
       log(`cached game path: ${p}`);
@@ -60,7 +78,7 @@ export async function main(): Promise<void> {
   };
 
   const coreCount = registerCoreTools(ctx);
-  log(`Registered ${coreCount} core tool (ping/reload_tools/deploy_mod)`);
+  log(`Registered ${coreCount} core tools (ping/reload_tools/deploy_mod/open_console)`);
 
   // Sync discovery at startup (works if the mod is already running).
   try {
@@ -141,6 +159,9 @@ export async function main(): Promise<void> {
   } finally {
     log("Shutting down...");
     heartbeat.stop();
+    if (consoleServer) {
+      await consoleServer.close().catch((e) => log(`console server close failed: ${(e as Error).message}`));
+    }
     log("Gateway stopped.");
   }
 }

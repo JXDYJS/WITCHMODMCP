@@ -20,6 +20,8 @@ export interface GatewayContext {
   registrar: DynamicToolRegistrar;
   /** Resolved (possibly empty) cached game install path. */
   cachedGamePath: string;
+  /** Browser Lua console URL ("" when the console server is not running). */
+  consoleUrl: string;
   setCachedGamePath(path: string): void;
 }
 
@@ -82,8 +84,46 @@ export function registerCoreTools(ctx: GatewayContext): number {
   );
 
   registerDeployTool(ctx);
+  registerOpenConsoleTool(ctx);
 
-  return 3; // ping + reload_tools + deploy_mod
+  return 4; // ping + reload_tools + deploy_mod + open_console
+}
+
+/** Open the gateway-hosted Lua console page in the default browser. */
+function registerOpenConsoleTool(ctx: GatewayContext): void {
+  const { server } = ctx;
+
+  server.registerTool(
+    "open_console",
+    {
+      description:
+        "在默认浏览器中打开 Lua 控制台页面（网关托管的 CodeMirror 版 REPL，" +
+        "通过游戏内 WebSocket 执行 Lua）。返回控制台 URL。",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      const url = ctx.consoleUrl;
+      if (!url) {
+        return textContent(
+          JSON.stringify({ error: "console server is not running (MCP_DISABLE_CONSOLE=1?)" }),
+        );
+      }
+      try {
+        if (platform === "win32") {
+          spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
+        } else if (platform === "darwin") {
+          spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
+        } else {
+          spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
+        }
+        return textContent(JSON.stringify({ ok: true, url }));
+      } catch (e) {
+        return textContent(
+          JSON.stringify({ error: "failed to open browser: " + ((e as Error).message ?? e) }),
+        );
+      }
+    },
+  );
 }
 
 function registerDeployTool(ctx: GatewayContext): void {
