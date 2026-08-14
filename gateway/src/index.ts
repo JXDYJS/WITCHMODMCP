@@ -154,8 +154,24 @@ export async function main(): Promise<void> {
 
   // ── Run stdio transport ──
   const transport = new StdioServerTransport();
+  // The SDK's connect() resolves as soon as the transport starts (it only
+  // registers stdin listeners), so waiting on it would let the finally block
+  // below tear down the console server immediately after startup. Instead,
+  // wait until the client disconnects: the SDK chains this onclose callback
+  // (set before connect) into its own close handling.
+  let sessionEnded: () => void = () => {};
+  const sessionEnd = new Promise<void>((resolve) => {
+    sessionEnded = resolve;
+  });
+  transport.onclose = () => sessionEnded();
+  // The SDK transport only listens for stdin 'data'/'error' — if a client
+  // disconnects without erroring, neither fires and the process would linger.
+  // Watch the raw stream too so the gateway exits cleanly on EOF.
+  process.stdin.on("end", sessionEnded);
+  process.stdin.on("close", sessionEnded);
   try {
     await server.connect(transport);
+    await sessionEnd;
   } finally {
     log("Shutting down...");
     heartbeat.stop();
