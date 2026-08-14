@@ -72,10 +72,20 @@ WitchModMCP/Terminal/bun.lock
 # Generated ESM bundle (rebuilt by bun build)
 WitchModMCP/Terminal/node_modules/xterm-readline/xterm-readline.mjs
 
+# Node/TS gateway (source is tracked; deps + build outputs are not)
+gateway/node_modules/
+gateway/dist/
+gateway/.npm-cache/
+# gateway/bin is a tracked launcher — exempt it from the global bin/ rule
+!gateway/bin/
+
 # Plan document (not for distribution)
 WitchLuaConsole.md
+PLAN_gateway_node_rewrite.md
 # Uncommitted problem notes (modal guard etc.)
 notes_*_problem.md
 
 # Per-user AI tool configs (not to be distributed)
 opencode.json
+
+decompiled_cache

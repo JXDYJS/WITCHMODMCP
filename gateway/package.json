@@ -1,0 +1,29 @@
+{
+  "name": "witchmodmcp-gateway",
+  "version": "0.1.0",
+  "description": "WitchModMCP MCP gateway (Node/TS) — stdio MCP server proxying tools to the in-game mod HTTP server.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "witchmodmcp-gateway": "./bin/gateway.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node bin/gateway.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
