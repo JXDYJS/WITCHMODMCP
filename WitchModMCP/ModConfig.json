@@ -8,5 +8,8 @@
   "Dependencies": null,
   "WorkshopVisibility": "Private",
   "PublishedFileId": "",
-  "MCPPort": 3100
+  "MCPPort": 3100,
+  "ToolsetVersion": "0.0.0",
+  "UpdateManifestUrl": "https://JXDYJS.github.io/WITCHMODMCP/manifest.json",
+  "CheckUpdateOnStartup": false
 }

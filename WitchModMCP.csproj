@@ -61,6 +61,10 @@
       <HintPath>$(GameManagedPath)\Newtonsoft.Json.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="System.Net.Http">
+      <HintPath>$(GameManagedPath)\System.Net.Http.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(GameManagedPath)\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
