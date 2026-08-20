@@ -1,0 +1,43 @@
+{
+  "name": "witchmodmcp-gateway",
+  "version": "0.1.0",
+  "description": "WitchModMCP MCP gateway (Node/TS) — stdio MCP server proxying tools to the in-game mod HTTP server.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "witchmodmcp-gateway": "./bin/gateway.js"
+  },
+  "scripts": {
+    "build": "tsc && npm run build:console",
+    "build:console": "esbuild console/src/console.js --bundle --minify --outfile=console/dist/console.js --format=esm",
+    "start": "node bin/gateway.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "codemirror": "^6.0.2",
+    "@codemirror/commands": "^6.6.0",
+    "@codemirror/language": "^6.10.2",
+    "@codemirror/legacy-modes": "^6.5.3",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.28.0",
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.23.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.23.1": true,
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true
+  }
+}

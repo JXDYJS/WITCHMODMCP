@@ -22,6 +22,9 @@ namespace WitchModMCP
         public const string MOD_TAG = "WitchModMCP";
         internal static McpServer Server;
 
+        // Public so plugin tools (compiled into a separate assembly) can locate files.
+        public static string ModDirectory => Server?.ModDirectory;
+
         [ModInitialize]
         public static void Entry(ModConfig modConfig)
         {
@@ -51,6 +54,27 @@ namespace WitchModMCP
             Server.Start(port);
 
             GameDispatcher.EnqueueTask(new WitchModMCP.Dispatcher.WitchModMCPTask(RegisterLuaBridgeRetry));
+
+            // Optional background update check after a short delay (server warmup).
+            if (json.Value<bool?>("CheckUpdateOnStartup") ?? false)
+            {
+                GameDispatcher.EnqueueTask(new WitchModMCP.Dispatcher.WitchModMCPTask(StartupUpdateCheck));
+            }
+        }
+
+        private static async Task StartupUpdateCheck()
+        {
+            await Task.Delay(2000);
+            try
+            {
+                var req = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"update_tools\",\"params\":{}}";
+                var resp = await McpRouter.HandleRequest(req);
+                Commands.Log(MOD_TAG, $"[Update] startup check: {resp}");
+            }
+            catch (Exception ex)
+            {
+                Commands.LogError(MOD_TAG, $"[Update] startup check failed: {ex.Message}");
+            }
         }
 
         private static async Task RegisterLuaBridgeRetry()
